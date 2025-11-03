@@ -1,0 +1,6 @@
+역할	 		  	이메일	 			비밀번호			이름               		소속
+SUPER_ADMIN		tigrofin@gmail.com		tigrofin1018*		티그로 시스템 관리자	티그로
+ORG_ADMIN		admin@boaz.com		boaz1234!			김관리			보아스환경기술
+OPERATOR			operator@boaz.com		operator1234!		이실무			보아스환경기술
+CUSTOMER_ADMIN	admin@koreazinc.com		customer1234!		박고객			고려아연
+CUSTOMER_USER	user@koreazinc.com		user1234!			최사원			고려아연

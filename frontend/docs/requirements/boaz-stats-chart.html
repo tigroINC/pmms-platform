@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>보아스 - 데이터 통계</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+        }
+
+        .header {
+            background: white;
+            padding: 20px 40px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #0066cc;
+        }
+
+        .nav {
+            display: flex;
+            gap: 30px;
+        }
+
+        .nav-item {
+            color: #666;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-item.active {
+            color: #0066cc;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .content-wrapper {
+            display: flex;
+            gap: 30px;
+        }
+
+        .filter-panel {
+            width: 280px;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            height: fit-content;
+        }
+
+        .filter-section {
+            margin-bottom: 30px;
+        }
+
+        .filter-section h3 {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .filter-option {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+
+        .filter-option:hover {
+            background: #f0f4f8;
+        }
+
+        .filter-option input[type="radio"],
+        .filter-option input[type="checkbox"] {
+            margin-right: 10px;
+            cursor: pointer;
+        }
+
+        .filter-option label {
+            cursor: pointer;
+            color: #555;
+            font-size: 14px;
+        }
+
+        .chart-area {
+            flex: 1;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .chart-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .chart-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #0066cc;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0052a3;
+        }
+
+        .btn-secondary {
+            background: #f0f4f8;
+            color: #555;
+        }
+
+        .btn-secondary:hover {
+            background: #e1e8ed;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 500px;
+            margin-top: 20px;
+        }
+
+        .facility-info {
+            background: #f8fafb;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 30px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .info-item {
+            font-size: 13px;
+        }
+
+        .info-label {
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .info-value {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .tooltip-custom {
+            position: absolute;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 1000;
+            font-size: 12px;
+            min-width: 200px;
+        }
+
+        .tooltip-custom.show {
+            opacity: 1;
+        }
+
+        .tooltip-header {
+            font-weight: 600;
+            color: #0066cc;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .tooltip-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            color: #555;
+        }
+
+        .tooltip-label {
+            color: #888;
+        }
+
+        .tooltip-value {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .prediction-badge {
+            display: inline-block;
+            background: #fff3e0;
+            color: #f57c00;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 5px;
+        }
+
+        .legend-custom {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+            justify-content: center;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 3px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">BOAZ Environment Technology</div>
+        <nav class="nav">
+            <a href="#" class="nav-item">회사정보</a>
+            <a href="#" class="nav-item">데이터 등록</a>
+            <a href="#" class="nav-item active">데이터 통계</a>
+            <a href="#" class="nav-item">뉴스</a>
+            <a href="#" class="nav-item">계약</a>
+        </nav>
+        <div style="color: #666; font-size: 14px;">로그아웃 | 회원정보</div>
+    </div>
+
+    <div class="container">
+        <div class="content-wrapper">
+            <!-- 좌측 필터 패널 -->
+            <div class="filter-panel">
+                <div class="filter-section">
+                    <h3>항목</h3>
+                    <div class="filter-option">
+                        <input type="radio" id="item-all" name="item" checked>
+                        <label for="item-all">전체 항목</label>
+                    </div>
+                    <div class="filter-option">
+                        <input type="radio" id="item-dust" name="item">
+                        <label for="item-dust">먼지</label>
+                    </div>
+                    <div class="filter-option">
+                        <input type="radio" id="item-sox" name="item">
+                        <label for="item-sox">황산화물</label>
+                    </div>
+                    <div class="filter-option">
+                        <input type="radio" id="item-nox" name="item">
+                        <label for="item-nox">질소산화물</label>
+                    </div>
+                    <div class="filter-option">
+                        <input type="radio" id="item-moisture" name="item">
+                        <label for="item-moisture">수분</label>
+                    </div>
+                    <div class="filter-option">
+                        <input type="radio" id="item-flow" name="item">
+                        <label for="item-flow">유량</label>
+                    </div>
+                </div>
+
+                <div class="filter-section">
+                    <h3>기준</h3>
+                    <div class="filter-option">
+                        <input type="checkbox" id="limit-100" checked>
+                        <label for="limit-100">배출 허용기준</label>
+                    </div>
+                    <div class="filter-option">
+                        <input type="checkbox" id="limit-50">
+                        <label for="limit-50">50% 허용기준</label>
+                    </div>
+                    <div class="filter-option">
+                        <input type="checkbox" id="limit-30" checked>
+                        <label for="limit-30">30% 허용기준</label>
+                    </div>
+                </div>
+
+                <div class="filter-section">
+                    <h3>예측 표시</h3>
+                    <div class="filter-option">
+                        <input type="checkbox" id="show-prediction" checked>
+                        <label for="show-prediction">AI 예측 데이터</label>
+                    </div>
+                </div>
+
+                <div class="filter-section">
+                    <h3>차트</h3>
+                    <div class="filter-option">
+                        <input type="radio" id="chart-scatter" name="chart" checked>
+                        <label for="chart-scatter">Scatter Plot</label>
+                    </div>
+                    <div class="filter-option">
+                        <input type="radio" id="chart-line" name="chart">
+                        <label for="chart-line">Line Chart</label>
+                    </div>
+                    <div class="filter-option">
+                        <input type="radio" id="chart-bar" name="chart">
+                        <label for="chart-bar">Bar Chart</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 우측 차트 영역 -->
+            <div class="chart-area">
+                <div class="chart-header">
+                    <div class="chart-title">시설번호: #A01 - 탈황 1호기 (먼지 농도)</div>
+                    <div class="chart-actions">
+                        <button class="btn btn-secondary">📊 엑셀</button>
+                        <button class="btn btn-secondary">🖨️ 출력</button>
+                        <button class="btn btn-primary">📄 PDF</button>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="mainChart"></canvas>
+                </div>
+
+                <div class="legend-custom">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ff6633;"></div>
+                        <span>실측값</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ffa500; border: 2px dashed #ff8c00;"></div>
+                        <span>AI 예측값</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ff4444;"></div>
+                        <span>배출 허용기준</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #4da6ff;"></div>
+                        <span>30% 허용기준</span>
+                    </div>
+                </div>
+
+                <div class="facility-info">
+                    <div class="info-item">
+                        <div class="info-label">시설번호</div>
+                        <div class="info-value">#A01</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">배출시설명</div>
+                        <div class="info-value">탈황 1호기</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">굴뚝 종별</div>
+                        <div class="info-value">1종</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">유량</div>
+                        <div class="info-value">431.1 Sm³/m</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">유량(보정)</div>
+                        <div class="info-value">431.1 Sm³/m</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">표준 산소</div>
+                        <div class="info-value">21%</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">실측 산소</div>
+                        <div class="info-value">21%</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">온도</div>
+                        <div class="info-value">50 °C</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">유속</div>
+                        <div class="info-value">11.17 m/s</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tooltip-custom" id="customTooltip"></div>
+
+    <script>
+        // 실측 데이터 (2024년)
+        const actualData = [
+            { month: 1, day: 15, value: 13.8, temp: 50, flow: 431.1, time: '10:00-11:20' },
+            { month: 1, day: 28, value: 7.5, temp: 48, flow: 428.5, time: '14:30-15:50' },
+            { month: 2, day: 12, value: 10.8, temp: 52, flow: 435.2, time: '09:15-10:35' },
+            { month: 2, day: 25, value: 3.2, temp: 49, flow: 430.8, time: '13:45-15:05' },
+            { month: 3, day: 8, value: 12.1, temp: 53, flow: 438.1, time: '11:20-12:40' },
+            { month: 3, day: 22, value: 9.5, temp: 51, flow: 433.5, time: '15:00-16:20' },
+            { month: 3, day: 25, value: 33.2, temp: 50, flow: 431.1, time: '10:00-11:00' },
+            { month: 4, day: 5, value: 11.5, temp: 54, flow: 440.2, time: '09:30-10:50' },
+            { month: 4, day: 18, value: 32.8, temp: 52, flow: 436.8, time: '14:15-15:35' },
+            { month: 4, day: 29, value: 5.8, temp: 50, flow: 432.4, time: '10:45-12:05' },
+            { month: 5, day: 10, value: 13.0, temp: 55, flow: 442.5, time: '13:00-14:20' },
+            { month: 5, day: 23, value: 7.2, temp: 53, flow: 438.9, time: '09:45-11:05' },
+            { month: 6, day: 6, value: 3.5, temp: 56, flow: 445.1, time: '15:30-16:50' },
+            { month: 6, day: 19, value: 11.8, temp: 54, flow: 441.3, time: '11:00-12:20' },
+            { month: 6, day: 28, value: 36.5, temp: 57, flow: 447.8, time: '10:15-11:35' },
+            { month: 7, day: 11, value: 12.2, temp: 58, flow: 450.2, time: '14:00-15:20' },
+            { month: 7, day: 24, value: 5.0, temp: 56, flow: 445.6, time: '09:00-10:20' },
+            { month: 8, day: 7, value: 20.3, temp: 59, flow: 453.4, time: '13:30-14:50' },
+            { month: 8, day: 20, value: 7.5, temp: 57, flow: 448.9, time: '10:30-11:50' },
+            { month: 9, day: 3, value: 17.2, temp: 55, flow: 442.8, time: '15:15-16:35' },
+            { month: 9, day: 8, value: 33.8, temp: 186, flow: 1536.8, time: '13:20-14:50' },
+            { month: 9, day: 16, value: 11.9, temp: 54, flow: 440.5, time: '09:20-10:40' },
+            { month: 9, day: 29, value: 8.0, temp: 52, flow: 436.2, time: '14:45-16:05' },
+            { month: 10, day: 12, value: 5.5, temp: 50, flow: 432.7, time: '11:30-12:50' },
+            { month: 10, day: 25, value: 13.2, temp: 48, flow: 429.1, time: '10:00-11:20' },
+            { month: 11, day: 8, value: 6.5, temp: 46, flow: 425.8, time: '13:15-14:35' },
+            { month: 11, day: 21, value: 7.2, temp: 44, flow: 422.3, time: '09:30-10:50' },
+            { month: 11, day: 28, value: 12.1, temp: 45, flow: 424.5, time: '15:00-16:20' },
+            { month: 12, day: 5, value: 9.2, temp: 42, flow: 419.6, time: '10:45-12:05' },
+            { month: 12, day: 18, value: 10.8, temp: 40, flow: 416.2, time: '14:30-15:50' },
+            { month: 12, day: 28, value: 3.8, temp: 38, flow: 413.5, time: '11:15-12:35' }
+        ];
+
+        // AI 예측 데이터 (2025년 1-3월)
+        const predictionData = [
+            { month: 1, day: 15, value: 11.5, confidence: 0.85 },
+            { month: 1, day: 28, value: 8.2, confidence: 0.82 },
+            { month: 2, day: 12, value: 9.8, confidence: 0.78 },
+            { month: 2, day: 25, value: 6.5, confidence: 0.75 },
+            { month: 3, day: 8, value: 10.5, confidence: 0.72 },
+            { month: 3, day: 22, value: 8.8, confidence: 0.70 }
+        ];
+
+        const ctx = document.getElementById('mainChart').getContext('2d');
+        let chart;
+
+        function createChart() {
+            // 데이터 포인트 생성
+            const actualPoints = actualData.map(d => ({
+                x: d.month + (d.day / 31),
+                y: d.value,
+                month: d.month,
+                day: d.day,
+                temp: d.temp,
+                flow: d.flow,
+                time: d.time,
+                isPrediction: false
+            }));
+
+            const predictionPoints = predictionData.map(d => ({
+                x: 13 + (d.month - 1) + (d.day / 31), // 2025년이므로 12개월 이후
+                y: d.value,
+                month: d.month,
+                day: d.day,
+                confidence: d.confidence,
+                isPrediction: true
+            }));
+
+            chart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: '실측값',
+                            data: actualPoints,
+                            backgroundColor: '#ff6633',
+                            borderColor: '#ff6633',
+                            pointRadius: 6,
+                            pointHoverRadius: 8,
+                            showLine: false
+                        },
+                        {
+                            label: 'AI 예측값',
+                            data: predictionPoints,
+                            backgroundColor: 'rgba(255, 165, 0, 0.6)',
+                            borderColor: '#ff8c00',
+                            pointRadius: 6,
+                            pointHoverRadius: 8,
+                            pointStyle: 'triangle',
+                            showLine: false,
+                            borderDash: [5, 5]
+                        },
+                        {
+                            label: '배출 허용기준',
+                            data: [{x: 1, y: 30}, {x: 15, y: 30}],
+                            borderColor: '#ff4444',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: false,
+                            showLine: true,
+                            tension: 0
+                        },
+                        {
+                            label: '30% 허용기준',
+                            data: [{x: 1, y: 9}, {x: 15, y: 9}],
+                            borderColor: '#4da6ff',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: false,
+                            showLine: true,
+                            tension: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: false,
+                            external: function(context) {
+                                const tooltip = document.getElementById('customTooltip');
+                                const tooltipModel = context.tooltip;
+
+                                if (tooltipModel.opacity === 0) {
+                                    tooltip.classList.remove('show');
+                                    return;
+                                }
+
+                                if (tooltipModel.body) {
+                                    const dataPoint = tooltipModel.dataPoints[0];
+                                    const rawData = dataPoint.raw;
+
+                                    let html = '';
+                                    if (rawData.isPrediction) {
+                                        html = `
+                                            <div class="tooltip-header">
+                                                AI 예측 데이터
+                                                <span class="prediction-badge">PREDICTION</span>
+                                            </div>
+                                            <div class="tooltip-row">
+                                                <span class="tooltip-label">예측일:</span>
+                                                <span class="tooltip-value">2025년 ${rawData.month}월 ${rawData.day}일</span>
+                                            </div>
+                                            <div class="tooltip-row">
+                                                <span class="tooltip-label">예측 농도:</span>
+                                                <span class="tooltip-value">${rawData.y.toFixed(1)} mg/m³</span>
+                                            </div>
+                                            <div class="tooltip-row">
+                                                <span class="tooltip-label">신뢰도:</span>
+                                                <span class="tooltip-value">${(rawData.confidence * 100).toFixed(0)}%</span>
+                                            </div>
+                                            <div class="tooltip-row">
+                                                <span class="tooltip-label">예측 모델:</span>
+                                                <span class="tooltip-value">LSTM + Prophet</span>
+                                            </div>
+                                        `;
+                                    } else {
+                                        html = `
+                                            <div class="tooltip-header">시설번호: #A01</div>
+                                            <div class="tooltip-row">
+                                                <span class="tooltip-label">배출시설명:</span>
+                                                <span class="tooltip-value">탈황 1호기</span>
+                                            </div>
+                                            <div class="tooltip-row">
+                                                <span class="tooltip-label">측정일:</span>
+                                                <span class="tooltip-value">2024년 ${rawData.month}월 ${rawData.day}일</span>
+                                            </div>
+                                            <div class="tooltip-row">
+                                                <span class="tooltip-label">측정시간:</span>
+                                                <span class="tooltip-value">${rawData.time}</span>
+                                            </div>
+                                            <div class="tooltip-row">
+                                                <span class="tooltip-label">먼지 농도:</span>
+                                                <span class="tooltip-value">${rawData.y.toFixed(1)} mg/m³</span>
+                                            </div>
+                                            <div class="tooltip-row">
+                                                <span class="tooltip-label">온도:</span>
+                                                <span class="tooltip-value">${rawData.temp} °C</span>
+                                            </div>
+                                            <div class="tooltip-row">
+                                                <span class="tooltip-label">유량:</span>
+                                                <span class="tooltip-value">${rawData.flow} Sm³/m</span>
+                                            </div>
+                                        `;
+                                    }
+
+                                    tooltip.innerHTML = html;
+
+                                    const position = context.chart.canvas.getBoundingClientRect();
+                                    tooltip.style.left = position.left + window.pageXOffset + tooltipModel.caretX + 'px';
+                                    tooltip.style.top = position.top + window.pageYOffset + tooltipModel.caretY - 100 + 'px';
+                                    tooltip.classList.add('show');
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            min: 0,
+                            max: 15,
+                            ticks: {
+                                callback: function(value) {
+                                    if (value <= 12) {
+                                        return value + '월';
+                                    } else {
+                                        const month = Math.floor(value - 12);
+                                        return `'25.${month}월`;
+                                    }
+                                },
+                                stepSize: 1
+                            },
+                            grid: {
+                                color: '#e0e0e0'
+                            },
+                            title: {
+                                display: true,
+                                text: '일자 (2024년 → 2025년 예측)',
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                }
+                            }
+                        },
+                        y: {
+                            min: 0,
+                            max: 40,
+                            ticks: {
+                                callback: function(value) {
+                                    return value;
+                                }
+                            },
+                            grid: {
+                                color: '#e0e0e0'
+                            },
+                            title: {
+                                display: true,
+                                text: '분석값 (mg/m³)',
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                }
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'point',
+                        intersect: true
+                    }
+                }
+            });
+        }
+
+        // 차트 생성
+        createChart();
+
+        // 차트 외부 클릭 시 툴팁 숨기기
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('#mainChart')) {
+                document.getElementById('customTooltip').classList.remove('show');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,974 @@
+// Prisma schema for Boaz environment measurement app
+// Provider: SQLite by default (can switch to PostgreSQL later)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 고객사 상태
+enum CustomerStatus {
+  DRAFT // 환경측정기업 임시 등록
+  CONNECTED // 실제 연결됨
+}
+
+model Customer {
+  id             String  @id @default(cuid())
+  name           String // 고객사명(약칭) + 사업장구분 (예: "한국보팍터미날 제1사업장")
+  code           String? // 고객사 코드 (여러 사업장이 같은 코드 공유 가능)
+  businessNumber String? @unique // 사업자등록번호 (중복 방지)
+  fullName       String? // 고객사명(정식)
+  siteType       String? // 사업장 구분
+  address        String? // 주소
+  industry       String? // 업종
+  siteCategory   String? // 사업장 종별
+
+  // 계약 정보
+  contractStartDate DateTime? // 계약 시작일
+  contractEndDate   DateTime? // 계약 종료일
+
+  // 그룹 연결 (대기업 계층 구조)
+  groupId String?
+  group   CustomerGroup? @relation(fields: [groupId], references: [id])
+
+  // 등록자 추적
+  createdBy String? // 등록한 환경측정업체 사용자 ID
+  isPublic  Boolean @default(false) // 공개 여부 (연결 시 true)
+
+  // 상태 관리 (DRAFT 시스템)
+  status         CustomerStatus @default(CONNECTED)
+  draftCreatedBy String? // organizationId
+  draftCreatedAt DateTime?
+
+  isActive          Boolean                @default(true) // 활성 상태
+  stacks            Stack[]
+  measurements      Measurement[]
+  measurementTemps  MeasurementTemp[] // 임시 측정 데이터
+  users             User[]
+  assignedOperators CustomerAssignment[]
+  organizations     CustomerOrganization[] // Many-to-Many 관계
+  stackRequests     StackRequest[]
+  invitations       CustomerInvitation[] // 초대 링크
+  customRoles       CustomRole[] // 고객사 커스텀 역할
+  notifications     Notification[] // 알림
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  @@index([code])
+  @@index([businessNumber])
+  @@index([groupId])
+  @@index([createdBy])
+  @@index([status])
+  @@index([draftCreatedBy])
+}
+
+model Stack {
+  id         String @id @default(cuid())
+  customerId String
+
+  // 현장 정보 (고객사가 관리)
+  siteCode String @default("") // 현장 코드 (마이그레이션 후 name으로 채움)
+  siteName String @default("") // 현장 명칭 (마이그레이션 후 fullName 또는 name으로 채움)
+
+  // 기존 필드 (하위 호환)
+  name         String // = siteCode (기존 호환)
+  code         String? // 기존 코드
+  fullName     String? // = siteName (기존 호환)
+  facilityType String?
+  category     String? // 종별(종)
+
+  // 물리적 정보
+  location    String? // 위치
+  height      Float?
+  diameter    Float?
+  coordinates String? // 좌표 (JSON)
+  description String? // 설명
+
+  // 활성화 및 확인 상태
+  isActive    Boolean  @default(true) // 사용 가능 여부
+  isVerified  Boolean  @default(false) // 고객사 확인 여부 (선택적)
+  verifiedBy  String? // 확인한 사용자 ID
+  verifiedAt  DateTime? // 확인 시간
+  
+  // 생성 정보
+  createdBy   String @default("SYSTEM") // 생성한 사용자 ID
+  customer      Customer            @relation(fields: [customerId], references: [id])
+  measurements  Measurement[]
+  measurementTemps MeasurementTemp[] // 임시 측정 데이터
+  aliases       StackAlias[]
+  stackCodes    StackCode[] // 환경측정기업별 내부 코드
+  organizations StackOrganization[] // 담당 환경측정기업
+  assignedUsers StackAssignment[] // 담당 실무자
+  history       StackHistory[] // 변경 이력
+  requests      StackRequest[] // 등록 요청
+  updateLogs    StackUpdateLog[] // 수정 알림 로그
+  notifications Notification[] // 알림
+  measurementItems StackMeasurementItem[] // 굴뚝별 측정항목 설정
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([customerId, siteCode])
+  @@unique([customerId, name]) // 기존 호환
+  @@index([customerId])
+  @@index([isActive])
+  @@index([isVerified])
+}
+
+model Item {
+  key            String             @id
+  name           String
+  englishName    String?
+  unit           String
+  limit          Float
+  category       String? // 구분: 오염물질/보조항목
+  classification String? // 항목분류: 금속화합물, 무기물질, 휘발성유기화합물 등
+  hasLimit       Boolean? // 허용기준여부(Y/N)
+  isActive       Boolean            @default(true) // 활성화 상태
+  order          Int                @default(0) // 기본 표시 순서
+  measurements   Measurement[]
+  limitHistory   ItemLimitHistory[]
+  stackMeasurementItems StackMeasurementItem[] // 굴뚝별 측정항목 설정
+}
+
+model Measurement {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  stackId    String
+  stack      Stack    @relation(fields: [stackId], references: [id])
+  itemKey    String
+  item       Item     @relation(fields: [itemKey], references: [key])
+  value      Float
+  measuredAt DateTime @default(now())
+
+  // 측정 수행 환경측정기업
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  // Additional raw fields from CSV
+  weather           String? // 기상
+  temperatureC      Float? // 기온
+  humidityPct       Float? // 습도
+  pressureMmHg      Float? // 기압
+  windDirection     String? // 풍향
+  windSpeedMs       Float? // 풍속
+  gasVelocityMs     Float? // 가스속도
+  gasTempC          Float? // 가스온도
+  moisturePct       Float? // 수분함량
+  oxygenMeasuredPct Float? // 실측산소농도
+  oxygenStdPct      Float? // 표준산소농도
+  flowSm3Min        Float? // 배출가스유량
+  limitAtMeasure    Float? // 배출허용기준농도(해당 측정치에 기재된 값)
+  limitCheck        String? // 배출허용기준체크
+  measuringCompany  String? // 측정업체
+
+  // 데이터 무결성: 동일 분 단위에 스택/항목 조합은 1건만 허용
+  @@unique([stackId, itemKey, measuredAt], name: "stackId_itemKey_measuredAt")
+  @@index([customerId, stackId, itemKey, measuredAt])
+  @@index([customerId, stackId, measuredAt])
+  @@index([itemKey, measuredAt])
+  @@index([organizationId])
+  @@index([customerId, organizationId])
+}
+
+// 별칭/식별자 정규화
+model StackAlias {
+  id      String  @id @default(cuid())
+  stackId String
+  stack   Stack   @relation(fields: [stackId], references: [id])
+  alias   String
+  type    String? // NUMBER | CODE | FULL_NAME 등
+
+  @@unique([stackId, alias])
+  @@index([alias])
+}
+
+// 기준치 이력화
+model ItemLimitHistory {
+  id            String    @id @default(cuid())
+  itemKey       String
+  item          Item      @relation(fields: [itemKey], references: [key])
+  limit         Float
+  effectiveFrom DateTime?
+  effectiveTo   DateTime?
+  source        String?
+
+  @@index([itemKey])
+}
+
+// 고객사/굴뚝별 배출허용기준 설정
+model EmissionLimit {
+  id         String   @id @default(cuid())
+  itemKey    String
+  limit      Float
+  region     String? // 일반지역, 특별대책지역
+  customerId String   @default("") // 빈 문자열이면 전체 기준
+  stackId    String   @default("") // 빈 문자열이면 고객사 전체 기준
+  createdBy  String? // 설정한 사용자
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // 우선순위: 굴뚝별 > 고객사별 > 전체
+  // 동일 조건에 중복 설정 방지
+  @@unique([itemKey, customerId, stackId])
+  @@index([itemKey])
+  @@index([customerId])
+  @@index([stackId])
+}
+
+// 스테이징(원본 보존)
+model StagingMeasurementRaw {
+  id         String   @id @default(cuid())
+  sourceFile String
+  rowNo      Int
+  rawJson    String // 원본 한 행 전체 JSON
+  ingestedAt DateTime @default(now())
+
+  @@index([sourceFile, rowNo])
+}
+
+// ============================================
+// 인증 및 구독 관리 시스템
+// ============================================
+
+// 조직 (법인 단위)
+model Organization {
+  id              String    @id @default(cuid())
+  name            String // 법인명
+  businessNumber  String?   @unique // 사업자등록번호
+  corporateNumber String? // 법인등록번호
+  businessType    String? // 업종
+  address         String?
+  phone           String?
+  email           String?
+  representative  String? // 대표자명
+  website         String? // 홈페이지
+  fax             String? // 팩스번호
+  establishedDate DateTime? // 설립일
+
+  // 구독 정보
+  subscriptionPlan    SubscriptionPlan   @default(FREE)
+  subscriptionStatus  SubscriptionStatus @default(TRIAL)
+  subscriptionStartAt DateTime?
+  subscriptionEndAt   DateTime?
+  maxUsers            Int                @default(1) // 허용 사용자 수
+  maxStacks           Int                @default(5) // 허용 굴뚝 수
+  maxDataRetention    Int                @default(365) // 데이터 보관 일수
+
+  // 결제 정보
+  billingEmail   String?
+  billingContact String?
+  lastPaymentAt  DateTime?
+  nextBillingAt  DateTime?
+
+  // 관계
+  users               User[]
+  subscriptionHistory SubscriptionHistory[]
+  invoices            Invoice[]
+  customers           CustomerOrganization[] // Many-to-Many 관계
+  stacks              StackOrganization[] // 담당 굴뚝
+  stackCodes          StackCode[] // 굴뚝 내부 코드
+  stackRequests       StackRequest[] // 굴뚝 등록 요청
+  measurements        Measurement[] // 측정 데이터
+  invitations         CustomerInvitation[] // 고객사 초대
+  customRoles         CustomRole[] // 조직 커스텀 역할
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessNumber])
+  @@index([subscriptionStatus])
+}
+
+// 구독 플랜
+enum SubscriptionPlan {
+  FREE
+  BASIC
+  STANDARD
+  PREMIUM
+  ENTERPRISE
+}
+
+// 구독 상태
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  EXPIRED
+  SUSPENDED
+  CANCELLED
+}
+
+// 구독 이력
+model SubscriptionHistory {
+  id             String             @id @default(cuid())
+  organizationId String
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan           SubscriptionPlan
+  status         SubscriptionStatus
+  startDate      DateTime
+  endDate        DateTime?
+  amount         Float?
+  reason         String? // 변경/해지 사유
+  createdAt      DateTime           @default(now())
+
+  @@index([organizationId])
+}
+
+// 청구서/인보이스
+model Invoice {
+  id                 String        @id @default(cuid())
+  organizationId     String
+  organization       Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoiceNumber      String        @unique
+  amount             Float
+  currency           String        @default("KRW")
+  status             InvoiceStatus @default(PENDING)
+  billingPeriodStart DateTime
+  billingPeriodEnd   DateTime
+  issuedAt           DateTime      @default(now())
+  dueDate            DateTime
+  paidAt             DateTime?
+  paymentMethod      String?
+
+  @@index([organizationId])
+  @@index([status])
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+// 사용자
+model User {
+  id       String  @id @default(cuid())
+  email    String  @unique
+  password String // bcrypt 해시
+  name     String
+  phone    String?
+
+  // 조직 소속
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  // 사용자 권한
+  role UserRole @default(CUSTOMER_USER)
+
+  // 고객사 연결 (조직 내 특정 사업장 담당)
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  // 고객사 그룹 소속 (그룹 관리자용)
+  customerGroupId String?
+  customerGroup   CustomerGroup? @relation(fields: [customerGroupId], references: [id], onDelete: SetNull)
+
+  // 커스텀 역할
+  customRoleId String?
+  customRole   CustomRole? @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
+
+  // 데이터 접근 범위
+  accessScope AccessScope @default(SITE)
+
+  // 개인 정보
+  department     String?
+  position       String?
+  companyName    String? // 법인명 (법인 사용자인 경우)
+  businessNumber String? // 사업자등록번호
+
+  // 계정 상태
+  status          UserStatus @default(PENDING)
+  isActive        Boolean    @default(true)
+  emailVerified   Boolean    @default(false)
+  emailVerifiedAt DateTime?
+
+  // 승인 관련
+  approvedBy     String?
+  approvedAt     DateTime?
+  rejectedReason String?
+
+  // 로그인 정보
+  lastLoginAt DateTime?
+  lastLoginIp String?
+  loginCount  Int       @default(0)
+
+  // 비밀번호 재설정
+  resetToken       String?
+  resetTokenExpiry DateTime?
+
+  // 직원 초대
+  inviteToken       String?
+  inviteTokenExpiry DateTime?
+
+  // 담당 고객사 (실무자용)
+  assignedCustomers CustomerAssignment[]
+
+  // 담당 굴뚝 (실무자용)
+  assignedStacks StackAssignment[]
+
+  // 개별 권한 조정
+  customPermissions UserPermission[]
+
+  // 활동 로그
+  activityLogs ActivityLog[]
+  stackHistory StackHistory[]
+
+  // 알림
+  notifications Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([organizationId])
+  @@index([customerId])
+  @@index([status])
+  @@index([role])
+}
+
+// 사용자 역할 (간소화 - 나머지는 CustomRole로 처리)
+enum UserRole {
+  SUPER_ADMIN // 티그로 시스템 관리자 (플랫폼 소유자)
+  ORG_ADMIN // 환경측정기업 관리자
+  OPERATOR // 환경측정기업 실무자
+  CUSTOMER_ADMIN // 고객사 관리자
+  CUSTOMER_USER // 고객사 일반 사용자
+}
+
+// 계정 상태
+enum UserStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+  WITHDRAWN
+}
+
+// 실무자-고객사 할당
+model CustomerAssignment {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  isPrimary  Boolean  @default(false) // 주 담당 여부
+  assignedBy String // 할당한 관리자
+  assignedAt DateTime @default(now())
+
+  @@unique([userId, customerId])
+  @@index([userId])
+  @@index([customerId])
+}
+
+// 활동 로그
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String // LOGIN, LOGOUT, CREATE, UPDATE, DELETE, DOWNLOAD 등
+  target    String? // 대상 (예: Measurement, Customer 등)
+  targetId  String?
+  details   String? // JSON 형태의 상세 정보
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// 시스템 설정
+model SystemSettings {
+  id          String   @id @default(cuid())
+  key         String   @unique // 설정 키 (예: "org_registration_required_fields")
+  value       String // JSON 형태의 설정 값
+  description String? // 설정 설명
+  category    String? // 설정 카테고리 (예: "registration", "security", "notification")
+  isActive    Boolean  @default(true)
+  updatedBy   String? // 마지막 수정자
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([key])
+}
+
+// ============================================
+// 다중 환경측정기업 거래 시스템
+// ============================================
+
+// 고객사-환경측정기업 연결 관계 (Many-to-Many)
+model CustomerOrganization {
+  id             String @id @default(cuid())
+  customerId     String
+  organizationId String
+
+  // 연결 상태
+  status      String @default("PENDING") // PENDING, APPROVED, REJECTED, DISCONNECTED
+  requestedBy String // "CUSTOMER" or "ORGANIZATION"
+
+  // 계약 정보
+  contractStartDate DateTime?
+  contractEndDate   DateTime?
+
+  // 환경측정기업이 부여한 고객사 식별 정보
+  customCode String? // 세컨 코드
+  nickname   String? // 별명
+
+  // 계약 만료 알림 관리
+  notified30Days Boolean @default(false)
+  notified7Days  Boolean @default(false)
+  notifiedExpiry Boolean @default(false)
+
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  approvedAt DateTime?
+  approvedBy String? // 승인한 사용자 ID
+
+  customer     Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, organizationId])
+  @@index([status])
+  @@index([contractEndDate])
+}
+
+// 굴뚝-환경측정기업 담당 관계
+model StackOrganization {
+  id             String @id @default(cuid())
+  stackId        String
+  organizationId String
+
+  status    String  @default("PENDING") // PENDING, APPROVED, REJECTED
+  isPrimary Boolean @default(false) // 주 담당 여부
+
+  requestedAt DateTime  @default(now())
+  requestedBy String // 요청한 사용자 ID
+  approvedAt  DateTime?
+  approvedBy  String? // 승인한 사용자 ID
+
+  stack        Stack        @relation(fields: [stackId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([stackId, organizationId])
+  @@index([status])
+}
+
+// 굴뚝 등록 요청
+model StackRequest {
+  id             String @id @default(cuid())
+  customerId     String
+  organizationId String
+
+  // 요청 타입
+  requestType String // "NEW_STACK" or "ASSIGN_EXISTING"
+
+  // 신규 굴뚝 정보 (NEW_STACK인 경우)
+  stackName   String?
+  stackCode   String?
+  location    String?
+  height      Float?
+  diameter    Float?
+  coordinates String?
+  description String?
+
+  // 기존 굴뚝 ID (ASSIGN_EXISTING인 경우)
+  existingStackId String?
+
+  status String @default("PENDING") // PENDING, APPROVED, REJECTED
+
+  requestedBy     String
+  requestedAt     DateTime  @default(now())
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  rejectionReason String?
+
+  customer      Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  existingStack Stack?       @relation(fields: [existingStackId], references: [id])
+
+  @@index([status])
+  @@index([customerId])
+}
+
+// 환경측정기업별 내부 코드/명칭
+model StackCode {
+  id             String @id @default(cuid())
+  stackId        String
+  organizationId String
+
+  // 환경측정기업 내부 코드/명칭
+  internalCode String
+  internalName String?
+
+  // 메타 정보
+  description String? // "측정 시 사다리 필요" 등
+  isActive    Boolean @default(true)
+  isPrimary   Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String // userId
+
+  stack        Stack        @relation(fields: [stackId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([stackId, organizationId])
+  @@index([organizationId, internalCode])
+  @@index([stackId])
+}
+
+// 굴뚝 정보 변경 이력
+model StackHistory {
+  id      String @id @default(cuid())
+  stackId String
+
+  // 변경된 필드
+  fieldName     String // "name", "code", "location", "height", "diameter", "coordinates"
+  previousValue String?
+  newValue      String?
+
+  changeReason String? // 선택사항
+  changedBy    String
+  changedAt    DateTime @default(now())
+
+  stack Stack @relation(fields: [stackId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [changedBy], references: [id])
+
+  @@index([stackId])
+  @@index([changedAt])
+}
+
+// 굴뚝 수정 알림 로그
+model StackUpdateLog {
+  id        String   @id @default(cuid())
+  stackId   String
+  updatedBy String // userId
+  updatedAt DateTime @default(now())
+
+  // 변경 내역
+  changes    String // JSON: {"height": {"old": 30, "new": 32}}
+  changeType String // "info_update", "name_change", "code_change"
+
+  // 알림 상태
+  notificationSent Boolean @default(false)
+  notifiedOrgs     String // JSON array: ["orgId1", "orgId2"]
+
+  stack Stack @relation(fields: [stackId], references: [id], onDelete: Cascade)
+
+  @@index([stackId])
+  @@index([updatedAt])
+}
+
+// ============================================
+// 고객사 그룹 및 권한 관리 시스템
+// ============================================
+
+// 고객사 그룹 (법인/대기업)
+model CustomerGroup {
+  id             String @id @default(cuid())
+  name           String // "고려아연", "삼양사"
+  businessNumber String @unique // 법인 사업자번호
+
+  // 기본 정보
+  address        String?
+  industry       String?
+  representative String? // 대표자
+
+  // 관계
+  customers Customer[] // 산하 사업장들
+  users     User[] // 그룹 관리자 (임원)
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessNumber])
+}
+
+// 데이터 접근 범위 (간소화)
+enum AccessScope {
+  SYSTEM // 시스템 전체 (SUPER_ADMIN)
+  ORGANIZATION // 조직 전체 (ORG_ADMIN)
+  SITE // 사업장 단위 (CUSTOMER_ADMIN, CUSTOMER_USER)
+}
+
+// 역할 템플릿 (시스템 제공)
+model RoleTemplate {
+  id          String  @id @default(cuid())
+  code        String  @unique // "org_admin", "operator", "customer_admin"
+  name        String // "환경측정업체 관리자"
+  description String?
+  category    String // "ORGANIZATION", "CUSTOMER"
+  isSystem    Boolean @default(true) // 시스템 기본 템플릿
+
+  // 기본 권한 세트
+  defaultPermissions RoleTemplatePermission[]
+
+  // 이 템플릿으로 생성된 커스텀 역할들
+  customRoles CustomRole[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 템플릿의 기본 권한
+model RoleTemplatePermission {
+  id             String @id @default(cuid())
+  templateId     String
+  permissionCode String // "customer.create", "measurement.read"
+
+  template RoleTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, permissionCode])
+}
+
+// 커스텀 역할 (조직이 만든 역할)
+model CustomRole {
+  id             String  @id @default(cuid())
+  organizationId String? // null이면 고객사 역할
+  customerId     String? // 고객사 전용 역할
+
+  name        String // "현장 팀장", "데이터 입력자"
+  description String?
+
+  // 기반 템플릿
+  templateId String?
+  template   RoleTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  // 커스텀 권한 (템플릿 + 추가/제거)
+  permissions CustomRolePermission[]
+
+  // 이 역할을 가진 사용자들
+  users User[]
+
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  createdBy    String // 생성한 관리자 ID
+  updatedAt    DateTime      @updatedAt
+  Customer     Customer?     @relation(fields: [customerId], references: [id])
+  Organization Organization? @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([customerId])
+}
+
+// 커스텀 역할의 권한
+model CustomRolePermission {
+  id             String  @id @default(cuid())
+  roleId         String
+  permissionCode String
+  granted        Boolean @default(true) // true: 부여, false: 제거
+
+  role CustomRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionCode])
+}
+
+// 사용자별 권한 조정
+model UserPermission {
+  id             String    @id @default(cuid())
+  userId         String
+  permissionCode String
+  granted        Boolean // true: 추가 부여, false: 제거
+  grantedBy      String // 권한 부여한 관리자 ID
+  grantedAt      DateTime  @default(now())
+  reason         String? // 부여/제거 사유
+  expiresAt      DateTime? // 만료일 (선택)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permissionCode])
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// 담당 할당 (실무자 → 굴뚝)
+model StackAssignment {
+  id         String   @id @default(cuid())
+  userId     String
+  stackId    String
+  isPrimary  Boolean  @default(false)
+  assignedAt DateTime @default(now())
+  assignedBy String
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stack Stack @relation(fields: [stackId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, stackId])
+  @@index([userId])
+  @@index([stackId])
+}
+
+// 권한 변경 이력
+model PermissionChangeLog {
+  id String @id @default(cuid())
+
+  changedBy   String // 변경한 사람 ID
+  changerRole String
+  changerName String
+
+  targetUser String // 대상 사용자 ID
+  targetName String
+  targetRole String
+
+  changeType String // "ROLE_ASSIGN", "PERMISSION_ADD", "PERMISSION_REMOVE"
+  fromValue  String?
+  toValue    String
+
+  reason String?
+
+  changedAt DateTime @default(now())
+  ipAddress String?
+  userAgent String?
+
+  success  Boolean
+  errorMsg String?
+
+  @@index([targetUser])
+  @@index([changedBy])
+  @@index([changedAt])
+}
+
+// 고객사 초대 링크
+model CustomerInvitation {
+  id    String @id @default(cuid())
+  token String @unique // 초대 토큰
+
+  // 초대 정보
+  customerId     String
+  customer       Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // 고객사 관리자 정보 (미리 입력)
+  adminEmail String?
+  adminName  String?
+  adminPhone String?
+
+  // 역할 힌트
+  suggestedRole String? // "ADMIN" or "USER"
+  roleNote      String? // "환경안전팀장급" 등
+
+  // 상태
+  status    String   @default("PENDING") // PENDING, USED, EXPIRED
+  expiresAt DateTime // 만료 시간 (7일)
+
+  // 사용 정보
+  usedAt DateTime?
+  usedBy String? // 가입한 사용자 ID
+
+  createdAt DateTime @default(now())
+  createdBy String // 초대한 사용자 ID
+
+  @@index([token])
+  @@index([status])
+  @@index([customerId])
+  @@index([organizationId])
+}
+
+// 알림 타입
+enum NotificationType {
+  STACK_CREATED_BY_CUSTOMER      // 고객사가 굴뚝 직접 등록
+  STACK_UPDATED_BY_CUSTOMER      // 고객사가 굴뚝 정보 수정
+  STACK_CREATED_BY_ORG           // 환경측정기업이 굴뚝 등록
+  STACK_VERIFIED_BY_CUSTOMER     // 고객사가 굴뚝 확인 완료
+  STACK_INTERNAL_CODE_NEEDED     // 내부코드 지정 필요
+}
+
+// 알림
+model Notification {
+  id          String             @id @default(cuid())
+  userId      String
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type        NotificationType
+  title       String
+  message     String
+  
+  // 관련 엔티티
+  stackId     String?
+  stack       Stack?             @relation(fields: [stackId], references: [id], onDelete: Cascade)
+  customerId  String?
+  customer    Customer?          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  // 상태
+  isRead      Boolean            @default(false)
+  readAt      DateTime?
+  
+  // 메타데이터
+  metadata    String?            // JSON string
+  
+  createdAt   DateTime           @default(now())
+  
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+}
+
+// 굴뚝별 측정항목 설정
+model StackMeasurementItem {
+  id        String   @id @default(cuid())
+  stackId   String
+  stack     Stack    @relation(fields: [stackId], references: [id], onDelete: Cascade)
+  itemKey   String
+  item      Item     @relation(fields: [itemKey], references: [key], onDelete: Cascade)
+  
+  // 설정
+  isActive  Boolean  @default(true) // 측정 대상 여부
+  order     Int      @default(0)    // 표시 순서
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([stackId, itemKey])
+  @@index([stackId])
+  @@index([itemKey])
+}
+
+// ============================================
+// 임시 측정 데이터 (현장 입력용)
+// ============================================
+
+// 임시 측정 데이터
+model MeasurementTemp {
+  id             String   @id @default(cuid())
+  tempId         String   @unique // TEMP + YYYYMMDD + 일련번호 (예: TEMP20250115001)
+  
+  // 측정 기본 정보
+  customerId     String
+  customer       Customer @relation(fields: [customerId], references: [id])
+  stackId        String
+  stack          Stack    @relation(fields: [stackId], references: [id])
+  measurementDate DateTime // 측정일시
+  
+  // 측정값 (JSON 배열)
+  measurements   String   // JSON: [{"itemKey": "PM10", "value": 45.2, "unit": "mg/Nm³"}, ...]
+  
+  // 보조 데이터 (선택)
+  auxiliaryData  String?  // JSON: {"weather": "맑음", "temperatureC": 25, ...}
+  
+  // 상태
+  status         String   @default("임시저장") // 현재는 단일 상태만 사용
+  
+  // 생성 정보
+  createdBy      String   // 입력자 ID
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  @@index([createdAt])
+  @@index([createdBy])
+  @@index([customerId])
+  @@index([stackId])
+  @@index([status])
+  @@index([tempId])
+}

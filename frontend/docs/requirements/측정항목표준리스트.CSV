@@ -1,0 +1,45 @@
+3.1 측정항목 표준 리스트,,,,,
+항목 코드,항목명(한글),항목명(영문),기본 단위,항목 분류,허용기준여부
+EA-I-0001,먼지,Particulate Matter,mg/S㎥,무기물질(기본항목),Y
+EA-I-0003,암모니아,Ammonia,ppm,무기물질(기본항목),Y
+EA-I-0004,일산화탄소,Carbon Monoxide,ppm,무기물질(기본항목),Y
+EA-I-0005,염화수소,Hydrogen Chloride,ppm,무기물질,Y
+EA-I-0006,염소,Chlorine,ppm,무기물질,Y
+EA-I-0007,황산화물,Sulfur Oxides,ppm,무기물질(기본항목),Y
+EA-I-0008,질소산화물,Nitrogen Oxides,ppm,무기물질(기본항목),Y
+EA-I-0009,이황화탄소,Carbon Disulfide,ppm,무기물질(기본항목),Y
+EA-I-0010,황화수소,Hydrogen Sulfide,ppm,무기물질(기본항목),Y
+EA-I-0011,플루오린화합물,Fluorine Compounds,ppm,무기물질,Y
+EA-I-0012,사이안화수소,Hydrogen Cyanide,ppm,무기물질,Y
+EA-I-0013,매연,Smoke,도,무기물질(기본항목),Y
+EA-I-0018,하이드라진,Hydrazine,ppm,무기물질,Y
+EA-M-0001,비소화합물 ,Arsenic Compounds,ppm,금속화합물,Y
+EA-M-0002,카드뮴화합물,Cadmium Compounds,mg/S㎥,금속화합물,Y
+EA-M-0003,납화합물,Lead Compounds,mg/S㎥,금속화합물,Y
+EA-M-0004,크로뮴화합물,Chromium Compounds,mg/S㎥,금속화합물,Y
+EA-M-0005,구리화합물,Copper Compounds,mg/S㎥,금속화합물,Y
+EA-M-0006,니켈화합물,Nickel Compounds,mg/S㎥,금속화합물,Y
+EA-M-0007,아연화합물,Zinc Compounds,mg/S㎥,금속화합물,Y
+EA-M-0008,수은화합물,Mercury Compounds,mg/S㎥,금속화합물,Y
+EA-M-0009,베릴륨화합물,Beryllium Compounds,mg/S㎥,금속화합물,Y
+EA-V-0001,폼알데하이드,Formaldehyde,ppm,휘발성유기화합물,Y
+EA-V-0002,아세트알데하이드,Acetaldehyde,ppm,휘발성유기화합물,Y
+EA-V-0016,브로민화합물,Bromide Compounds,ppm,휘발성유기화합물,Y
+EA-V-0018,페놀화합물,Phenols,ppm,휘발성유기화합물,Y
+EA-V-0044,벤젠,Benzene,ppm,휘발성유기화합물,Y
+EA-V-0045,총탄화수소,Total Hydrocarbon,ppm,휘발성유기화합물,Y
+EA-V-0046,사염화탄소,Carbon Tetrachloride,ppm,휘발성유기화합물,Y
+EA-V-0047,클로로포름,Chloroform,ppm,휘발성유기화합물,Y
+EA-V-0048,염화바이닐,Vinyl Chlorid,ppm,휘발성유기화합물,Y
+EA-V-0056,다이클로로메테인,Dichloromethane,ppm,휘발성유기화합물,Y
+EA-V-0060,"1,2-다이클로로에테인","1,2-Dichloroethane",ppm,휘발성유기화합물,Y
+EA-V-0063,트라이클로로에틸렌,Trichloroethylene,ppm,휘발성유기화합물,Y
+EA-V-0069,테트라클로로에틸렌,Tetrachloroethylene,ppm,휘발성유기화합물,Y
+EA-V-0071,에틸벤젠,Ethylbenzene,ppm,휘발성유기화합물,Y
+EA-V-0074,스타이렌,Styrene,ppm,휘발성유기화합물,Y
+EA-V-0085,"1,3-뷰타다이엔","1,3-Butadiene",ppm,휘발성유기화합물,Y
+EA-V-0086,아크릴로나이트릴,Acrylonitrile,ppm,휘발성유기화합물,Y
+EA-V-0087,아닐린,Aniline,ppm,휘발성유기화합물,Y
+EA-V-0088,에틸렌옥사이드,Ethylene Oxide,ppm,휘발성유기화합물,Y
+EA-V-0093,이황화메틸,Dimethyldisulfide,ppm,휘발성유기화합물,Y
+EA-V-0094,프로필렌옥사이드,Propylene Oxide,ppm,휘발성유기화합물,Y
