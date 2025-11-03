@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import { HelpCircle } from "lucide-react";
+import OrganizationPickerModal from "@/components/modals/OrganizationPickerModal";
+import { useCustomerAuth } from "@/hooks/usePageAuth";
 
 type PendingStack = {
   stackId: string;
@@ -24,9 +25,13 @@ type PendingStack = {
     location: string | null;
     height: number | null;
     diameter: number | null;
+    coordinates: any;
   };
+  facilityType: string | null;
+  category: string | null;
   status: string;
   draftCreatedAt: string | null;
+  createdAt: string;
 };
 
 type ConfirmedStack = {
@@ -35,6 +40,7 @@ type ConfirmedStack = {
   code: string | null;
   fullName: string | null;
   facilityType: string | null;
+  category: string | null;
   height: number | null;
   diameter: number | null;
   location: string | null;
@@ -42,11 +48,20 @@ type ConfirmedStack = {
   isVerified: boolean;
   verifiedBy: string | null;
   verifiedAt: string | null;
+  createdAt: string;
+  status?: string | null;
+  organizations?: Array<{
+    organization: {
+      id: string;
+      name: string;
+    };
+  }>;
+  organizationNames?: string[];
   _count?: { measurements: number };
 };
 
 export default function CustomerStacksPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useCustomerAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"pending" | "confirmed">("confirmed");
   const [pendingStacks, setPendingStacks] = useState<PendingStack[]>([]);
@@ -55,44 +70,52 @@ export default function CustomerStacksPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [showHelp, setShowHelp] = useState(false);
+  const [editingStackId, setEditingStackId] = useState<string | null>(null);
+  const [editingData, setEditingData] = useState<any>(null);
+  const [showOrgPicker, setShowOrgPicker] = useState(false);
+  const [selectedOrganization, setSelectedOrganization] = useState<any>(null);
+  const [showInactive, setShowInactive] = useState(false);
 
+  // 초기 로드 시 두 탭 모두 데이터 가져오기
   useEffect(() => {
-    if (user?.role !== "CUSTOMER_ADMIN" && user?.role !== "CUSTOMER_USER") {
-      router.push("/dashboard");
-      return;
-    }
+    if (authLoading || !user) return;
+    
+    // 두 탭 모두 데이터 가져오기
+    fetchPendingStacks();
+    fetchConfirmedStacks();
+  }, [user, authLoading]);
+
+  // 탭 변경 시 해당 탭만 새로고침
+  useEffect(() => {
+    if (!user) return;
     if (activeTab === "pending") {
       fetchPendingStacks();
     } else if (activeTab === "confirmed") {
       fetchConfirmedStacks();
     }
-  }, [user, router, activeTab]);
+  }, [activeTab]);
 
   const fetchPendingStacks = async () => {
     try {
-      setLoading(true);
       const res = await fetch("/api/customer/stacks/pending-review");
       const data = await res.json();
+      console.log("Pending stacks data:", data);
       setPendingStacks(data.stacks || []);
     } catch (error) {
       console.error("Failed to fetch pending stacks:", error);
-    } finally {
-      setLoading(false);
     }
   };
 
   const fetchConfirmedStacks = async () => {
     try {
-      setLoading(true);
       const res = await fetch("/api/stacks");
       const data = await res.json();
+      console.log("Confirmed stacks data:", data);
       // 활성화된 굴뚝만 필터링
       const active = (data.data || []).filter((s: any) => s.isActive);
       setConfirmedStacks(active);
     } catch (error) {
       console.error("Failed to fetch confirmed stacks:", error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -133,15 +156,257 @@ export default function CustomerStacksPage() {
     }
   };
 
+  const handleConfirm = async (stackId: string) => {
+    if (!confirm("이 굴뚝을 확인 완료하시겠습니까?\n\n확인 완료 후 전체 탭에서 계속 표시되며, 검토대기 탭에서는 사라집니다.")) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/customer/stacks/${stackId}/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || "확인 완료되었습니다.");
+        // 두 탭 모두 새로고침
+        fetchPendingStacks();
+        fetchConfirmedStacks();
+      } else {
+        alert(data.error || "확인 실패");
+      }
+    } catch (error) {
+      alert("오류가 발생했습니다.");
+    }
+  };
+
+  const handleBulkConfirm = async () => {
+    if (selectedStacks.size === 0) {
+      alert("확인할 굴뚝을 선택해주세요.");
+      return;
+    }
+
+    if (!confirm(`선택한 ${selectedStacks.size}개 굴뚝을 일괄 확인 완료하시겠습니까?\n\n확인 완료 후 전체 탭에서 계속 표시되며, 검토대기 탭에서는 사라집니다.`)) {
+      return;
+    }
+
+    try {
+      const stackIds = Array.from(selectedStacks);
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const stackId of stackIds) {
+        const res = await fetch(`/api/customer/stacks/${stackId}/verify`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+
+        if (res.ok) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      }
+
+      alert(`완료: ${successCount}건 성공, ${failCount}건 실패`);
+      setSelectedStacks(new Set());
+      fetchPendingStacks();
+      fetchConfirmedStacks();
+    } catch (error) {
+      alert("오류가 발생했습니다.");
+    }
+  };
+
+  const handleStartEdit = (stack: any) => {
+    const stackId = stack.stackId || stack.id;
+    setEditingStackId(stackId);
+    setEditingData({
+      code: stack.internal?.code || stack.code || "",
+      fullName: stack.site?.name || stack.fullName || "",
+      facilityType: stack.facilityType || "",
+      category: stack.category || "",
+      location: stack.physical?.location || stack.location || "",
+      height: stack.physical?.height || stack.height || "",
+      diameter: stack.physical?.diameter || stack.diameter || "",
+      organizationId: stack.internal?.organization?.id || stack.organizationNames?.[0] || "",
+      organizationName: stack.internal?.organization?.name || stack.organizationNames?.[0] || "",
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingStackId(null);
+    setEditingData(null);
+    setSelectedOrganization(null);
+  };
+
+  const handleSaveEdit = async (stackId: string) => {
+    if (!editingData) return;
+
+    const changeReason = prompt("수정 사유를 입력하세요:");
+    if (!changeReason) return;
+
+    try {
+      const res = await fetch(`/api/stacks/${stackId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: editingData.code,
+          fullName: editingData.fullName,
+          facilityType: editingData.facilityType,
+          category: editingData.category,
+          location: editingData.location,
+          height: editingData.height ? parseFloat(editingData.height) : null,
+          diameter: editingData.diameter ? parseFloat(editingData.diameter) : null,
+          changeReason,
+        }),
+      });
+
+      if (res.ok) {
+        // 담당 환경측정기업 변경
+        if (selectedOrganization && selectedOrganization.id !== editingData.organizationId) {
+          await handleChangeOrganization(stackId, selectedOrganization.id);
+        }
+
+        alert("저장되었습니다.");
+        handleCancelEdit();
+        fetchPendingStacks();
+        fetchConfirmedStacks();
+      } else {
+        const data = await res.json();
+        alert(data.error || "저장 실패");
+      }
+    } catch (error) {
+      alert("오류가 발생했습니다.");
+    }
+  };
+
+  const handleChangeOrganization = async (stackId: string, newOrgId: string) => {
+    try {
+      const res = await fetch(`/api/stacks/${stackId}/change-organization`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId: newOrgId }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error);
+      }
+    } catch (error: any) {
+      console.error("Failed to change organization:", error);
+      throw error;
+    }
+  };
+
+  const handleOrganizationSelect = (org: any) => {
+    setSelectedOrganization(org);
+    setEditingData({
+      ...editingData,
+      organizationId: org.id,
+      organizationName: org.name,
+    });
+  };
+
+  const handleExport = () => {
+    const data = activeTab === "pending" ? pendingStacks : confirmedStacks;
+    const header = ["굴뚝번호", "굴뚝코드", "정식명칭", "배출시설종류", "높이(m)", "안지름(m)", "종별", "확인상태", "담당환경측정회사", "생성일"];
+    
+    const body = data.map((stack: any) => [
+      activeTab === "pending" ? stack.site?.code || "" : stack.name || "",
+      activeTab === "pending" ? stack.internal?.code || "" : stack.code || "",
+      activeTab === "pending" ? stack.site?.name || "" : stack.fullName || "",
+      stack.facilityType || "",
+      activeTab === "pending" ? stack.physical?.height || "" : stack.height || "",
+      activeTab === "pending" ? stack.physical?.diameter || "" : stack.diameter || "",
+      stack.category || "",
+      activeTab === "pending" ? "확인필요" : (stack.isVerified ? "확인완료" : "확인필요"),
+      activeTab === "pending" ? stack.internal?.organization?.name || "" : (stack.organizationNames?.join(", ") || ""),
+      new Date(stack.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '-').replace('.', '')
+    ]);
+    
+    const csv = [header, ...body].map((cols) => cols.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `굴뚝목록_${activeTab === "pending" ? "검토대기" : "전체"}_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDeactivate = async (stackId: string) => {
+    if (!confirm("이 굴뚝을 비활성화하시겠습니까?\n비활성화된 굴뚝은 '비활성화 보기'를 체크해야 표시됩니다.")) return;
+
+    try {
+      const res = await fetch(`/api/stacks/${stackId}/deactivate`, {
+        method: "POST",
+      });
+
+      if (res.ok) {
+        alert("비활성화되었습니다.");
+        fetchPendingStacks();
+        fetchConfirmedStacks();
+      } else {
+        const data = await res.json();
+        alert(data.error || "비활성화 실패");
+      }
+    } catch (error) {
+      alert("오류가 발생했습니다.");
+    }
+  };
+
+  const handleActivate = async (stackId: string) => {
+    if (!confirm("이 굴뚝을 활성화하시겠습니까?")) return;
+
+    try {
+      const res = await fetch(`/api/stacks/${stackId}/activate`, {
+        method: "POST",
+      });
+
+      if (res.ok) {
+        alert("활성화되었습니다.");
+        fetchPendingStacks();
+        fetchConfirmedStacks();
+      } else {
+        const data = await res.json();
+        alert(data.error || "활성화 실패");
+      }
+    } catch (error) {
+      alert("오류가 발생했습니다.");
+    }
+  };
+
+  const handleDelete = async (stackId: string, measurementCount: number) => {
+    if (measurementCount > 0) {
+      alert("측정 데이터가 있는 굴뚝은 삭제할 수 없습니다.\n먼저 관련 측정 데이터를 삭제해주세요.");
+      return;
+    }
+
+    if (!confirm("이 굴뚝을 완전히 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.")) return;
+
+    try {
+      const res = await fetch(`/api/stacks/${stackId}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        alert("삭제되었습니다.");
+        fetchPendingStacks();
+        fetchConfirmedStacks();
+      } else {
+        const data = await res.json();
+        alert(data.error || "삭제 실패");
+      }
+    } catch (error) {
+      alert("오류가 발생했습니다.");
+    }
+  };
 
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">로딩 중...</div>
-      </div>
-    );
-  }
+
 
   return (
     <section className="space-y-3">
@@ -175,21 +440,42 @@ export default function CustomerStacksPage() {
             </button>
           </div>
           
-          {/* 검색 필터 (전체 굴뚝 탭에서만 표시) */}
+          {/* 검색 필터 */}
+          <div className="flex flex-col" style={{ minWidth: '280px' }}>
+            <label className="text-xs text-gray-600 dark:text-gray-400 mb-0.5">검색</label>
+            <input
+              type="text"
+              placeholder="굴뚝번호, 코드, 명칭..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="text-sm h-8 px-3 border rounded dark:bg-gray-800 dark:border-gray-700"
+            />
+          </div>
           {activeTab === "confirmed" && (
-            <div className="flex flex-col" style={{ minWidth: '280px' }}>
-              <label className="text-xs text-gray-600 dark:text-gray-400 mb-0.5">검색</label>
+            <label className="flex items-center gap-2 text-sm mb-1.5">
               <input
-                type="text"
-                placeholder="굴뚝번호, 코드, 명칭, 위치..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="text-sm h-8 px-3 border rounded dark:bg-gray-800 dark:border-gray-700"
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+                className="w-4 h-4"
               />
-            </div>
+              비활성화 보기
+            </label>
           )}
           
           <div className="flex gap-2 ml-auto mb-1.5">
+            <Button size="sm" variant="secondary" onClick={handleExport}>
+              Excel
+            </Button>
+            {activeTab === "pending" && user?.role === "CUSTOMER_ADMIN" && (
+              <Button
+                size="sm"
+                onClick={handleBulkConfirm}
+                disabled={selectedStacks.size === 0}
+              >
+                일괄확인완료 {selectedStacks.size > 0 && `(${selectedStacks.size})`}
+              </Button>
+            )}
             <Button
               variant="secondary"
               size="sm"
@@ -231,21 +517,25 @@ export default function CustomerStacksPage() {
                     <h4 className="font-medium mb-1">전체 굴뚝</h4>
                     <ul className="list-disc list-inside text-gray-600 dark:text-gray-400 space-y-1">
                       <li>자사의 모든 활성화된 굴뚝 목록을 확인할 수 있습니다</li>
-                      <li>검색 기능으로 굴뚝번호, 코드, 명칭, 위치로 검색 가능합니다</li>
-                      <li>각 굴뚝의 측정 건수를 확인할 수 있습니다</li>
-                      <li>확인 상태(확인완료/확인필요)를 표시합니다</li>
-                      <li><strong>관리자</strong>는 "확인완료" 버튼으로 굴뚝 정보를 확인할 수 있습니다</li>
-                      <li><strong>관리자</strong>는 "수정" 버튼으로 굴뚝 정보를 수정할 수 있습니다</li>
+                      <li>검색 기능으로 굴뚝번호, 코드, 명칭, 배출시설종류로 검색 가능합니다</li>
+                      <li>각 굴뚝의 측정 건수와 생성일을 확인할 수 있습니다</li>
+                      <li>확인 상태(확인완료/확인필요)를 표시하며, 확인필요 항목이 우선 정렬됩니다</li>
+                      <li><strong>관리자</strong>는 "수정" 버튼으로 굴뚝 정보를 인라인 편집할 수 있습니다</li>
+                      <li><strong>관리자</strong>는 담당 환경측정기업을 변경할 수 있습니다</li>
+                      <li><strong>관리자</strong>는 굴뚝을 비활성화하거나 영구 삭제할 수 있습니다</li>
+                      <li>Excel 버튼으로 목록을 다운로드할 수 있습니다</li>
                     </ul>
                   </div>
 
                   <div className="border-l-4 border-orange-500 pl-3">
                     <h4 className="font-medium mb-1">검토 대기</h4>
                     <ul className="list-disc list-inside text-gray-600 dark:text-gray-400 space-y-1">
-                      <li>환경측정기업이 등록한 굴뚝 중 검토가 필요한 목록입니다</li>
-                      <li>등록한 환경측정기업과 내부 코드 정보를 확인할 수 있습니다</li>
-                      <li>"상세보기" 버튼으로 굴뚝 정보를 확인할 수 있습니다</li>
-                      <li>검토 후 문제가 없으면 자동으로 전체 굴뚝으로 이동됩니다</li>
+                      <li>환경측정기업이 등록한 굴뚝 중 아직 확인하지 않은 목록입니다</li>
+                      <li>검색 기능으로 빠르게 찾을 수 있습니다</li>
+                      <li>정보를 검토한 후 <strong>"확인완료"</strong> 버튼을 클릭하여 승인할 수 있습니다</li>
+                      <li>여러 굴뚝을 선택하여 일괄 확인 처리가 가능합니다</li>
+                      <li>확인 완료된 굴뚝은 "전체 굴뚝" 탭으로 이동하며, 담당 환경측정기업에 알림이 전송됩니다</li>
+                      <li>Excel 버튼으로 검토대기 목록을 다운로드할 수 있습니다</li>
                     </ul>
                   </div>
                 </div>
@@ -265,7 +555,7 @@ export default function CustomerStacksPage() {
                   <div className="bg-gray-50 dark:bg-gray-900/20 p-3 rounded">
                     <p className="font-medium text-gray-900 dark:text-gray-300 mb-2">선택 입력 항목:</p>
                     <ul className="list-disc list-inside space-y-1">
-                      <li>위치, 배출시설 종류, 높이, 직경, 카테고리 등</li>
+                      <li>배출시설 종류, 높이, 안지름, 종별 등</li>
                     </ul>
                   </div>
                   <p className="text-sm italic">💡 직접 등록한 굴뚝은 즉시 활성화되어 측정 데이터 입력이 가능합니다.</p>
@@ -279,8 +569,8 @@ export default function CustomerStacksPage() {
                   <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded">
                     <p className="font-medium text-green-900 dark:text-green-300 mb-2">수정 가능 항목:</p>
                     <ul className="list-disc list-inside space-y-1">
-                      <li>굴뚝 코드, 정식 명칭, 배출시설 종류</li>
-                      <li>위치, 높이, 직경, 설명</li>
+                      <li>굴뚝 코드, 정식 명칭, 배출시설 종류, 종별</li>
+                      <li>높이, 안지름</li>
                     </ul>
                   </div>
                   <p className="text-sm italic">⚠️ 수정 시 반드시 <strong>수정 사유</strong>를 입력해야 하며, 모든 수정 이력이 자동으로 기록됩니다.</p>
@@ -292,8 +582,9 @@ export default function CustomerStacksPage() {
                 <h3 className="font-semibold text-base mb-2">🔔 알림 기능</h3>
                 <div className="space-y-2 text-gray-600 dark:text-gray-400">
                   <ul className="list-disc list-inside space-y-1">
-                    <li>환경측정기업이 굴뚝을 등록하면 실시간 알림을 받습니다</li>
-                    <li>굴뚝 정보를 수정하면 담당 환경측정기업에게 알림이 전송됩니다</li>
+                    <li>환경측정기업이 굴뚝을 등록하거나 수정하면 실시간 알림을 받습니다</li>
+                    <li>고객사가 굴뚝 정보를 수정하면 담당 환경측정기업에게 알림이 전송됩니다</li>
+                    <li>굴뚝 확인 완료 시 담당 환경측정기업에게 알림이 전송됩니다</li>
                     <li>우측 상단 알림 아이콘에서 확인할 수 있습니다</li>
                   </ul>
                 </div>
@@ -334,7 +625,6 @@ export default function CustomerStacksPage() {
 
       {activeTab === "pending" && (
         <>
-
           {pendingStacks.length === 0 ? (
             <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <p className="text-gray-600 dark:text-gray-400">
@@ -342,65 +632,205 @@ export default function CustomerStacksPage() {
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {pendingStacks.map((stack) => (
-                <div
-                  key={stack.stackId}
-                  className="p-4 border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/10 rounded-lg"
-                >
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      checked={selectedStacks.has(stack.stackId)}
-                      onChange={() => handleToggleSelect(stack.stackId)}
-                      className="mt-1 h-4 w-4"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-mono text-lg font-semibold">
-                          {stack.site.code}
-                        </h3>
-                        <span className="px-2 py-0.5 text-xs rounded bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">
-                          검토 대기
+            <div className="overflow-x-auto max-h-[calc(100vh-200px)] overflow-y-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
+                  <tr>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      <input
+                        type="checkbox"
+                        checked={selectedStacks.size === pendingStacks.length && pendingStacks.length > 0}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedStacks(new Set(pendingStacks.map(s => s.stackId)));
+                          } else {
+                            setSelectedStacks(new Set());
+                          }
+                        }}
+                        className="h-4 w-4"
+                      />
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      굴뚝번호
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      굴뚝코드
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      정식명칭
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      배출시설종류
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      높이(m)
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      안지름(m)
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      종별
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      확인 상태
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      담당환경측정회사
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      생성일
+                    </th>
+                    {user?.role === "CUSTOMER_ADMIN" && (
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                        액션
+                      </th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                  {pendingStacks
+                    .filter((stack) => {
+                      if (!searchQuery) return true;
+                      const q = searchQuery.toLowerCase();
+                      return (
+                        stack.site.code?.toLowerCase().includes(q) ||
+                        stack.internal?.code?.toLowerCase().includes(q) ||
+                        stack.site.name?.toLowerCase().includes(q) ||
+                        stack.facilityType?.toLowerCase().includes(q)
+                      );
+                    })
+                    .map((stack) => (
+                    <tr key={stack.stackId} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <td className="px-4 py-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedStacks.has(stack.stackId)}
+                          onChange={() => handleToggleSelect(stack.stackId)}
+                          className="h-4 w-4"
+                        />
+                      </td>
+                      {/* 굴뚝번호 */}
+                      <td className="px-4 py-3 text-sm font-mono">{stack.site.code}</td>
+                      {/* 굴뚝코드 */}
+                      <td className="px-4 py-3 text-sm font-mono">
+                        {editingStackId === stack.stackId ? (
+                          <input
+                            type="text"
+                            value={editingData?.code || ""}
+                            onChange={(e) => setEditingData({...editingData, code: e.target.value})}
+                            className="w-full px-2 py-1 border rounded text-sm"
+                          />
+                        ) : (
+                          stack.internal?.code || "-"
+                        )}
+                      </td>
+                      {/* 정식명칭 */}
+                      <td className="px-4 py-3 text-sm">
+                        {editingStackId === stack.stackId ? (
+                          <input
+                            type="text"
+                            value={editingData?.fullName || ""}
+                            onChange={(e) => setEditingData({...editingData, fullName: e.target.value})}
+                            className="w-full px-2 py-1 border rounded text-sm"
+                          />
+                        ) : (
+                          stack.site.name || "-"
+                        )}
+                      </td>
+                      {/* 배출시설종류 */}
+                      <td className="px-4 py-3 text-sm">{stack.facilityType || "-"}</td>
+                      {/* 높이 */}
+                      <td className="px-4 py-3 text-sm text-center">
+                        {editingStackId === stack.stackId ? (
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={editingData?.height || ""}
+                            onChange={(e) => setEditingData({...editingData, height: e.target.value})}
+                            className="w-20 px-2 py-1 border rounded text-sm"
+                          />
+                        ) : (
+                          stack.physical.height ?? "-"
+                        )}
+                      </td>
+                      {/* 안지름 */}
+                      <td className="px-4 py-3 text-sm text-center">
+                        {editingStackId === stack.stackId ? (
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={editingData?.diameter || ""}
+                            onChange={(e) => setEditingData({...editingData, diameter: e.target.value})}
+                            className="w-20 px-2 py-1 border rounded text-sm"
+                          />
+                        ) : (
+                          stack.physical.diameter ?? "-"
+                        )}
+                      </td>
+                      {/* 종별 */}
+                      <td className="px-4 py-3 text-sm">{stack.category || "-"}</td>
+                      {/* 확인 상태 */}
+                      <td className="px-4 py-3 text-sm text-center">
+                        <span className="px-2 py-1 text-xs rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300">
+                          확인필요
                         </span>
-                      </div>
-                      <p className="text-gray-700 dark:text-gray-300 mb-2">
-                        {stack.site.name}
-                      </p>
-                      {stack.internal && (
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                          등록: {stack.internal.organization.name} (
-                          {stack.internal.code})
-                        </p>
+                      </td>
+                      {/* 담당환경측정회사 */}
+                      <td className="px-4 py-3 text-sm">
+                        {editingStackId === stack.stackId ? (
+                          <button
+                            onClick={() => setShowOrgPicker(true)}
+                            className="text-blue-600 hover:underline"
+                          >
+                            {editingData?.organizationName || "-"}
+                          </button>
+                        ) : (
+                          stack.internal?.organization.name || "-"
+                        )}
+                      </td>
+                      {/* 생성일 */}
+                      <td className="px-4 py-3 text-sm text-center">
+                        {new Date(stack.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '-').replace('.', '')}
+                      </td>
+                      {user?.role === "CUSTOMER_ADMIN" && (
+                        <td className="px-4 py-3 text-sm text-center">
+                          <div className="flex gap-2 justify-center">
+                            {editingStackId === stack.stackId ? (
+                              <>
+                                <button
+                                  onClick={() => handleSaveEdit(stack.stackId)}
+                                  className="text-blue-600 hover:underline text-xs"
+                                >
+                                  저장
+                                </button>
+                                <button
+                                  onClick={() => handleCancelEdit()}
+                                  className="text-gray-600 hover:underline text-xs"
+                                >
+                                  취소
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => handleStartEdit(stack)}
+                                className="text-green-600 hover:underline text-xs"
+                              >
+                                수정
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleConfirm(stack.stackId)}
+                              className="text-blue-600 hover:underline text-xs"
+                            >
+                              확인완료
+                            </button>
+                          </div>
+                        </td>
                       )}
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
-                        {stack.physical.location && (
-                          <p>위치: {stack.physical.location}</p>
-                        )}
-                        {(stack.physical.height || stack.physical.diameter) && (
-                          <p>
-                            {stack.physical.height && `${stack.physical.height}m`}
-                            {stack.physical.height && stack.physical.diameter &&
-                              " / "}
-                            {stack.physical.diameter &&
-                              `Ø${stack.physical.diameter}m`}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() =>
-                          router.push(`/customer/stacks/${stack.stackId}/edit`)
-                        }
-                      >
-                        상세보기
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </>
@@ -415,36 +845,42 @@ export default function CustomerStacksPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-lg border bg-white dark:bg-gray-900">
+            <div className="overflow-x-auto max-h-[calc(100vh-200px)] overflow-y-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-800">
+                <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                       굴뚝번호
-                    </th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      확인 상태
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                       굴뚝코드
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      굴뚝 정식 명칭
+                      정식명칭
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      배출시설 종류
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      위치
+                      배출시설종류
                     </th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                       높이(m)
                     </th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      직경(m)
+                      안지름(m)
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      종별
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      확인 상태
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      담당환경측정회사
                     </th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                       측정 건수
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      생성일
                     </th>
                     {user?.role === "CUSTOMER_ADMIN" && (
                       <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
@@ -456,6 +892,9 @@ export default function CustomerStacksPage() {
                 <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                   {confirmedStacks
                     .filter((stack) => {
+                      // 비활성화 필터
+                      if (!showInactive && !stack.isActive) return false;
+                      
                       if (!searchQuery) return true;
                       const q = searchQuery.toLowerCase();
                       return (
@@ -466,9 +905,111 @@ export default function CustomerStacksPage() {
                         stack.location?.toLowerCase().includes(q)
                       );
                     })
+                    .sort((a, b) => {
+                      // 1. 확인상태 (확인필요 우선)
+                      if (a.isVerified !== b.isVerified) {
+                        return a.isVerified ? 1 : -1;
+                      }
+                      // 2. 날짜 최신순 (verifiedAt 또는 createdAt)
+                      const dateA = a.verifiedAt || a.id;
+                      const dateB = b.verifiedAt || b.id;
+                      if (dateA !== dateB) {
+                        return dateB.localeCompare(dateA);
+                      }
+                      // 3. 환경측정기업
+                      const orgA = a.organizationNames?.[0] || "";
+                      const orgB = b.organizationNames?.[0] || "";
+                      if (orgA !== orgB) {
+                        return orgA.localeCompare(orgB);
+                      }
+                      // 4. 굴뚝명칭
+                      return a.name.localeCompare(b.name);
+                    })
                     .map((stack) => (
                       <tr key={stack.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                        {/* 굴뚝번호 */}
                         <td className="px-4 py-3 text-sm font-mono">{stack.name}</td>
+                        {/* 굴뚝코드 */}
+                        <td className="px-4 py-3 text-sm font-mono">
+                          {editingStackId === stack.id ? (
+                            <input
+                              type="text"
+                              value={editingData?.code || ""}
+                              onChange={(e) => setEditingData({...editingData, code: e.target.value})}
+                              className="w-full px-2 py-1 border rounded text-sm"
+                            />
+                          ) : (
+                            stack.code || "-"
+                          )}
+                        </td>
+                        {/* 정식명칭 */}
+                        <td className="px-4 py-3 text-sm">
+                          {editingStackId === stack.id ? (
+                            <input
+                              type="text"
+                              value={editingData?.fullName || ""}
+                              onChange={(e) => setEditingData({...editingData, fullName: e.target.value})}
+                              className="w-full px-2 py-1 border rounded text-sm"
+                            />
+                          ) : (
+                            stack.fullName || "-"
+                          )}
+                        </td>
+                        {/* 배출시설종류 */}
+                        <td className="px-4 py-3 text-sm">
+                          {editingStackId === stack.id ? (
+                            <input
+                              type="text"
+                              value={editingData?.facilityType || ""}
+                              onChange={(e) => setEditingData({...editingData, facilityType: e.target.value})}
+                              className="w-full px-2 py-1 border rounded text-sm"
+                            />
+                          ) : (
+                            stack.facilityType || "-"
+                          )}
+                        </td>
+                        {/* 높이 */}
+                        <td className="px-4 py-3 text-sm text-center">
+                          {editingStackId === stack.id ? (
+                            <input
+                              type="number"
+                              step="0.1"
+                              value={editingData?.height || ""}
+                              onChange={(e) => setEditingData({...editingData, height: e.target.value})}
+                              className="w-20 px-2 py-1 border rounded text-sm"
+                            />
+                          ) : (
+                            stack.height ?? "-"
+                          )}
+                        </td>
+                        {/* 안지름 */}
+                        <td className="px-4 py-3 text-sm text-center">
+                          {editingStackId === stack.id ? (
+                            <input
+                              type="number"
+                              step="0.1"
+                              value={editingData?.diameter || ""}
+                              onChange={(e) => setEditingData({...editingData, diameter: e.target.value})}
+                              className="w-20 px-2 py-1 border rounded text-sm"
+                            />
+                          ) : (
+                            stack.diameter ?? "-"
+                          )}
+                        </td>
+                        {/* 종별 */}
+                        <td className="px-4 py-3 text-sm">
+                          {editingStackId === stack.id ? (
+                            <input
+                              type="text"
+                              value={editingData?.category || ""}
+                              onChange={(e) => setEditingData({...editingData, category: e.target.value})}
+                              className="w-20 px-2 py-1 border rounded text-sm"
+                            />
+                          ) : (
+                            stack.category || "-"
+                          )}
+                        </td>
+                        {/* 확인 상태 */}
                         <td className="px-4 py-3 text-sm text-center">
                           {stack.isVerified ? (
                             <span className="px-2 py-1 text-xs rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
@@ -480,32 +1021,85 @@ export default function CustomerStacksPage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-sm font-mono">{stack.code || "-"}</td>
-                        <td className="px-4 py-3 text-sm">{stack.fullName || "-"}</td>
-                        <td className="px-4 py-3 text-sm">{stack.facilityType || "-"}</td>
-                        <td className="px-4 py-3 text-sm">{stack.location || "-"}</td>
-                        <td className="px-4 py-3 text-sm text-center">{stack.height ?? "-"}</td>
-                        <td className="px-4 py-3 text-sm text-center">{stack.diameter ?? "-"}</td>
+                        {/* 담당환경측정회사 */}
+                        <td className="px-4 py-3 text-sm">
+                          {editingStackId === stack.id ? (
+                            <button
+                              onClick={() => setShowOrgPicker(true)}
+                              className="text-blue-600 hover:underline"
+                            >
+                              {editingData?.organizationName || "-"}
+                            </button>
+                          ) : (
+                            stack.organizationNames && stack.organizationNames.length > 0
+                              ? stack.organizationNames.join(", ")
+                              : "-"
+                          )}
+                        </td>
+                        {/* 측정 건수 */}
                         <td className="px-4 py-3 text-sm text-center">
                           {stack._count?.measurements || 0}
                         </td>
+                        {/* 생성일 */}
+                        <td className="px-4 py-3 text-sm text-center">
+                          {new Date(stack.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '-').replace('.', '')}
+                        </td>
                         {user?.role === "CUSTOMER_ADMIN" && (
                           <td className="px-4 py-3 text-sm text-center">
-                            <div className="flex gap-2 justify-center">
-                              {!stack.isVerified && (
-                                <button
-                                  onClick={() => handleVerify(stack.id)}
-                                  className="text-blue-600 hover:underline text-xs"
-                                >
-                                  확인완료
-                                </button>
+                            <div className="flex gap-2 justify-center flex-wrap">
+                              {editingStackId === stack.id ? (
+                                <>
+                                  <button
+                                    onClick={() => handleSaveEdit(stack.id)}
+                                    className="text-blue-600 hover:underline text-xs"
+                                  >
+                                    저장
+                                  </button>
+                                  <button
+                                    onClick={() => handleCancelEdit()}
+                                    className="text-gray-600 hover:underline text-xs"
+                                  >
+                                    취소
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => handleStartEdit(stack)}
+                                    className="text-green-600 hover:underline text-xs"
+                                  >
+                                    수정
+                                  </button>
+                                  {stack.isActive ? (
+                                    <button
+                                      onClick={() => handleDeactivate(stack.id)}
+                                      className="text-orange-600 hover:underline text-xs"
+                                    >
+                                      비활성화
+                                    </button>
+                                  ) : (
+                                    <>
+                                      <button
+                                        onClick={() => handleActivate(stack.id)}
+                                        className="text-green-600 hover:underline text-xs"
+                                      >
+                                        활성화
+                                      </button>
+                                      <button
+                                        onClick={() => handleDelete(stack.id, stack._count?.measurements || 0)}
+                                        className={`text-xs hover:underline ${
+                                          (stack._count?.measurements || 0) > 0
+                                            ? "text-gray-400 cursor-not-allowed"
+                                            : "text-red-600"
+                                        }`}
+                                        disabled={(stack._count?.measurements || 0) > 0}
+                                      >
+                                        삭제
+                                      </button>
+                                    </>
+                                  )}
+                                </>
                               )}
-                              <button
-                                onClick={() => router.push(`/customer/stacks/${stack.id}/edit`)}
-                                className="text-green-600 hover:underline text-xs"
-                              >
-                                수정
-                              </button>
                             </div>
                           </td>
                         )}
@@ -517,6 +1111,14 @@ export default function CustomerStacksPage() {
           )}
         </>
       )}
+
+      {/* 환경측정기업 선택 모달 */}
+      <OrganizationPickerModal
+        isOpen={showOrgPicker}
+        onClose={() => setShowOrgPicker(false)}
+        onSelect={handleOrganizationSelect}
+        currentOrgId={editingData?.organizationId}
+      />
     </section>
   );
 }

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseCSV } from "@/lib/csvParser";
+import { notifyStackCreatedByOrg } from "@/lib/notification-helper";
 
 export async function POST(req: NextRequest) {
   try {
@@ -118,7 +119,7 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        await prisma.stack.create({
+        const created = await prisma.stack.create({
           data: {
             name,
             siteCode: name, // siteCode = name (굴뚝번호)
@@ -132,8 +133,46 @@ export async function POST(req: NextRequest) {
             category: category || undefined,
             customerId: customer.id,
             isActive: true,
+            draftCreatedBy: organizationId,
+            draftCreatedAt: new Date(),
+            isVerified: false,
+            status: "PENDING_REVIEW",
           },
         });
+
+        // StackOrganization 연결 생성
+        if (organizationId) {
+          await prisma.stackOrganization.create({
+            data: {
+              stackId: created.id,
+              organizationId: organizationId,
+              requestedBy: user.id,
+            },
+          });
+        }
+
+        // 고객사에 알림 전송
+        if (organizationId) {
+          try {
+            const org = await prisma.organization.findUnique({
+              where: { id: organizationId },
+              select: { name: true }
+            });
+            
+            if (org) {
+              await notifyStackCreatedByOrg({
+                stackId: created.id,
+                stackName: created.name,
+                customerId: customer.id,
+                organizationName: org.name,
+                internalCode: created.code || undefined,
+              });
+            }
+          } catch (notifyError) {
+            console.error(`[일괄업로드] ${i + 1}행 알림 전송 실패:`, notifyError);
+          }
+        }
+
         successCount++;
       } catch (error: any) {
         errors.push(`${i + 1}행: ${error.message}`);

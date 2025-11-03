@@ -26,54 +26,53 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const organizationId = searchParams.get("organizationId");
 
-    // 필터 조건
+    // 필터 조건: 고객사가 확인하지 않은 굴뚝
     const where: any = {
       customerId,
-      status: "PENDING_REVIEW" as any,
+      isVerified: false,
+      isActive: true,
     };
 
     if (organizationId) {
       where.draftCreatedBy = organizationId;
     }
 
-    // PENDING_REVIEW 굴뚝 조회
+    // 미확인 굴뚝 조회
     const stacks = await prisma.stack.findMany({
       where,
-      include: {
-        stackCodes: {
-          where: {
-            organizationId: organizationId || undefined,
-          },
-          include: {
-            organization: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
-      },
       orderBy: {
-        draftCreatedAt: "desc",
+        createdAt: "desc",
       },
     });
 
+    // draftCreatedBy로 Organization 정보 조회
+    const organizationIds = [...new Set(stacks.map(s => s.draftCreatedBy).filter(Boolean))] as string[];
+    const organizations = await prisma.organization.findMany({
+      where: {
+        id: { in: organizationIds },
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+    const orgMap = new Map(organizations.map(o => [o.id, o]));
+
     const result = stacks.map((s) => {
-      const code = s.stackCodes[0];
+      const org = s.draftCreatedBy ? orgMap.get(s.draftCreatedBy) : null;
       return {
         stackId: s.id,
         site: {
-          code: s.siteCode,
-          name: s.siteName,
+          code: s.siteCode || s.name,
+          name: s.siteName || s.fullName || s.name,
         },
-        internal: code
+        internal: org
           ? {
-              code: code.internalCode,
-              name: code.internalName,
+              code: s.code || "-",
+              name: s.fullName,
               organization: {
-                id: code.organization.id,
-                name: code.organization.name,
+                id: org.id,
+                name: org.name,
               },
             }
           : null,
@@ -83,8 +82,11 @@ export async function GET(request: NextRequest) {
           diameter: s.diameter,
           coordinates: s.coordinates ? JSON.parse(s.coordinates) : null,
         },
+        facilityType: s.facilityType,
+        category: s.category,
         status: "PENDING_REVIEW",
         draftCreatedAt: s.draftCreatedAt?.toISOString(),
+        createdAt: s.createdAt.toISOString(),
       };
     });
 

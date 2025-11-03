@@ -64,12 +64,9 @@ export default function BulkUploadModal({
       console.log("[BulkUpload] 업로드 결과:", result);
       
       if (result.success) {
-        setMessage(`✅ ${result.message || "업로드 완료"} ${result.count ? `(${result.count}건)` : ""}`);
+        const msg = result.message || "업로드 완료";
+        setMessage(`✅ ${msg}`);
         setSelectedFile(null);
-        setTimeout(() => {
-          onClose();
-          setMessage("");
-        }, 1500);
       } else {
         console.error("[BulkUpload] 업로드 실패:", result.message);
         setMessage(`❌ ${result.message || "업로드 실패"}`);
@@ -181,20 +178,37 @@ export default function BulkUploadModal({
                 ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
                 : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300"
             }`}>
-              {message}
+              <div className="flex items-center justify-between">
+                <span>{message}</span>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setMessage("");
+                    if (message.startsWith("✅")) {
+                      handleClose();
+                    }
+                  }}
+                  className="ml-4"
+                >
+                  확인
+                </Button>
+              </div>
             </div>
           )}
         </div>
 
-        <div className="mt-6 flex justify-end gap-2">
-          <Button
-            variant="secondary"
-            onClick={handleClose}
-            disabled={uploading}
-          >
-            닫기
-          </Button>
-        </div>
+        {!message && (
+          <div className="mt-6 flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              onClick={handleClose}
+              disabled={uploading}
+            >
+              닫기
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -94,6 +94,11 @@ model Stack {
   verifiedBy  String? // 확인한 사용자 ID
   verifiedAt  DateTime? // 확인 시간
   
+  // 상태 관리
+  status         String? // DRAFT, PENDING_REVIEW, CONFIRMED
+  draftCreatedBy String? // DRAFT 생성한 환경측정기업 ID
+  draftCreatedAt DateTime? // DRAFT 생성 시간
+  
   // 생성 정보
   createdBy   String @default("SYSTEM") // 생성한 사용자 ID
   customer      Customer            @relation(fields: [customerId], references: [id])
@@ -882,6 +887,7 @@ enum NotificationType {
   STACK_CREATED_BY_CUSTOMER      // 고객사가 굴뚝 직접 등록
   STACK_UPDATED_BY_CUSTOMER      // 고객사가 굴뚝 정보 수정
   STACK_CREATED_BY_ORG           // 환경측정기업이 굴뚝 등록
+  STACK_UPDATED_BY_ORG           // 환경측정기업이 굴뚝 정보 수정
   STACK_VERIFIED_BY_CUSTOMER     // 고객사가 굴뚝 확인 완료
   STACK_INTERNAL_CODE_NEEDED     // 내부코드 지정 필요
 }

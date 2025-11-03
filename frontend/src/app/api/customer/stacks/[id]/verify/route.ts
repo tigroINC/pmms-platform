@@ -45,42 +45,83 @@ export async function POST(
     }
 
     // 이미 확인 완료된 경우
-    if (stack.isVerified) {
+    if (stack.isVerified && stack.status === "CONFIRMED") {
       return NextResponse.json({
         message: "이미 확인 완료된 굴뚝입니다.",
         data: stack,
       });
     }
 
-    // 확인 완료 처리
-    const updated = await prisma.stack.update({
-      where: { id },
-      data: {
-        isVerified: true,
-        verifiedBy: userId,
-        verifiedAt: new Date(),
-      },
-      include: {
-        customer: {
-          select: {
-            name: true,
+    // Transaction으로 확인 완료 처리
+    const updated = await prisma.$transaction(async (tx) => {
+      // 1. 굴뚝 상태 업데이트
+      const updatedStack = await tx.stack.update({
+        where: { id },
+        data: {
+          isVerified: true,
+          verifiedBy: userId,
+          verifiedAt: new Date(),
+          status: "CONFIRMED",
+        },
+        include: {
+          customer: {
+            select: {
+              name: true,
+            },
           },
         },
-      },
+      });
+
+      // 2. PENDING_REVIEW였던 경우 StackOrganization 생성
+      if (stack.status === "PENDING_REVIEW" && stack.draftCreatedBy) {
+        const existingOrg = await tx.stackOrganization.findFirst({
+          where: {
+            stackId: id,
+            organizationId: stack.draftCreatedBy,
+          },
+        });
+
+        if (!existingOrg) {
+          await tx.stackOrganization.create({
+            data: {
+              stackId: id,
+              organizationId: stack.draftCreatedBy,
+              status: "APPROVED",
+              isPrimary: true,
+              requestedBy: userId,
+              approvedBy: userId,
+              approvedAt: new Date(),
+            },
+          });
+        }
+      }
+
+      return updatedStack;
     });
+
+    // 알림 생성: 담당 환경측정기업에 알림
+    try {
+      await notifyStackVerifiedByCustomer({
+        stackId: id,
+        stackName: updated.name,
+        customerId: updated.customerId,
+        customerName: updated.customer.name,
+        verifiedBy: userId,
+      });
+    } catch (notifyError) {
+      console.error("[POST /api/customer/stacks/[id]/verify] Notification error:", notifyError);
+      // 알림 실패해도 확인은 성공
+    }
 
     // 이력 기록
     await prisma.stackHistory.create({
       data: {
         stackId: id,
-        userId,
-        userName: (session.user as any).name || "Unknown",
-        userRole,
-        action: "VERIFY",
-        field: "isVerified",
-        oldValue: "false",
+        changedBy: userId,
+        fieldName: "isVerified",
+        previousValue: "false",
         newValue: "true",
-        reason: "고객사 확인 완료",
+        changeReason: "고객사 확인 완료",
       },
     });
 

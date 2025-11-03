@@ -242,6 +242,41 @@ export async function notifyStackCreatedByOrg(params: {
 }
 
 /**
+ * 환경측정기업 굴뚝 수정 시 알림 생성
+ * 고객사 관리자에게 알림
+ */
+export async function notifyStackUpdatedByOrg(params: {
+  stackId: string;
+  stackName: string;
+  customerId: string;
+  organizationName: string;
+  changedFields: string[];
+  changeReason?: string;
+}) {
+  const adminIds = await getCustomerAdmins(params.customerId);
+  
+  if (adminIds.length === 0) {
+    console.warn("[notifyStackUpdatedByOrg] No admins to notify");
+    return;
+  }
+  
+  return await createNotification({
+    userId: adminIds,
+    type: "STACK_UPDATED_BY_ORG",
+    title: "굴뚝 정보가 수정되었습니다",
+    message: `${params.organizationName}에서 '${params.stackName}' 정보를 수정했습니다. 변경 내용을 확인해주세요.`,
+    stackId: params.stackId,
+    customerId: params.customerId,
+    metadata: {
+      stackName: params.stackName,
+      organizationName: params.organizationName,
+      changedFields: params.changedFields,
+      changeReason: params.changeReason,
+    },
+  });
+}
+
+/**
  * 고객사 굴뚝 확인 완료 시 알림 생성
  * 담당 환경측정기업의 관리자에게 알림
  */

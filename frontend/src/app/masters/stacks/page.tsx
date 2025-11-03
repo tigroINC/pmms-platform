@@ -1,11 +1,12 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import Input from "@/components/ui/Input";
-import Button from "@/components/ui/Button";
 import { Table, Thead, Tbody, Tr, Th, Td } from "@/components/ui/Table";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
 import StackFormModal from "@/components/modals/StackFormModal";
 import BulkUploadModal from "@/components/modals/BulkUploadModal";
+import { HelpCircle, X } from "lucide-react";
 
 type Stack = {
   id: string;
@@ -17,6 +18,7 @@ type Stack = {
   diameter: number | null;
   category: string | null;
   isActive: boolean;
+  createdAt: string;
   customer: { id: string; name: string; code: string | null; isActive: boolean };
   _count?: { measurements: number };
 };
@@ -115,6 +117,9 @@ function StackRow({ stack, role, onRefetch, onEdit }: { stack: Stack; role: stri
           )}
         </div>
       </Td>
+      <Td className="text-center text-sm whitespace-nowrap">
+        {new Date(stack.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '-').replace('.', '')}
+      </Td>
       {(role === "SUPER_ADMIN" || role === "ORG_ADMIN") && (
         <Td>
           <div className="flex gap-2">
@@ -145,6 +150,92 @@ function StackRow({ stack, role, onRefetch, onEdit }: { stack: Stack; role: stri
         </Td>
       )}
     </Tr>
+  );
+}
+
+// 도움말 모달 컴포넌트
+function HelpModal() {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  return (
+    <>
+      <Button size="sm" variant="secondary" onClick={() => setIsOpen(true)}>
+        <HelpCircle className="w-4 h-4 mr-1" />
+        도움말
+      </Button>
+      
+      {isOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setIsOpen(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white dark:bg-gray-800 border-b p-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold">굴뚝 관리 도움말</h2>
+              <button onClick={() => setIsOpen(false)} className="text-gray-500 hover:text-gray-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-6">
+              <section>
+                <h3 className="font-semibold text-base mb-2">📋 기본 기능</h3>
+                <ul className="list-disc list-inside text-gray-600 dark:text-gray-400 space-y-1">
+                  <li>담당 고객사의 모든 굴뚝 정보를 조회하고 관리할 수 있습니다</li>
+                  <li>검색 기능으로 굴뚝번호, 코드, 명칭, 배출시설, 고객사로 검색 가능합니다</li>
+                  <li>고객사 필터로 특정 고객사의 굴뚝만 조회할 수 있습니다</li>
+                  <li>확인필요 항목이 우선 정렬되며, 날짜 최신순으로 표시됩니다</li>
+                  <li>Excel 버튼으로 목록을 다운로드할 수 있습니다</li>
+                </ul>
+              </section>
+
+              <section>
+                <h3 className="font-semibold text-base mb-2">➕ 굴뚝 신규 추가</h3>
+                <div className="space-y-2 text-gray-600 dark:text-gray-400">
+                  <p>"+ 신규 추가" 버튼을 클릭하여 새로운 굴뚝을 등록할 수 있습니다.</p>
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded">
+                    <p className="font-medium text-blue-900 dark:text-blue-300 mb-2">필수 입력 항목:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li><strong>고객사</strong>: 굴뚝이 속한 고객사 선택</li>
+                      <li><strong>굴뚝번호</strong>: 환경측정기업 내부 코드 (예: S-001)</li>
+                      <li><strong>현장 명칭</strong>: 굴뚝의 명칭 (예: 1호 소각로)</li>
+                    </ul>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-900/20 p-3 rounded">
+                    <p className="font-medium text-gray-900 dark:text-gray-300 mb-2">선택 입력 항목:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>굴뚝코드, 배출시설 종류, 높이, 안지름, 종별 등</li>
+                    </ul>
+                  </div>
+                  <p className="text-sm italic">💡 등록한 굴뚝은 고객사의 검토대기 탭에 표시되며, 고객사에 알림이 전송됩니다.</p>
+                </div>
+              </section>
+
+              <section>
+                <h3 className="font-semibold text-base mb-2">✏️ 굴뚝 정보 수정</h3>
+                <div className="space-y-2 text-gray-600 dark:text-gray-400">
+                  <p>"수정" 버튼을 클릭하여 굴뚝 정보를 수정할 수 있습니다.</p>
+                  <p className="text-sm italic">⚠️ 수정 시 고객사에 알림이 전송되며, 모든 수정 이력이 자동으로 기록됩니다.</p>
+                </div>
+              </section>
+
+              <section>
+                <h3 className="font-semibold text-base mb-2">📤 일괄업로드</h3>
+                <div className="space-y-2 text-gray-600 dark:text-gray-400">
+                  <p>"일괄업로드" 버튼을 클릭하여 CSV 파일로 여러 굴뚝을 한 번에 등록할 수 있습니다.</p>
+                  <p className="text-sm italic">💡 양식 다운로드 후 작성하여 업로드하세요.</p>
+                </div>
+              </section>
+
+              <section>
+                <h3 className="font-semibold text-base mb-2">🔔 알림 기능</h3>
+                <ul className="list-disc list-inside text-gray-600 dark:text-gray-400 space-y-1">
+                  <li>고객사가 굴뚝 정보를 수정하면 실시간 알림을 받습니다</li>
+                  <li>고객사가 굴뚝 확인 완료 시 알림을 받습니다</li>
+                  <li>우측 상단 알림 아이콘에서 확인할 수 있습니다</li>
+                </ul>
+              </section>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -220,10 +311,21 @@ export default function StacksPage() {
         return matchesSearch && matchesCustomer && matchesCustomerActive && matchesStackActive;
       })
       .sort((a: any, b: any) => {
-        // 고객사 코드 순, 같은 고객사 내에서는 굴뚝 코드 순
+        // 1. 확인상태 (확인필요 우선)
+        if (a.isVerified !== b.isVerified) {
+          return a.isVerified ? 1 : -1;
+        }
+        // 2. 날짜 최신순
+        const dateA = a.verifiedAt || a.createdAt || a.id;
+        const dateB = b.verifiedAt || b.createdAt || b.id;
+        if (dateA !== dateB) {
+          return dateB.localeCompare(dateA);
+        }
+        // 3. 고객사 (환경측정기업 입장에서는 고객사)
         const customerCompare = (a.customer.code || a.customer.name).localeCompare(b.customer.code || b.customer.name);
         if (customerCompare !== 0) return customerCompare;
-        return (a.code || a.name).localeCompare(b.code || b.name);
+        // 4. 굴뚝명칭
+        return (a.name || "").localeCompare(b.name || "");
       });
   }, [list, q, customerFilter, showInactive, showInactiveStacks]);
 
@@ -237,8 +339,9 @@ export default function StacksPage() {
       });
       
       const data = await res.json();
+      console.log("[handleBulkUpload] API 응답:", { ok: res.ok, data });
       
-      if (res.ok) {
+      if (res.ok && data.success) {
         fetchStacks();
         return {
           success: true,
@@ -248,10 +351,11 @@ export default function StacksPage() {
       } else {
         return {
           success: false,
-          message: data.error || "업로드 실패",
+          message: data.error || data.message || "업로드 실패",
         };
       }
     } catch (error: any) {
+      console.error("[handleBulkUpload] 예외:", error);
       return {
         success: false,
         message: error.message || "오류 발생",
@@ -260,7 +364,7 @@ export default function StacksPage() {
   };
 
   const onExport = () => {
-    const header = ["굴뚝번호", "굴뚝코드", "굴뚝 정식 명칭", "배출시설 종류", "굴뚝 높이(m)", "굴뚝 안지름(m)", "굴뚝 종별(종)", "고객사", "고객사코드"];
+    const header = ["굴뚝번호", "굴뚝코드", "굴뚝 정식 명칭", "배출시설 종류", "굴뚝 높이(m)", "굴뚝 안지름(m)", "굴뚝 종별(종)", "고객사", "고객사코드", "생성일"];
     const body = filtered.map((s: any) => [
       s.name || "",
       s.code || "",
@@ -270,7 +374,8 @@ export default function StacksPage() {
       s.diameter || "",
       s.category || "",
       s.customer.name || "",
-      s.customer.code || ""
+      s.customer.code || "",
+      new Date(s.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '-').replace('.', '')
     ]);
     const csv = [header, ...body].map((cols) => cols.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"` ).join(",")).join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
@@ -335,6 +440,7 @@ export default function StacksPage() {
             비활성 굴뚝
           </label>
           <div className="flex gap-1.5 mb-1.5">
+            <HelpModal />
             {(role === "SUPER_ADMIN" || role === "ORG_ADMIN") && (
               <>
                 <Button size="sm" variant="secondary" onClick={onExport}>Excel</Button>
@@ -360,13 +466,14 @@ export default function StacksPage() {
                 <Th className="bg-gray-50 dark:bg-gray-800">안지름(m)</Th>
                 <Th className="bg-gray-50 dark:bg-gray-800">종별</Th>
                 <Th className="bg-gray-50 dark:bg-gray-800">고객사</Th>
+                <Th className="bg-gray-50 dark:bg-gray-800">생성일</Th>
                 {(role === "SUPER_ADMIN" || role === "ORG_ADMIN") && <Th className="bg-gray-50 dark:bg-gray-800">액션</Th>}
               </Tr>
             </Thead>
             <Tbody>
               {filtered.length === 0 ? (
                 <Tr>
-                  <Td colSpan={(role === "SUPER_ADMIN" || role === "ORG_ADMIN") ? 10 : 9} className="text-center text-gray-500 py-8">
+                  <Td colSpan={(role === "SUPER_ADMIN" || role === "ORG_ADMIN") ? 11 : 10} className="text-center text-gray-500 py-8">
                     등록된 굴뚝이 없습니다
                   </Td>
                 </Tr>

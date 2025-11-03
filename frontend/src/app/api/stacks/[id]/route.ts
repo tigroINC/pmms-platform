@@ -1,11 +1,101 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { notifyStackUpdatedByCustomer } from "@/lib/notification-helper";
+import { notifyStackUpdatedByCustomer, notifyStackUpdatedByOrg } from "@/lib/notification-helper";
 
 // 중요 필드 정의 (충돌 감지 대상)
 const CRITICAL_FIELDS = ['height', 'diameter', 'location', 'coordinates'];
+
+export async function GET(request: Request, { params }: { params: { id: string } }) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    }
+
+    const stack = await prisma.stack.findUnique({
+      where: { id: params.id },
+      include: {
+        customer: {
+          select: { id: true, name: true, code: true }
+        }
+      }
+    });
+
+    if (!stack) {
+      return NextResponse.json({ error: "굴뚝을 찾을 수 없습니다." }, { status: 404 });
+    }
+
+    return NextResponse.json({ data: stack });
+  } catch (error) {
+    console.error("Get stack error:", error);
+    return NextResponse.json({ error: "서버 오류" }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    }
+
+    const userRole = (session.user as any).role;
+    const organizationId = (session.user as any).organizationId;
+
+    // 권한 체크: 고객사 관리자 또는 환경측정기업 관리자/실무자
+    if (userRole !== "CUSTOMER_ADMIN" && userRole !== "ORG_ADMIN" && userRole !== "OPERATOR") {
+      return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
+    }
+
+    // 측정 데이터 확인
+    const measurementCount = await prisma.measurement.count({
+      where: { stackId: params.id }
+    });
+
+    if (measurementCount > 0) {
+      return NextResponse.json(
+        { error: "측정 데이터가 있는 굴뚝은 삭제할 수 없습니다." },
+        { status: 400 }
+      );
+    }
+
+    // 환경측정기업은 담당 고객사의 굴뚝만 삭제 가능
+    if (userRole === "ORG_ADMIN" || userRole === "OPERATOR") {
+      const stack = await prisma.stack.findUnique({
+        where: { id: params.id },
+        select: { customerId: true }
+      });
+      
+      if (!stack) {
+        return NextResponse.json({ error: "굴뚝을 찾을 수 없습니다." }, { status: 404 });
+      }
+      
+      // 해당 고객사가 이 환경측정기업의 담당 고객사인지 확인
+      const customerOrg = await prisma.customerOrganization.findFirst({
+        where: {
+          customerId: stack.customerId,
+          organizationId: organizationId,
+          status: "APPROVED"
+        }
+      });
+      
+      if (!customerOrg) {
+        return NextResponse.json({ error: "담당 고객사가 아닙니다." }, { status: 403 });
+      }
+    }
+
+    await prisma.stack.delete({
+      where: { id: params.id }
+    });
+
+    return NextResponse.json({ message: "삭제되었습니다." });
+  } catch (error) {
+    console.error("Delete stack error:", error);
+    return NextResponse.json({ error: "서버 오류" }, { status: 500 });
+  }
+}
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   const { id } = params;
@@ -70,7 +160,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         );
       }
       // 고객사 사용자는 특정 필드만 수정 가능
-      const allowedFields = ['code', 'location', 'height', 'diameter', 'coordinates', 'description', 'fullName', 'facilityType'];
+      const allowedFields = ['code', 'location', 'height', 'diameter', 'coordinates', 'description', 'fullName', 'facilityType', 'category'];
       const restrictedFields = Object.keys(body).filter(key => 
         !allowedFields.includes(key) && key !== 'changeReason' && key !== 'isActive'
       );
@@ -109,14 +199,11 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       if (body[field] !== undefined && body[field] !== (currentStack as any)[field]) {
         historyRecords.push({
           stackId: id,
-          userId,
-          userName,
-          userRole,
-          action: 'UPDATE',
-          field,
-          oldValue: (currentStack as any)[field]?.toString() || null,
+          fieldName: field,
+          previousValue: (currentStack as any)[field]?.toString() || null,
           newValue: body[field]?.toString() || null,
-          reason: body.changeReason || null,
+          changeReason: body.changeReason || null,
+          changedBy: userId,
         });
       }
     }
@@ -160,17 +247,37 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       return updated;
     });
 
-    // 알림 생성: 고객사 사용자가 수정한 경우 담당 환경측정기업 관리자에게
-    if ((userRole === "CUSTOMER_ADMIN" || userRole === "CUSTOMER_USER") && historyRecords.length > 0) {
+    // 알림 생성
+    if (historyRecords.length > 0) {
       try {
-        await notifyStackUpdatedByCustomer({
-          stackId: result.id,
-          stackName: result.name,
-          customerId: result.customerId,
-          customerName: (result as any).customer.name,
-          changedFields: historyRecords.map(h => h.field),
-          changeReason: body.changeReason,
-        });
+        if (userRole === "CUSTOMER_ADMIN" || userRole === "CUSTOMER_USER") {
+          // 고객사가 수정 → 환경측정기업에 알림
+          await notifyStackUpdatedByCustomer({
+            stackId: result.id,
+            stackName: result.name,
+            customerId: result.customerId,
+            customerName: (result as any).customer.name,
+            changedFields: historyRecords.map(h => h.fieldName),
+            changeReason: body.changeReason,
+          });
+        } else if (userRole === "ORG_ADMIN" || userRole === "OPERATOR") {
+          // 환경측정기업이 수정 → 고객사에 알림
+          const org = await prisma.organization.findUnique({
+            where: { id: (session.user as any).organizationId },
+            select: { name: true }
+          });
+          
+          if (org) {
+            await notifyStackUpdatedByOrg({
+              stackId: result.id,
+              stackName: result.name,
+              customerId: result.customerId,
+              organizationName: org.name,
+              changedFields: historyRecords.map(h => h.fieldName),
+              changeReason: body.changeReason,
+            });
+          }
+        }
       } catch (notifyError) {
         console.error("[PATCH /api/stacks/[id]] Notification error:", notifyError);
         // 알림 실패해도 수정은 성공
@@ -191,35 +298,3 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
-  const { id } = params;
-
-  try {
-    // 측정 기록 확인
-    const measurementCount = await prisma.measurement.count({
-      where: { stackId: id },
-    });
-
-    if (measurementCount > 0) {
-      return NextResponse.json(
-        { error: "측정 기록이 있는 굴뚝은 삭제할 수 없습니다" },
-        { status: 400 }
-      );
-    }
-
-    // 굴뚝 별칭 삭제
-    await prisma.stackAlias.deleteMany({
-      where: { stackId: id },
-    });
-
-    // 굴뚝 삭제
-    await prisma.stack.delete({
-      where: { id },
-    });
-
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "삭제 실패" }, { status: 500 });
-  }
-}

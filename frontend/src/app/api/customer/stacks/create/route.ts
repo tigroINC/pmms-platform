@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Stack 생성 (즉시 활성화)
+    // Stack 생성 (즉시 활성화 + 확인완료 + CONFIRMED 상태)
     const stack = await prisma.stack.create({
       data: {
         customerId,
@@ -63,6 +63,10 @@ export async function POST(request: NextRequest) {
         diameter: diameter ? parseFloat(diameter) : null,
         coordinates: coordinates ? JSON.stringify(coordinates) : null,
         isActive: true,
+        isVerified: true, // 자체 등록은 즉시 확인완료
+        verifiedBy: userId,
+        verifiedAt: new Date(),
+        status: "CONFIRMED", // 즉시 확정 상태
         createdBy: userId,
       },
       include: {

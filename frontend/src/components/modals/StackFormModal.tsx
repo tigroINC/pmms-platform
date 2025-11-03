@@ -62,9 +62,9 @@ export default function StackFormModal({ isOpen, onClose, onSuccess, stack }: St
 
   const fetchCustomers = async () => {
     try {
-      const res = await fetch("/api/customers");
+      const res = await fetch("/api/customers?tab=all");
       const json = await res.json();
-      const activeCustomers = (json.data || []).filter((c: any) => c.isActive !== false);
+      const activeCustomers = (json.customers || json.data || []).filter((c: any) => c.isActive !== false);
       setCustomers(activeCustomers.sort((a: any, b: any) => {
         if (a.code === 'CUST999') return 1;
         if (b.code === 'CUST999') return -1;
