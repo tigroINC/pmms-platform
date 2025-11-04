@@ -20,6 +20,7 @@ interface Organization {
   subscriptionPlan: string;
   subscriptionStatus: string;
   isActive: boolean;
+  hasContractManagement: boolean; // 계약 관리 기능
   createdAt: string;
   users: any[];
   _count: {
@@ -123,6 +124,30 @@ export default function OrganizationsPage() {
     // 세션 스토리지에 임시로 조회할 업체 ID 저장
     sessionStorage.setItem("viewAsOrganization", organizationId);
     router.push("/dashboard");
+  };
+
+  const handleToggleContractManagement = async (id: string, currentValue: boolean) => {
+    if (!confirm(`계약 관리 기능을 ${currentValue ? "비활성화" : "활성화"}하시겠습니까?`)) return;
+
+    try {
+      const response = await fetch(`/api/organizations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hasContractManagement: !currentValue }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(data.message || "설정이 변경되었습니다.");
+        fetchOrganizations();
+      } else {
+        alert(data.error || "설정 변경에 실패했습니다.");
+      }
+    } catch (error) {
+      console.error("Toggle contract management error:", error);
+      alert("설정 변경 중 오류가 발생했습니다.");
+    }
   };
 
   const getStatusBadge = (isActive: boolean) => {
@@ -237,8 +262,8 @@ export default function OrganizationsPage() {
         </div>
       </div>
 
-      {/* 목록 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+      {/* Desktop Table */}
+      <div className="hidden md:block bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-900">
@@ -351,6 +376,16 @@ export default function OrganizationsPage() {
                         >
                           시스템 보기
                         </button>
+                        <button
+                          onClick={() => handleToggleContractManagement(org.id, org.hasContractManagement)}
+                          className={`px-3 py-1 rounded text-left ${
+                            org.hasContractManagement
+                              ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900 dark:text-green-200"
+                              : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
+                          }`}
+                        >
+                          {org.hasContractManagement ? "계약관리 ON" : "계약관리 OFF"}
+                        </button>
                       </div>
                     )}
                   </td>
@@ -364,6 +399,67 @@ export default function OrganizationsPage() {
           <div className="text-center py-12 text-gray-500 dark:text-gray-400">
             등록된 공급회사가 없습니다.
           </div>
+        )}
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {organizations.length === 0 ? (
+          <div className="rounded-lg border bg-white/50 dark:bg-white/5 p-6 text-center text-gray-500">
+            등록된 공급회사가 없습니다.
+          </div>
+        ) : (
+          organizations.map((org) => (
+            <div key={org.id} className="rounded-lg border bg-white/50 dark:bg-white/5 p-4 space-y-2">
+              <div className="flex items-center justify-between mb-2">
+                <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(org.isActive)}`}>
+                  {org.isActive ? "활성" : "승인 대기"}
+                </span>
+                <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getPlanBadge(org.subscriptionPlan)}`}>
+                  {org.subscriptionPlan}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-2 text-sm">
+                <div className="font-medium text-lg">{org.name}</div>
+                <div><span className="text-gray-500">🏢 업태:</span> {org.businessType || "-"}</div>
+                <div><span className="text-gray-500">💼 사업자:</span> {org.businessNumber || "-"}</div>
+                {org.users[0] && (
+                  <div>
+                    <span className="text-gray-500">👤 관리자:</span> {org.users[0].name}
+                    <div className="text-xs text-gray-500 ml-6">{org.users[0].email}</div>
+                  </div>
+                )}
+                <div><span className="text-gray-500">👥 사용자/고객사:</span> {org._count.users} / {org._count.customers}</div>
+                <div><span className="text-gray-500">📅 등록일:</span> {new Date(org.createdAt).toLocaleDateString()}</div>
+                <div className="flex flex-col gap-2 pt-2">
+                  {!org.isActive ? (
+                    <>
+                      <button onClick={() => handleApprove(org.id)} className="w-full px-3 py-2 bg-green-500 text-white hover:bg-green-600 rounded text-sm">
+                        승인
+                      </button>
+                      <button onClick={() => handleReject(org.id)} className="w-full px-3 py-2 bg-gray-500 text-white hover:bg-gray-600 rounded text-sm">
+                        거부
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={() => router.push(`/admin/organizations/${org.id}`)} className="w-full px-3 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded text-sm">
+                        상세
+                      </button>
+                      <button onClick={() => handleViewSystem(org.id)} className="w-full px-3 py-2 bg-purple-500 text-white hover:bg-purple-600 rounded text-sm">
+                        시스템 보기
+                      </button>
+                      <button onClick={() => handleToggleContractManagement(org.id, org.hasContractManagement)} className={`w-full px-3 py-2 rounded text-sm text-white ${
+                        org.hasContractManagement ? "bg-green-500 hover:bg-green-600" : "bg-gray-500 hover:bg-gray-600"
+                      }`}>
+                        {org.hasContractManagement ? "계약관리 ON" : "계약관리 OFF"}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
         )}
       </div>
       </div>

@@ -375,8 +375,8 @@ export default function LimitsPage() {
         </div>
       </div>
 
-      {/* 배출허용기준 목록 테이블 */}
-      <div className="rounded-lg border overflow-x-auto max-h-[calc(100vh-180px)] overflow-y-auto">
+      {/* Desktop Table */}
+      <div className="hidden md:block rounded-lg border overflow-x-auto max-h-[calc(100vh-180px)] overflow-y-auto">
         <Table className="min-w-[1200px]">
           <Thead className="bg-gray-50 dark:bg-white/10 sticky top-0 z-10">
             <Tr>
@@ -494,6 +494,79 @@ export default function LimitsPage() {
             )}
           </Tbody>
         </Table>
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {filtered.length === 0 ? (
+          <div className="rounded-lg border bg-white/50 dark:bg-white/5 p-6 text-center text-gray-500">
+            설정된 배출허용기준이 없습니다
+          </div>
+        ) : (
+          filtered.map((limit) => {
+            const isActive = limit.isActive !== false;
+            return (
+              <div key={limit.id} className={`rounded-lg border bg-white/50 dark:bg-white/5 p-4 space-y-2 ${!isActive ? "opacity-50" : ""}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex gap-2 items-center">
+                    <span className={`inline-block px-2 py-0.5 rounded text-xs ${isActive ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"}`}>
+                      {isActive ? "활성" : "비활성"}
+                    </span>
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${
+                      limit.stackId ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300" :
+                      limit.customerId ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" :
+                      "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
+                    }`}>
+                      {getScope(limit)}
+                    </span>
+                  </div>
+                  {(role === "SUPER_ADMIN" || role === "ORG_ADMIN") && (
+                    <div className="flex gap-2">
+                      <button onClick={() => handleEdit(limit)} className="text-xs text-blue-600 hover:underline">수정</button>
+                      <button onClick={() => toggleActive(limit)} className="text-xs text-blue-600 hover:underline">
+                        {isActive ? "비활성화" : "활성화"}
+                      </button>
+                      {!isActive && (
+                        <button onClick={() => handleDelete(limit)} className="text-xs text-gray-600 hover:underline">삭제</button>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><span className="text-gray-500">📍 고객사:</span> {getCustomerName(limit.customerId)}</div>
+                  <div><span className="text-gray-500">🏭 굴뚝:</span> {getStackName(limit.stackId)}</div>
+                  <div>
+                    <span className="text-gray-500">🏷️ 구분:</span>{" "}
+                    <span className={`px-2 py-1 rounded text-xs ${
+                      getItemCategory(limit.itemKey) === "오염물질" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" :
+                      getItemCategory(limit.itemKey) === "보조항목" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" :
+                      "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
+                    }`}>
+                      {getItemCategory(limit.itemKey) || "-"}
+                    </span>
+                  </div>
+                  <div><span className="text-gray-500">📋 코드:</span> {limit.itemKey}</div>
+                  <div className="col-span-2">
+                    <span className="text-gray-500">📝 항목:</span> {getItemName(limit.itemKey)}
+                    {(limit as any).isDefault && (
+                      <span className="ml-2 inline-block px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300 text-xs">기본값</span>
+                    )}
+                  </div>
+                  <div><span className="text-gray-500">📏 단위:</span> {getItemUnit(limit.itemKey)}</div>
+                  <div><span className="text-gray-500">⚠️ 기준:</span> <span className="font-semibold">{limit.limit}</span></div>
+                  <div className="col-span-2"><span className="text-gray-500">🗺️ 지역:</span> {limit.region || "-"}</div>
+                  {(role === "SUPER_ADMIN" || role === "ORG_ADMIN") && !(limit as any).isDefault && (
+                    <div className="col-span-2 pt-2">
+                      <button onClick={() => handleResetToDefault(limit)} className="w-full px-3 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm">
+                        기본값으로
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* 수정/추가 모달 */}

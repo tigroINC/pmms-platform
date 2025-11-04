@@ -49,8 +49,63 @@ export async function GET(
       return NextResponse.json({ error: "사용자를 찾을 수 없습니다." }, { status: 404 });
     }
 
-    // 권한 계산
-    const permissions = {
+    // 권한 계산 - 배열 형태로 반환
+    const permissionSet = new Set<string>();
+
+    // 1. 시스템 기본 역할 권한
+    const rolePermissionMap: Record<string, string[]> = {
+      SUPER_ADMIN: ['*'], // 모든 권한
+      ORG_ADMIN: [
+        'customer.*', 'user.*', 'measurement.*', 'report.*',
+        'stack.*', 'item.*', 'limit.*', 'connection.*', 'organization.*', 'assignment.*'
+      ],
+      OPERATOR: [
+        'customer.view', 'measurement.create', 'measurement.update',
+        'measurement.read', 'stack.read', 'item.read', 'limit.read', 'report.read'
+      ],
+      CUSTOMER_ADMIN: [
+        'measurement.read', 'report.read', 'stack.read', 'stack.update',
+        'user.create', 'user.read', 'user.update', 'connection.approve',
+        'measurement.comment', 'alert.manage'
+      ],
+      CUSTOMER_USER: [
+        'measurement.read', 'report.read', 'stack.read'
+      ]
+    };
+
+    const systemPermissions = rolePermissionMap[user.role] || [];
+    systemPermissions.forEach(p => permissionSet.add(p));
+
+    // 2. 커스텀 역할 권한 (템플릿 + 역할 권한)
+    if (user.customRole) {
+      // 템플릿 기본 권한
+      if (user.customRole.template) {
+        user.customRole.template.defaultPermissions.forEach(p => {
+          permissionSet.add(p.permissionCode);
+        });
+      }
+      
+      // 역할 레벨 권한 조정
+      user.customRole.permissions.forEach(p => {
+        if (p.granted) {
+          permissionSet.add(p.permissionCode);
+        } else {
+          permissionSet.delete(p.permissionCode);
+        }
+      });
+    }
+
+    // 3. 사용자 개별 권한 (최우선)
+    user.customPermissions.forEach(p => {
+      if (p.granted) {
+        permissionSet.add(p.permissionCode);
+      } else {
+        permissionSet.delete(p.permissionCode);
+      }
+    });
+
+    // 상세 정보도 함께 반환
+    const permissionsDetail = {
       // 시스템 기본 역할
       systemRole: user.role,
       
@@ -76,7 +131,10 @@ export async function GET(
       })),
     };
 
-    return NextResponse.json({ permissions });
+    return NextResponse.json({ 
+      permissions: Array.from(permissionSet),
+      detail: permissionsDetail 
+    });
   } catch (error: any) {
     console.error("Get user permissions error:", error);
     return NextResponse.json(

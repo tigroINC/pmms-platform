@@ -44,6 +44,11 @@ model Customer {
   draftCreatedBy String? // organizationId
   draftCreatedAt DateTime?
 
+  // 정보 수정 확인 시스템
+  isVerified      Boolean @default(true) // 고객사 확인 여부
+  lastModifiedBy  String? // "ORG" | "CUSTOMER"
+  lastModifiedAt  DateTime?
+
   isActive          Boolean                @default(true) // 활성 상태
   stacks            Stack[]
   measurements      Measurement[]
@@ -55,6 +60,7 @@ model Customer {
   invitations       CustomerInvitation[] // 초대 링크
   customRoles       CustomRole[] // 고객사 커스텀 역할
   notifications     Notification[] // 알림
+  contracts         Contract[] // 계약 관리
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
 
@@ -271,6 +277,9 @@ model Organization {
   lastPaymentAt  DateTime?
   nextBillingAt  DateTime?
 
+  // 기능 플래그
+  hasContractManagement Boolean @default(false) // 계약 관리 기능 활성화
+
   // 관계
   users               User[]
   subscriptionHistory SubscriptionHistory[]
@@ -282,6 +291,7 @@ model Organization {
   measurements        Measurement[] // 측정 데이터
   invitations         CustomerInvitation[] // 고객사 초대
   customRoles         CustomRole[] // 조직 커스텀 역할
+  contracts           Contract[] // 계약 관리
 
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -530,6 +540,8 @@ model CustomerOrganization {
 
   // 계약 만료 알림 관리
   notified30Days Boolean @default(false)
+  notified21Days Boolean @default(false)
+  notified14Days Boolean @default(false)
   notified7Days  Boolean @default(false)
   notifiedExpiry Boolean @default(false)
 
@@ -890,6 +902,14 @@ enum NotificationType {
   STACK_UPDATED_BY_ORG           // 환경측정기업이 굴뚝 정보 수정
   STACK_VERIFIED_BY_CUSTOMER     // 고객사가 굴뚝 확인 완료
   STACK_INTERNAL_CODE_NEEDED     // 내부코드 지정 필요
+  CUSTOMER_INFO_UPDATED_BY_ORG   // 환경측정기업이 고객사 정보 수정
+  CUSTOMER_INFO_UPDATED_BY_CUSTOMER // 고객사가 자신의 정보 수정
+  CONTRACT_EXPIRY_30             // 계약 만료 30일 전
+  CONTRACT_EXPIRY_21             // 계약 만료 21일 전
+  CONTRACT_EXPIRY_14             // 계약 만료 14일 전
+  CONTRACT_EXPIRY_7              // 계약 만료 7일 전
+  CONTRACT_EXPIRY_DAILY          // 계약 만료 6~1일 전 (매일)
+  CONTRACT_EXPIRED               // 계약 만료
 }
 
 // 알림
@@ -975,6 +995,36 @@ model MeasurementTemp {
   @@index([createdBy])
   @@index([customerId])
   @@index([stackId])
+}
+
+// 계약 관리
+model Contract {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  customerId     String
+  customer       Customer @relation(fields: [customerId], references: [id])
+  
+  // 계약 기간
+  startDate      DateTime
+  endDate        DateTime
+  
+  // 상태
+  status         String   @default("ACTIVE") // ACTIVE, EXPIRING, EXPIRED
+  
+  // 알림 이력
+  lastNotifiedAt DateTime?
+  
+  // 메모
+  memo           String?
+  
+  // 생성 정보
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  @@index([organizationId])
+  @@index([customerId])
   @@index([status])
-  @@index([tempId])
+  @@index([endDate])
 }

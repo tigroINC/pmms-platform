@@ -23,6 +23,10 @@ interface User {
   createdAt: string;
   organization: any;
   customer: any;
+  customRole?: {
+    id: string;
+    name: string;
+  } | null;
 }
 
 export default function UsersManagementPage() {
@@ -279,14 +283,12 @@ export default function UsersManagementPage() {
       <AdminHeader />
       
       <div className="max-w-7xl mx-auto p-8">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">사용자 관리</h1>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              회원 가입 승인 및 사용자 정보를 관리합니다.
-            </p>
-          </div>
-          <div className="flex gap-2">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">사용자 관리</h1>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            회원 가입 승인 및 사용자 정보를 관리합니다.
+          </p>
+          <div className="flex gap-2 mt-4">
             <button
               onClick={() => setShowHelp(true)}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
@@ -353,8 +355,8 @@ export default function UsersManagementPage() {
         </label>
       </div>
 
-      {/* 테이블 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+      {/* Desktop Table */}
+      <div className="hidden md:block bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto max-h-[calc(100vh-280px)]">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0 z-10">
@@ -408,27 +410,34 @@ export default function UsersManagementPage() {
                     {user.name}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
-                    {(session?.user as any)?.role === "SUPER_ADMIN" && user.status === "APPROVED" ? (
-                      <select
-                        value={user.role}
-                        onChange={(e) => handleChangeRole(user.id, e.target.value, user.role)}
-                        className={`px-2 py-1 text-xs font-semibold rounded-full border-0 cursor-pointer ${getRoleBadge(user.role)}`}
-                      >
-                        {getRoleOptions(user.role).map((role) => (
-                          <option key={role.value} value={role.value}>
-                            {role.label}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span
-                        className={`px-2 py-1 text-xs font-semibold rounded-full ${getRoleBadge(
-                          user.role
-                        )}`}
-                      >
-                        {getRoleName(user.role)}
-                      </span>
-                    )}
+                    <div className="flex flex-col gap-1">
+                      {(session?.user as any)?.role === "SUPER_ADMIN" && user.status === "APPROVED" ? (
+                        <select
+                          value={user.role}
+                          onChange={(e) => handleChangeRole(user.id, e.target.value, user.role)}
+                          className={`px-2 py-1 text-xs font-semibold rounded-full border-0 cursor-pointer ${getRoleBadge(user.role)}`}
+                        >
+                          {getRoleOptions(user.role).map((role) => (
+                            <option key={role.value} value={role.value}>
+                              {role.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span
+                          className={`px-2 py-1 text-xs font-semibold rounded-full ${getRoleBadge(
+                            user.role
+                          )}`}
+                        >
+                          {getRoleName(user.role)}
+                        </span>
+                      )}
+                      {user.customRole && (
+                        <span className="px-2 py-1 text-xs bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200 rounded">
+                          커스텀: {user.customRole.name}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
                     {user.companyName || "-"}
@@ -480,11 +489,65 @@ export default function UsersManagementPage() {
         </div>
       </div>
 
-      {filtered.length === 0 && (
-        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-          사용자가 없습니다.
-        </div>
-      )}
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {filtered.length === 0 ? (
+          <div className="rounded-lg border bg-white/50 dark:bg-white/5 p-6 text-center text-gray-500">
+            사용자가 없습니다.
+          </div>
+        ) : (
+          filtered.map((user) => (
+            <div key={user.id} className="rounded-lg border bg-white/50 dark:bg-white/5 p-4 space-y-2">
+              <div className="flex items-center justify-between mb-2">
+                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(user.status)}`}>
+                  {user.status === "PENDING" && "승인 대기"}
+                  {user.status === "APPROVED" && "승인됨"}
+                  {user.status === "REJECTED" && "거부됨"}
+                  {user.status === "SUSPENDED" && "정지"}
+                  {user.status === "WITHDRAWN" && "탈퇴"}
+                </span>
+                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getRoleBadge(user.role)}`}>
+                  {getRoleName(user.role)}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-2 text-sm">
+                <div className="font-medium text-lg">{user.name}</div>
+                <div><span className="text-gray-500">📧 이메일:</span> {user.email}</div>
+                <div><span className="text-gray-500">🏢 회사:</span> {user.companyName || "-"}</div>
+                {user.department && <div><span className="text-gray-500">📍 부서:</span> {user.department}</div>}
+                {user.customRole && (
+                  <div><span className="text-gray-500">🎯 커스텀 역할:</span> {user.customRole.name}</div>
+                )}
+                <div><span className="text-gray-500">📅 가입일:</span> {new Date(user.createdAt).toLocaleDateString()}</div>
+                <div className="flex flex-col gap-2 pt-2">
+                  {user.status === "PENDING" && (
+                    <>
+                      <button onClick={() => handleApprove(user.id)} className="w-full px-3 py-2 bg-green-500 text-white hover:bg-green-600 rounded text-sm">
+                        승인
+                      </button>
+                      <button onClick={() => handleReject(user.id)} className="w-full px-3 py-2 bg-gray-500 text-white hover:bg-gray-600 rounded text-sm">
+                        거부
+                      </button>
+                    </>
+                  )}
+                  {user.status === "APPROVED" && (
+                    <>
+                      <button onClick={() => handleToggleActive(user.id, user.isActive)} className="w-full px-3 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded text-sm">
+                        {user.isActive ? "비활성화" : "활성화"}
+                      </button>
+                      {!user.isActive && (
+                        <button onClick={() => handleDelete(user.id)} className="w-full px-3 py-2 bg-gray-500 text-white hover:bg-gray-600 rounded text-sm">
+                          삭제
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
       </div>
 
       {/* 도움말 모달 */}

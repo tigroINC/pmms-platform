@@ -271,8 +271,8 @@ export default function TempDataManagement() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="rounded-lg border overflow-x-auto max-h-[calc(100vh-180px)] overflow-y-auto">
+      {/* Desktop Table - hidden on mobile */}
+      <div className="hidden md:block rounded-lg border overflow-x-auto max-h-[calc(100vh-180px)] overflow-y-auto">
         {data.length === 0 && !loading ? (
           <div className="p-6 text-sm text-gray-500">조건에 맞는 데이터가 없습니다.</div>
         ) : (
@@ -377,6 +377,71 @@ export default function TempDataManagement() {
             <Button variant="secondary" size="sm" onClick={()=>setPage((p)=>Math.min(totalPages,p+1))} disabled={page===totalPages}>다음</Button>
           </div>
         </div>
+      </div>
+
+      {/* Mobile Card View - visible only on mobile */}
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          <div className="rounded-lg border bg-white/50 dark:bg-white/5 p-6 text-center text-gray-500">
+            로딩 중...
+          </div>
+        ) : data.length === 0 ? (
+          <div className="rounded-lg border bg-white/50 dark:bg-white/5 p-6 text-center text-gray-500">
+            조건에 맞는 데이터가 없습니다.
+          </div>
+        ) : (
+          <>
+            {data.map((row: any, idx: number) => (
+              <div key={`${row.tempId}_${row.pollutant}_${idx}`} className="rounded-lg border bg-white/50 dark:bg-white/5 p-4 space-y-2">
+                <div className="flex items-start justify-between mb-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(row.id)}
+                    onChange={(e) => handleSelect(row.id, e.target.checked)}
+                    className="accent-blue-500 mt-1"
+                  />
+                  <button
+                    onClick={() => handleDelete(row.id)}
+                    className="text-xs text-red-600 hover:underline"
+                  >
+                    삭제
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><span className="text-gray-500">📍 고객사:</span> {row.customer}</div>
+                  <div><span className="text-gray-500">🏭 굴뚝:</span> {row.stack}</div>
+                  <div className="col-span-2"><span className="text-gray-500">📅 측정일:</span> {row.measuredAt}</div>
+                  <div><span className="text-gray-500">🧪 오염물질:</span> {row.pollutant}</div>
+                  <div><span className="text-gray-500">📊 농도:</span> {row.value}</div>
+                  <div><span className="text-gray-500">⚠️ 기준:</span> {row.limit ?? "-"}</div>
+                  <div><span className="text-gray-500">✅ 체크:</span> {row.limitCheck}</div>
+                  <div><span className="text-gray-500">🌤️ 기상:</span> {row.weather || "-"}</div>
+                  <div><span className="text-gray-500">🌡️ 기온:</span> {row.temp || "-"}℃</div>
+                  <div><span className="text-gray-500">💧 습도:</span> {row.humidity || "-"}%</div>
+                  <div><span className="text-gray-500">🎚️ 기압:</span> {row.pressure || "-"}mmHg</div>
+                  <div><span className="text-gray-500">🧭 풍향:</span> {row.windDir || "-"}</div>
+                  <div><span className="text-gray-500">💨 풍속:</span> {row.windSpeed || "-"}m/s</div>
+                  <div><span className="text-gray-500">🔥 가스온도:</span> {row.gasTemp || "-"}℃</div>
+                  <div><span className="text-gray-500">💨 가스속도:</span> {row.gasVel || "-"}m/s</div>
+                  <div><span className="text-gray-500">💧 수분:</span> {row.moisture || "-"}%</div>
+                  <div><span className="text-gray-500">🫧 실측O₂:</span> {row.o2Measured || "-"}%</div>
+                  <div><span className="text-gray-500">🫧 표준O₂:</span> {row.o2Standard || "-"}%</div>
+                  <div><span className="text-gray-500">🌊 유량:</span> {row.flowRate || "-"}S㎥/min</div>
+                  <div><span className="text-gray-500">🏢 업체:</span> {row.company}</div>
+                  <div><span className="text-gray-500">👤 입력자:</span> {row.createdBy}</div>
+                  <div className="col-span-2 text-xs text-gray-400 font-mono break-all">ID: {row.tempId}</div>
+                </div>
+              </div>
+            ))}
+            <div className="rounded-lg border bg-white/50 dark:bg-white/5 p-3 flex items-center justify-between text-xs text-gray-500">
+              <div>총 {total}건 · {page}/{totalPages} 페이지</div>
+              <div className="flex gap-2 items-center">
+                <Button variant="secondary" size="sm" onClick={()=>setPage((p)=>Math.max(1,p-1))} disabled={page===1}>이전</Button>
+                <Button variant="secondary" size="sm" onClick={()=>setPage((p)=>Math.min(totalPages,p+1))} disabled={page===totalPages}>다음</Button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

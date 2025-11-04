@@ -128,12 +128,26 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || (session.user as any).role !== "SUPER_ADMIN") {
+    if (!session) {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    }
+
+    const userRole = (session.user as any).role;
+    const userOrgId = (session.user as any).organizationId;
+    const isSuperAdmin = userRole === "SUPER_ADMIN";
+    const isOrgAdmin = userRole === "ORG_ADMIN" && userOrgId === params.id;
+
+    if (!isSuperAdmin && !isOrgAdmin) {
       return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     }
 
     const body = await request.json();
     const { action, ...updateData } = body;
+
+    // 승인/거부는 SUPER_ADMIN만 가능
+    if (action === "approve" && !isSuperAdmin) {
+      return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
+    }
 
     // 승인 처리
     if (action === "approve") {
@@ -187,7 +201,11 @@ export async function PATCH(
       });
     }
 
-    // 거부 처리
+    // 거부 처리 (SUPER_ADMIN만)
+    if (action === "reject" && !isSuperAdmin) {
+      return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
+    }
+
     if (action === "reject") {
       const result = await prisma.$transaction(async (tx) => {
         // Organization 비활성화

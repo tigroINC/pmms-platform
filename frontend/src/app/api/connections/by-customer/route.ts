@@ -15,6 +15,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const customerId = searchParams.get('customerId');
 
+    console.log("[API /api/connections/by-customer] customerId:", customerId);
+
     if (!customerId) {
       return NextResponse.json(
         { error: "고객사 ID가 필요합니다." },
@@ -44,11 +46,64 @@ export async function GET(request: NextRequest) {
       ],
     });
 
-    return NextResponse.json({ connections });
+    console.log("[API /api/connections/by-customer] Found connections:", connections.length);
+    console.log("[API /api/connections/by-customer] Connections:", connections.map(c => ({
+      id: c.id,
+      orgName: c.organization.name,
+      status: c.status
+    })));
+
+    // 계약 정보 조회
+    let contracts: any[] = [];
+    if (connections.length > 0) {
+      const organizationIds = connections.map(c => c.organizationId);
+      contracts = await prisma.contract.findMany({
+        where: {
+          customerId,
+          organizationId: { in: organizationIds },
+        },
+        select: {
+          organizationId: true,
+          startDate: true,
+          endDate: true,
+        },
+      });
+    }
+
+    console.log("[API /api/connections/by-customer] Found contracts:", contracts.length);
+
+    // 계약 정보 매핑
+    const now = new Date();
+    const connectionsWithContracts = connections.map(conn => {
+      const contract = contracts.find(c => c.organizationId === conn.organizationId);
+      let daysRemaining = null;
+      
+      if (contract) {
+        const endDate = new Date(contract.endDate);
+        const diffTime = endDate.getTime() - now.getTime();
+        daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      }
+      
+      return {
+        id: conn.id,
+        status: conn.status,
+        requestedBy: conn.requestedBy,
+        customCode: conn.customCode,
+        createdAt: conn.createdAt,
+        organization: conn.organization,
+        contractStartDate: contract?.startDate || null,
+        contractEndDate: contract?.endDate || null,
+        daysRemaining,
+      };
+    });
+
+    return NextResponse.json({ connections: connectionsWithContracts });
   } catch (error: any) {
     console.error("Get customer organizations error:", error);
+    console.error("Error message:", error.message);
+    console.error("Error stack:", error.stack);
     return NextResponse.json(
-      { error: "연결 목록 조회 중 오류가 발생했습니다." },
+      { error: "연결 목록 조회 중 오류가 발생했습니다.", details: error.message },
       { status: 500 }
     );
   }

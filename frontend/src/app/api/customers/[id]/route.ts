@@ -118,21 +118,90 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     }
 
     // 일반 정보 수정
+    const currentCustomer = await prisma.customer.findUnique({
+      where: { id },
+    });
+
     const updateData: any = {};
-    if (body.isActive !== undefined) updateData.isActive = body.isActive;
-    if (body.name) updateData.name = body.name;
-    if (body.fullName !== undefined) updateData.fullName = body.fullName;
-    if (body.code !== undefined) updateData.code = body.code;
-    if (body.businessNumber !== undefined) updateData.businessNumber = body.businessNumber;
-    if (body.address !== undefined) updateData.address = body.address;
-    if (body.industry !== undefined) updateData.industry = body.industry;
-    if (body.siteType !== undefined) updateData.siteType = body.siteType;
-    if (body.siteCategory !== undefined) updateData.siteCategory = body.siteCategory;
+    const changes: string[] = [];
+
+    if (body.name !== undefined && body.name !== currentCustomer?.name) {
+      updateData.name = body.name;
+      changes.push(`회사명: ${currentCustomer?.name} → ${body.name}`);
+    }
+    if (body.businessNumber !== undefined && body.businessNumber !== currentCustomer?.businessNumber) {
+      updateData.businessNumber = body.businessNumber;
+      changes.push(`사업자번호: ${currentCustomer?.businessNumber || '없음'} → ${body.businessNumber}`);
+    }
+    if (body.address !== undefined && body.address !== currentCustomer?.address) {
+      updateData.address = body.address;
+      changes.push(`주소: ${currentCustomer?.address || '없음'} → ${body.address}`);
+    }
+    if (body.industry !== undefined && body.industry !== currentCustomer?.industry) {
+      updateData.industry = body.industry;
+      changes.push(`업종: ${currentCustomer?.industry || '없음'} → ${body.industry}`);
+    }
+    if (body.siteType !== undefined && body.siteType !== currentCustomer?.siteType) {
+      updateData.siteType = body.siteType;
+      changes.push(`사업장: ${currentCustomer?.siteType || '없음'} → ${body.siteType}`);
+    }
+    if (body.siteCategory !== undefined && body.siteCategory !== currentCustomer?.siteCategory) {
+      updateData.siteCategory = body.siteCategory;
+      changes.push(`사업장종별: ${currentCustomer?.siteCategory || '없음'} → ${body.siteCategory}`);
+    }
+    if (body.phone !== undefined && body.phone !== currentCustomer?.phone) {
+      updateData.phone = body.phone;
+      changes.push(`전화번호: ${currentCustomer?.phone || '없음'} → ${body.phone}`);
+    }
+    if (body.email !== undefined && body.email !== currentCustomer?.email) {
+      updateData.email = body.email;
+      changes.push(`이메일: ${currentCustomer?.email || '없음'} → ${body.email}`);
+    }
+    if (body.contactPerson !== undefined && body.contactPerson !== currentCustomer?.contactPerson) {
+      updateData.contactPerson = body.contactPerson;
+      changes.push(`담당자: ${currentCustomer?.contactPerson || '없음'} → ${body.contactPerson}`);
+    }
+    if (body.contactPhone !== undefined && body.contactPhone !== currentCustomer?.contactPhone) {
+      updateData.contactPhone = body.contactPhone;
+      changes.push(`담당자연락처: ${currentCustomer?.contactPhone || '없음'} → ${body.contactPhone}`);
+    }
+
+    // 환경측정기업이 수정하는 경우 확인 필요 상태로 설정
+    updateData.isVerified = false;
+    updateData.lastModifiedBy = "ORG";
+    updateData.lastModifiedAt = new Date();
 
     const updated = await prisma.customer.update({
       where: { id },
       data: updateData,
     });
+
+    // 해당 고객사의 관리자에게 알림 발송
+    const customerAdmins = await prisma.user.findMany({
+      where: {
+        customerId: id,
+        role: "CUSTOMER_ADMIN",
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    const changeMessage = changes.length > 0
+      ? `환경측정기업이 조직 정보를 수정했습니다.\n변경 내역: ${changes.join(', ')}`
+      : "환경측정기업이 조직 정보를 수정했습니다.";
+
+    for (const admin of customerAdmins) {
+      await prisma.notification.create({
+        data: {
+          userId: admin.id,
+          type: "CUSTOMER_INFO_UPDATED_BY_ORG",
+          title: "조직 정보 수정",
+          message: changeMessage,
+          customerId: id,
+        },
+      });
+    }
     
     return NextResponse.json({ message: "고객회사 정보가 수정되었습니다.", customer: updated });
   } catch (err: any) {

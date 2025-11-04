@@ -48,7 +48,16 @@ export async function GET(request: NextRequest) {
 
     const organizations = await prisma.organization.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        name: true,
+        businessNumber: true,
+        subscriptionPlan: true,
+        subscriptionStatus: true,
+        isActive: true,
+        hasContractManagement: true, // 계약 관리 기능 플래그
+        createdAt: true,
+        updatedAt: true,
         users: {
           where: { role: "ORG_ADMIN" },
           select: {

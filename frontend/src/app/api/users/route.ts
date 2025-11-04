@@ -40,6 +40,12 @@ export async function GET(request: NextRequest) {
       include: {
         organization: true,
         customer: true,
+        customRole: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",

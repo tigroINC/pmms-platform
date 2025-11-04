@@ -210,9 +210,10 @@ export default function RolesManagementPage() {
           )}
         </div>
 
-        {/* 커스텀 역할 목록 */}
+        {/* Desktop Table */}
         {activeTab === "custom" && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          <>
+          <div className="hidden md:block bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
@@ -270,6 +271,38 @@ export default function RolesManagementPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-3">
+            {customRoles
+              .filter((role) => 
+                search === "" || 
+                role.name.toLowerCase().includes(search.toLowerCase()) ||
+                role.description?.toLowerCase().includes(search.toLowerCase())
+              )
+              .map((role) => (
+                <div key={role.id} className="rounded-lg border bg-white/50 dark:bg-white/5 p-4 space-y-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="font-medium text-lg">{role.name}</div>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 text-sm">
+                    <div><span className="text-gray-500">📝 설명:</span> {role.description || "-"}</div>
+                    <div><span className="text-gray-500">📦 템플릿:</span> {role.template ? role.template.name : "-"}</div>
+                    <div><span className="text-gray-500">🔑 권한:</span> {role.permissions.filter(p => p.granted).length}개</div>
+                    <div><span className="text-gray-500">👥 사용자:</span> {role._count.users}명</div>
+                    <div className="flex gap-2 pt-2">
+                      <button onClick={() => router.push(`/org/settings/roles/${role.id}`)} className="flex-1 px-3 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded text-sm">
+                        수정
+                      </button>
+                      <button onClick={() => handleDeleteRole(role.id)} disabled={role._count.users > 0} className="flex-1 px-3 py-2 bg-gray-500 text-white hover:bg-gray-600 rounded text-sm disabled:opacity-50">
+                        삭제
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+          </div>
+          </>
         )}
 
       {/* 역할 템플릿 목록 */}

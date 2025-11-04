@@ -58,11 +58,17 @@ export default function DashboardPage() {
   const { data: session } = useSession();
   const userRole = (session?.user as any)?.role;
   const userCustomerId = (session?.user as any)?.customerId;
-  const isCustomerUser = userRole === "CUSTOMER_ADMIN" || userRole === "CUSTOMER_USER";
   
   // 고객사 사용자의 환경측정기업 목록
   const [customerOrganizations, setCustomerOrganizations] = useState<any[]>([]);
   const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>("전체");
+
+  // 시스템 보기 모드 확인
+  const viewAsCustomerId = typeof window !== "undefined" ? sessionStorage.getItem("viewAsCustomer") : null;
+  const isViewingAsCustomer = userRole === "SUPER_ADMIN" && !!viewAsCustomerId;
+  
+  // 고객사 사용자 또는 고객사 시스템 보기 모드
+  const isCustomerUser = (userRole === "CUSTOMER_ADMIN" || userRole === "CUSTOMER_USER") || isViewingAsCustomer;
 
   // 기본 날짜: 6개월 전 ~ 오늘
   const getDefaultDates = () => {
@@ -190,7 +196,11 @@ export default function DashboardPage() {
   // 고객사 사용자: 환경측정기업 목록 로드
   useEffect(() => {
     if (isCustomerUser) {
-      fetch('/api/customer-organizations')
+      const url = viewAsCustomerId 
+        ? `/api/customer-organizations?viewAsCustomer=${viewAsCustomerId}`
+        : '/api/customer-organizations';
+      
+      fetch(url)
         .then(r => r.json())
         .then(json => {
           const orgs = json.organizations || [];
@@ -198,7 +208,7 @@ export default function DashboardPage() {
         })
         .catch(err => console.error('Failed to fetch customer organizations:', err));
     }
-  }, [isCustomerUser]);
+  }, [isCustomerUser, viewAsCustomerId]);
 
   // 최소 필터 요건: 고객사 + 항목 선택 시 자동 조회
   useEffect(() => {
@@ -819,7 +829,7 @@ export default function DashboardPage() {
                 disabled={isAutoMLRunning}
                 title="고객사 전체 굴뚝 데이터를 사용하여 AI 예측을 수행합니다"
               >
-                {isAutoMLRunning ? '🔄 예측 생성 중...' : '🤖 AutoML 예측'}
+                {isAutoMLRunning ? '예측 생성 중...' : 'AutoML 예측'}
               </Button>
               <Button
                 variant="primary"
@@ -898,10 +908,10 @@ export default function DashboardPage() {
                 disabled={insightLoading}
                 title="AI 기반 예측 인사이트 보고서를 생성합니다"
               >
-                {insightLoading ? '보고서 생성 중...' : '📊 인사이트 보고서'}
+                {insightLoading ? '보고서 생성 중...' : '인사이트 보고서'}
               </Button>
-              <Button variant="secondary" onClick={onExportCSV}>📥 엑셀 다운로드</Button>
-              <Button variant="secondary" onClick={onPrintPDF}>🖨️ 그래프 PDF</Button>
+              <Button variant="secondary" onClick={onExportCSV}>엑셀 다운로드</Button>
+              <Button variant="secondary" onClick={onPrintPDF}>그래프 PDF</Button>
             </div>
           </div>
 

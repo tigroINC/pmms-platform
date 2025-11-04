@@ -13,11 +13,21 @@ interface Organization {
   address: string;
   representative: string | null;
   establishedDate: string | null;
-  employeeCount: number | null;
-  certifications: string | null;
   website: string | null;
-  description: string | null;
   createdAt: string;
+}
+
+interface Contract {
+  startDate: string;
+  endDate: string;
+  daysRemaining: number;
+}
+
+interface Manager {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
 }
 
 export default function OrganizationDetailPage() {
@@ -27,6 +37,8 @@ export default function OrganizationDetailPage() {
   const organizationId = params.id as string;
   
   const [organization, setOrganization] = useState<Organization | null>(null);
+  const [contract, setContract] = useState<Contract | null>(null);
+  const [managers, setManagers] = useState<Manager[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -39,13 +51,50 @@ export default function OrganizationDetailPage() {
   const fetchOrganization = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/organizations/${organizationId}`);
-      const data = await res.json();
+      const customerId = (session?.user as any)?.customerId;
       
-      if (res.ok) {
-        setOrganization(data.organization);
+      // 조직 정보 조회
+      const orgRes = await fetch(`/api/organizations/${organizationId}`);
+      const orgData = await orgRes.json();
+      
+      if (orgRes.ok) {
+        setOrganization(orgData.organization);
+        
+        // 계약 정보 조회 - 고객사의 연결 목록에서 가져오기
+        const connectionsRes = await fetch(`/api/connections/by-customer?customerId=${customerId}`);
+        const connectionsData = await connectionsRes.json();
+        
+        if (connectionsRes.ok && connectionsData.connections) {
+          const connection = connectionsData.connections.find(
+            (conn: any) => conn.organization.id === organizationId
+          );
+          
+          if (connection) {
+            // 계약 정보
+            if (connection.contractStartDate && connection.contractEndDate) {
+              const now = new Date();
+              const endDate = new Date(connection.contractEndDate);
+              const diffTime = endDate.getTime() - now.getTime();
+              const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+              
+              setContract({
+                startDate: connection.contractStartDate,
+                endDate: connection.contractEndDate,
+                daysRemaining
+              });
+            }
+          }
+          
+          // 관리자 목록 조회
+          const managersRes = await fetch(`/api/organizations/${organizationId}/managers`);
+          const managersData = await managersRes.json();
+          
+          if (managersRes.ok) {
+            setManagers(managersData.managers || []);
+          }
+        }
       } else {
-        setError(data.error || "환경측정기업 정보를 불러올 수 없습니다.");
+        setError(orgData.error || "환경측정기업 정보를 불러올 수 없습니다.");
       }
     } catch (error) {
       console.error("Error fetching organization:", error);
@@ -118,18 +167,44 @@ export default function OrganizationDetailPage() {
             </p>
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-500">직원 수</label>
-            <p className="mt-1 text-gray-900">
-              {organization.employeeCount ? `${organization.employeeCount}명` : "-"}
-            </p>
-          </div>
-          <div>
             <label className="text-sm font-medium text-gray-500">등록일</label>
             <p className="mt-1 text-gray-900">
               {new Date(organization.createdAt).toLocaleDateString()}
             </p>
           </div>
         </div>
+      </div>
+
+      {/* 계약 정보 */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">계약 정보</h2>
+        {contract ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm font-medium text-gray-500">계약 시작일</label>
+              <p className="mt-1 text-gray-900">{new Date(contract.startDate).toLocaleDateString()}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-500">계약 종료일</label>
+              <p className="mt-1 text-gray-900">{new Date(contract.endDate).toLocaleDateString()}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-500">잔여 계약일</label>
+              <p className={`mt-1 font-semibold ${
+                contract.daysRemaining < 0 ? 'text-red-600' :
+                contract.daysRemaining <= 7 ? 'text-red-500' :
+                contract.daysRemaining <= 28 ? 'text-yellow-600' :
+                'text-green-600'
+              }`}>
+                {contract.daysRemaining < 0 
+                  ? `만료됨 (${Math.abs(contract.daysRemaining)}일 경과)` 
+                  : `${contract.daysRemaining}일`}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <p className="text-gray-500 text-sm">계약 정보가 없습니다. 환경측정기업에 문의하세요.</p>
+        )}
       </div>
 
       {/* 연락처 정보 */}
@@ -166,24 +241,28 @@ export default function OrganizationDetailPage() {
         </div>
       </div>
 
-      {/* 추가 정보 */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">추가 정보</h2>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-gray-500">보유 인증</label>
-            <p className="mt-1 text-gray-900 whitespace-pre-wrap">
-              {organization.certifications || "-"}
-            </p>
+      {/* 관리자 목록 */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">관리자 목록</h2>
+        {managers.length > 0 ? (
+          <div className="space-y-3">
+            {managers.map((manager) => (
+              <div key={manager.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div>
+                  <p className="font-medium text-gray-900">{manager.name}</p>
+                  <p className="text-sm text-gray-600">{manager.email}</p>
+                </div>
+                {manager.phone && (
+                  <p className="text-sm text-gray-600">{manager.phone}</p>
+                )}
+              </div>
+            ))}
           </div>
-          <div>
-            <label className="text-sm font-medium text-gray-500">기업 소개</label>
-            <p className="mt-1 text-gray-900 whitespace-pre-wrap">
-              {organization.description || "-"}
-            </p>
-          </div>
-        </div>
+        ) : (
+          <p className="text-gray-500 text-sm">등록된 관리자가 없습니다.</p>
+        )}
       </div>
+
     </div>
   );
 }

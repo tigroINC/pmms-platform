@@ -541,7 +541,9 @@ export default function ItemsPage() {
 
       {/* 전체 항목 관리 탭 */}
       {activeTab === "items" && (
-        <div className="rounded-lg border overflow-x-auto max-h-[calc(100vh-180px)] overflow-y-auto">
+        <>
+        {/* Desktop Table */}
+        <div className="hidden md:block rounded-lg border overflow-x-auto max-h-[calc(100vh-180px)] overflow-y-auto">
         <Table className="min-w-[1200px]">
           <Thead className="bg-gray-50 dark:bg-white/10 sticky top-0 z-10">
             <Tr>
@@ -721,6 +723,111 @@ export default function ItemsPage() {
             </Tbody>
           </Table>
         </div>
+
+        {/* Mobile Card View */}
+        <div className="md:hidden space-y-3">
+          {filtered.length === 0 ? (
+            <div className="rounded-lg border bg-white/50 dark:bg-white/5 p-6 text-center text-gray-500">
+              등록된 측정항목이 없습니다
+            </div>
+          ) : (
+            filtered.map((item: any) => {
+              const isActive = item.isActive !== false;
+              const isEditing = editingRowKey === item.key;
+              return (
+                <div key={item.key} className={`rounded-lg border bg-white/50 dark:bg-white/5 p-4 space-y-2 ${!isActive ? "opacity-50" : ""}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`inline-block px-2 py-0.5 rounded text-xs ${isActive ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"}`}>
+                      {isActive ? "활성" : "비활성"}
+                    </span>
+                    {(role === "SUPER_ADMIN" || role === "ORG_ADMIN") && !isEditing && (
+                      <div className="flex gap-2">
+                        <button onClick={() => handleEditRow(item)} className="text-xs text-blue-600 hover:underline">수정</button>
+                        <button onClick={() => handleToggleActive(item.key)} className="text-xs text-blue-600 hover:underline">
+                          {isActive ? "비활성화" : "활성화"}
+                        </button>
+                        {!isActive && (
+                          <button onClick={() => handleDelete(item.key)} className="text-xs text-gray-600 hover:underline">삭제</button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-xs text-gray-500">구분</label>
+                        <select
+                          value={editingData.category || ""}
+                          onChange={(e) => setEditingData({ ...editingData, category: e.target.value })}
+                          className="w-full px-2 py-1 border rounded text-sm mt-1"
+                        >
+                          <option value="">-</option>
+                          <option value="오염물질">오염물질</option>
+                          <option value="보조항목">보조항목</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500">항목명(한글)</label>
+                        <input
+                          type="text"
+                          value={editingData.name || ""}
+                          onChange={(e) => setEditingData({ ...editingData, name: e.target.value })}
+                          className="w-full px-2 py-1 border rounded text-sm mt-1"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500">항목명(영문)</label>
+                        <input
+                          type="text"
+                          value={editingData.englishName || ""}
+                          onChange={(e) => setEditingData({ ...editingData, englishName: e.target.value })}
+                          className="w-full px-2 py-1 border rounded text-sm mt-1"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-xs text-gray-500">단위</label>
+                          <input
+                            type="text"
+                            value={editingData.unit || ""}
+                            onChange={(e) => setEditingData({ ...editingData, unit: e.target.value })}
+                            className="w-full px-2 py-1 border rounded text-sm mt-1"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500">기준값</label>
+                          <input
+                            type="number"
+                            value={editingData.defaultLimit || ""}
+                            onChange={(e) => setEditingData({ ...editingData, defaultLimit: parseFloat(e.target.value) || 0 })}
+                            className="w-full px-2 py-1 border rounded text-sm mt-1"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 pt-2">
+                        <button onClick={handleSaveRow} className="flex-1 px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">저장</button>
+                        <button onClick={handleCancelEdit} className="flex-1 px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm">취소</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div><span className="text-gray-500">📋 코드:</span> {item.key}</div>
+                      <div><span className="text-gray-500">🔢 순서:</span> {item.order || 0}</div>
+                      <div><span className="text-gray-500">🏷️ 구분:</span> {item.category || "-"}</div>
+                      <div><span className="text-gray-500">📊 분류:</span> {item.type || "-"}</div>
+                      <div className="col-span-2"><span className="text-gray-500">📝 한글명:</span> {item.name}</div>
+                      <div className="col-span-2"><span className="text-gray-500">🔤 영문명:</span> {item.englishName || "-"}</div>
+                      <div><span className="text-gray-500">📏 단위:</span> {item.unit || "-"}</div>
+                      <div><span className="text-gray-500">⚠️ 기준:</span> {item.defaultLimit ?? "-"}</div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+        </>
       )}
 
       {/* 굴뚝별 측정 대상 설정 탭 */}

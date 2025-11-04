@@ -27,11 +27,24 @@ interface CreateRoleModalProps {
 
 // 권한 정의
 const PERMISSIONS: Permission[] = [
-  // 고객사 관리
+  // 고객사 관리 - 탭
+  { code: "customer.tab.all", name: "전체탭 보기", category: "고객사 관리" },
+  { code: "customer.tab.internal", name: "내부탭 보기", category: "고객사 관리" },
+  { code: "customer.tab.connected", name: "연결탭 보기", category: "고객사 관리" },
+  { code: "customer.tab.search", name: "검색탭 보기", category: "고객사 관리" },
+  
+  // 고객사 관리 - 기본 기능
   { code: "customer.view", name: "고객사 조회", category: "고객사 관리" },
   { code: "customer.create", name: "고객사 등록", category: "고객사 관리" },
   { code: "customer.update", name: "고객사 수정", category: "고객사 관리" },
   { code: "customer.delete", name: "고객사 삭제", category: "고객사 관리" },
+  { code: "customer.activate", name: "활성화/비활성화", category: "고객사 관리" },
+  
+  // 고객사 관리 - 고급 기능
+  { code: "customer.search", name: "검색 기능", category: "고객사 관리" },
+  { code: "customer.filter", name: "필터 기능", category: "고객사 관리" },
+  { code: "customer.bulk_upload", name: "일괄업로드", category: "고객사 관리" },
+  { code: "customer.export", name: "Excel 내보내기", category: "고객사 관리" },
   { code: "customer.invite", name: "고객사 초대", category: "고객사 관리" },
   
   // 굴뚝 관리
@@ -63,6 +76,12 @@ const PERMISSIONS: Permission[] = [
   // 설정
   { code: "settings.view", name: "설정 조회", category: "설정" },
   { code: "settings.update", name: "설정 변경", category: "설정" },
+  
+  // 계약 관리
+  { code: "contract.view", name: "계약 조회", category: "계약 관리" },
+  { code: "contract.create", name: "계약 등록", category: "계약 관리" },
+  { code: "contract.update", name: "계약 수정", category: "계약 관리" },
+  { code: "contract.delete", name: "계약 삭제", category: "계약 관리" },
 ];
 
 export default function CreateRoleModal({
@@ -85,10 +104,10 @@ export default function CreateRoleModal({
   }, [isOpen]);
 
   useEffect(() => {
-    if (templateId) {
+    if (templateId && templates.length > 0) {
       loadTemplatePermissions(templateId);
     }
-  }, [templateId]);
+  }, [templateId, templates]);
 
   const fetchTemplates = async () => {
     try {

@@ -384,8 +384,8 @@ export default function MeasureHistoryPage() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="rounded-lg border overflow-x-auto max-h-[calc(100vh-180px)] overflow-y-auto">
+      {/* Desktop Table */}
+      <div className="hidden md:block rounded-lg border overflow-x-auto max-h-[calc(100vh-180px)] overflow-y-auto">
         {paged.length === 0 ? (
           <div className="p-6 text-sm text-gray-500">조건에 맞는 데이터가 없습니다.</div>
         ) : (
@@ -491,6 +491,70 @@ export default function MeasureHistoryPage() {
             <Button variant="secondary" size="sm" onClick={()=>setPage((p)=>Math.min(totalPages,p+1))} disabled={currentPage===totalPages}>다음</Button>
           </div>
         </div>
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {paged.length === 0 ? (
+          <div className="rounded-lg border bg-white/50 dark:bg-white/5 p-6 text-center text-gray-500">
+            조건에 맞는 데이터가 없습니다.
+          </div>
+        ) : (
+          <>
+            {paged.map((r: any, idx: number) => {
+              const isActive = r.isActive !== false;
+              return (
+                <div key={`${r.stack}_${r.measuredAt}_${idx}`} className={`rounded-lg border bg-white/50 dark:bg-white/5 p-4 space-y-2 ${!isActive ? "opacity-50" : ""}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`inline-block px-2 py-0.5 rounded text-xs ${isActive ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"}`}>
+                      {isActive ? "활성" : "비활성"}
+                    </span>
+                    {!isCustomerUser && (
+                      <div className="flex gap-2">
+                        <button onClick={() => handleEdit(r)} className="text-xs text-green-600 hover:underline">수정</button>
+                        <button onClick={() => toggleActive(r)} className="text-xs text-blue-600 hover:underline">
+                          {isActive ? "비활성화" : "활성화"}
+                        </button>
+                        {!isActive && (
+                          <button onClick={() => handleDelete(r)} className="text-xs text-red-600 hover:underline">삭제</button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="col-span-2"><span className="text-gray-500">📅 측정일:</span> {r.measuredAt}</div>
+                    {!isCustomerUser && <div><span className="text-gray-500">📍 고객사:</span> {r.customer}</div>}
+                    <div><span className="text-gray-500">🏭 굴뚝:</span> {r.stack}</div>
+                    <div><span className="text-gray-500">🧪 오염물질:</span> {r.pollutant}</div>
+                    <div><span className="text-gray-500">📊 농도:</span> {r.value}</div>
+                    <div><span className="text-gray-500">⚠️ 기준:</span> {r.limit ?? "-"}</div>
+                    <div><span className="text-gray-500">✅ 체크:</span> {r.limitCheck}</div>
+                    <div><span className="text-gray-500">🌤️ 기상:</span> {r.weather || "-"}</div>
+                    <div><span className="text-gray-500">🌡️ 기온:</span> {r.temp || "-"}℃</div>
+                    <div><span className="text-gray-500">💧 습도:</span> {r.humidity || "-"}%</div>
+                    <div><span className="text-gray-500">🎚️ 기압:</span> {r.pressure || "-"}mmHg</div>
+                    <div><span className="text-gray-500">🧭 풍향:</span> {r.windDir || "-"}</div>
+                    <div><span className="text-gray-500">💨 풍속:</span> {r.windSpeed || "-"}m/s</div>
+                    <div><span className="text-gray-500">🔥 가스온도:</span> {r.gasTemp || "-"}℃</div>
+                    <div><span className="text-gray-500">💨 가스속도:</span> {r.gasVel || "-"}m/s</div>
+                    <div><span className="text-gray-500">💧 수분:</span> {r.moisture || "-"}%</div>
+                    <div><span className="text-gray-500">🫧 실측O₂:</span> {r.o2Measured || "-"}%</div>
+                    <div><span className="text-gray-500">🫧 표준O₂:</span> {r.o2Standard || "-"}%</div>
+                    <div><span className="text-gray-500">🌊 유량:</span> {r.flowRate || "-"}S㎥/min</div>
+                    <div><span className="text-gray-500">🏢 업체:</span> {r.company}</div>
+                  </div>
+                </div>
+              );
+            })}
+            <div className="rounded-lg border bg-white/50 dark:bg-white/5 p-3 flex items-center justify-between text-xs text-gray-500">
+              <div>총 {total}건 · {currentPage}/{totalPages} 페이지</div>
+              <div className="flex gap-2 items-center">
+                <Button variant="secondary" size="sm" onClick={()=>setPage((p)=>Math.max(1,p-1))} disabled={currentPage===1}>이전</Button>
+                <Button variant="secondary" size="sm" onClick={()=>setPage((p)=>Math.min(totalPages,p+1))} disabled={currentPage===totalPages}>다음</Button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <MeasurementEditModal

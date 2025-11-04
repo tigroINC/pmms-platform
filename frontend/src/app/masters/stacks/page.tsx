@@ -452,8 +452,8 @@ export default function StacksPage() {
         </div>
       </div>
 
-      {/* 굴뚝 목록 테이블 */}
-      <div className="rounded-lg border overflow-x-auto max-h-[calc(100vh-180px)] overflow-y-auto">
+      {/* Desktop Table */}
+      <div className="hidden md:block rounded-lg border overflow-x-auto max-h-[calc(100vh-180px)] overflow-y-auto">
         <Table className="min-w-[1400px]">
           <Thead className="bg-gray-50 dark:bg-white/10 sticky top-0 z-10">
               <Tr>
@@ -485,6 +485,76 @@ export default function StacksPage() {
             </Tbody>
           </Table>
         </div>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {filtered.length === 0 ? (
+          <div className="rounded-lg border bg-white/50 dark:bg-white/5 p-6 text-center text-gray-500">
+            등록된 굴뚝이 없습니다
+          </div>
+        ) : (
+          filtered.map((s: any) => {
+            const isActive = s.isActive !== false;
+            const isCustomerActive = s.customer.isActive !== false;
+            return (
+              <div key={s.id} className={`rounded-lg border bg-white/50 dark:bg-white/5 p-4 space-y-2 ${!isActive || !isCustomerActive ? "opacity-50" : ""}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`inline-block px-2 py-0.5 rounded text-xs ${isActive ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"}`}>
+                    {isActive ? "활성" : "비활성"}
+                  </span>
+                  {(role === "SUPER_ADMIN" || role === "ORG_ADMIN") && (
+                    <div className="flex gap-2">
+                      <button onClick={() => handleEdit(s)} className="text-xs text-blue-600 hover:underline">수정</button>
+                      <button onClick={async () => {
+                        try {
+                          const res = await fetch(`/api/stacks/${s.id}`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ isActive: !s.isActive }),
+                          });
+                          if (res.ok) fetchStacks();
+                          else alert("상태 변경 실패");
+                        } catch (err) {
+                          alert("오류 발생");
+                        }
+                      }} className="text-xs text-blue-600 hover:underline">
+                        {isActive ? "비활성화" : "활성화"}
+                      </button>
+                      {!isActive && !s._count?.measurements && (
+                        <button onClick={async () => {
+                          if (!confirm(`"${s.name}" 굴뚝을 삭제하시겠습니까?`)) return;
+                          try {
+                            const res = await fetch(`/api/stacks/${s.id}`, { method: "DELETE" });
+                            if (res.ok) fetchStacks();
+                            else alert("삭제 실패");
+                          } catch (err) {
+                            alert("오류 발생");
+                          }
+                        }} className="text-xs text-gray-600 hover:underline">삭제</button>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><span className="text-gray-500">🏭 번호:</span> {s.name}</div>
+                  <div><span className="text-gray-500">📋 코드:</span> {s.code || "-"}</div>
+                  <div className="col-span-2"><span className="text-gray-500">📍 정식명:</span> {s.fullName || "-"}</div>
+                  <div className="col-span-2"><span className="text-gray-500">⚙️ 시설:</span> {s.facilityType || "-"}</div>
+                  <div><span className="text-gray-500">📏 높이:</span> {s.height ?? "-"}m</div>
+                  <div><span className="text-gray-500">⭕ 안지름:</span> {s.diameter ?? "-"}m</div>
+                  <div><span className="text-gray-500">🏷️ 종별:</span> {s.category || "-"}</div>
+                  <div><span className="text-gray-500">📅 생성:</span> {new Date(s.createdAt).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' })}</div>
+                  <div className="col-span-2">
+                    <span className="text-gray-500">🏢 고객사:</span> {s.customer.name}
+                    {s.customer.code && <span className="text-xs text-gray-500"> ({s.customer.code})</span>}
+                    {!isCustomerActive && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 ml-1">비활성</span>}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
 
       {/* 굴뚝 등록/수정 모달 */}
       <StackFormModal

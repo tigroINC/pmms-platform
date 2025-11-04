@@ -156,8 +156,8 @@ export default function CustomerStaffManagementPage() {
         </div>
       </div>
 
-      {/* 직원 목록 */}
-      <div className="rounded-lg border overflow-x-auto max-h-[calc(100vh-180px)] overflow-y-auto">
+      {/* Desktop Table */}
+      <div className="hidden md:block rounded-lg border overflow-x-auto max-h-[calc(100vh-180px)] overflow-y-auto">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead className="bg-gray-50 dark:bg-white/10 sticky top-0 z-10">
             <tr>
@@ -239,6 +239,41 @@ export default function CustomerStaffManagementPage() {
               )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {staff.length === 0 ? (
+          <div className="rounded-lg border bg-white/50 dark:bg-white/5 p-6 text-center text-gray-500">
+            직원이 없습니다.
+          </div>
+        ) : (
+          staff.map((member) => (
+            <div key={member.id} className="rounded-lg border bg-white/50 dark:bg-white/5 p-4 space-y-2">
+              <div className="flex items-center justify-between mb-2">
+                <div className="font-medium text-lg">{member.name}</div>
+                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                  member.isActive ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                }`}>
+                  {member.isActive ? "활성" : "비활성"}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-2 text-sm">
+                <div><span className="text-gray-500">📧 이메일:</span> {member.email}</div>
+                <div><span className="text-gray-500">🏷️ 역할:</span> {getRoleBadge(member.role)}</div>
+                {(member.department || member.position) && (
+                  <div><span className="text-gray-500">🏢 부서/직급:</span> {member.department && member.position ? `${member.department} / ${member.position}` : member.department || member.position}</div>
+                )}
+                <div><span className="text-gray-500">🕑 최근 로그인:</span> {member.lastLoginAt ? new Date(member.lastLoginAt).toLocaleDateString('ko-KR') : "없음"}</div>
+                <div className="pt-2">
+                  <Link href={`/customer/staff/${member.id}`} className="block w-full px-3 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded text-sm text-center">
+                    상세
+                  </Link>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* 직원 초대 모달 */}

@@ -618,7 +618,7 @@ export default function MeasureInputPage() {
                 {stackItems.filter(item => item.category === "오염물질").length > 0 && (
                   <div className="mb-6">
                     <h3 className="text-base font-semibold mb-3">🏭 오염물질</h3>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {stackItems
                         .filter(item => item.category === "오염물질")
                         .map((item) => {

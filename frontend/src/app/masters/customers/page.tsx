@@ -2,12 +2,14 @@
 import { useMemo, useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrganization } from "@/contexts/OrganizationContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { Table, Thead, Tbody, Tr, Th, Td } from "@/components/ui/Table";
 import CustomerFormModal from "@/components/modals/CustomerFormModal";
 import CreateInvitationModal from "@/components/modals/CreateInvitationModal";
 import BulkUploadModal from "@/components/modals/BulkUploadModal";
+import ContractManagementModal from "@/components/modals/ContractManagementModal";
 
 type TabType = "all" | "internal" | "connected" | "search";
 
@@ -129,6 +131,7 @@ function CustomerRow({
       {!isReadOnly && (
         <Td>
           <div className="flex gap-2">
+            {/* 권한 체크는 부모 컴포넌트에서 전달받은 isReadOnly로 처리 */}
             <button
               onClick={() => onEdit(customer)}
               disabled={loading}
@@ -173,6 +176,7 @@ export default function CustomersPage() {
   const role = user?.role;
   const isReadOnly = role === "OPERATOR"; // OPERATOR는 읽기 전용
   const { selectedOrg, loading: orgLoading } = useOrganization();
+  const { hasPermission, loading: permissionsLoading } = usePermissions();
   const [activeTab, setActiveTab] = useState<TabType>("all");
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -183,6 +187,7 @@ export default function CustomersPage() {
   const [showInvitationModal, setShowInvitationModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
+  const [showContractModal, setShowContractModal] = useState(false);
 
   useEffect(() => {
     if (selectedOrg) {
@@ -349,85 +354,106 @@ export default function CustomersPage() {
           <h1 className="text-lg font-semibold whitespace-nowrap mb-1.5">고객사 관리</h1>
           <span className="text-gray-300 dark:text-gray-600 mb-1.5">|</span>
           
-          {/* 탭 */}
+          {/* 탭 - 권한 체크 */}
           <div className="flex gap-2 mb-1.5">
-            <button
-              onClick={() => setActiveTab("all")}
-              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                activeTab === "all"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
-              }`}
-            >
-              📊 전체
-            </button>
-            <button
-              onClick={() => setActiveTab("internal")}
-              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                activeTab === "internal"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
-              }`}
-            >
-              📋 내부
-            </button>
-            <button
-              onClick={() => setActiveTab("connected")}
-              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                activeTab === "connected"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
-              }`}
-            >
-              🤝 연결
-            </button>
-            <button
-              onClick={() => setActiveTab("search")}
-              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                activeTab === "search"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
-              }`}
-            >
-              🔍 검색
-            </button>
+            {hasPermission('customer.tab.all') && (
+              <button
+                onClick={() => setActiveTab("all")}
+                className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                  activeTab === "all"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
+              >
+                📊 전체
+              </button>
+            )}
+            {hasPermission('customer.tab.internal') && (
+              <button
+                onClick={() => setActiveTab("internal")}
+                className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                  activeTab === "internal"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
+              >
+                📋 내부
+              </button>
+            )}
+            {hasPermission('customer.tab.connected') && (
+              <button
+                onClick={() => setActiveTab("connected")}
+                className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                  activeTab === "connected"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
+              >
+                🤝 연결
+              </button>
+            )}
+            {hasPermission('customer.tab.search') && (
+              <button
+                onClick={() => setActiveTab("search")}
+                className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                  activeTab === "search"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
+              >
+                🔍 검색
+              </button>
+            )}
           </div>
           
-          {/* 검색 필터 */}
-          <div className="flex flex-col" style={{ minWidth: '280px' }}>
-            <label className="text-xs text-gray-600 dark:text-gray-400 mb-0.5">검색</label>
-            <Input 
-              className="text-sm h-8"
-              value={q} 
-              onChange={(e) => setQ((e.target as HTMLInputElement).value)} 
-              placeholder="코드, 고객사명, 주소, 업종 등" 
-            />
-          </div>
+          {/* 검색 필터 - 권한 체크 */}
+          {hasPermission('customer.search') && (
+            <div className="flex flex-col" style={{ minWidth: '280px' }}>
+              <label className="text-xs text-gray-600 dark:text-gray-400 mb-0.5">검색</label>
+              <Input 
+                className="text-sm h-8"
+                value={q} 
+                onChange={(e) => setQ((e.target as HTMLInputElement).value)} 
+                placeholder="코드, 고객사명, 주소, 업종 등" 
+              />
+            </div>
+          )}
           
-          <label className="flex items-center gap-1.5 text-xs cursor-pointer mb-1.5 whitespace-nowrap">
-            <input
-              type="checkbox"
-              checked={showInactive}
-              onChange={(e) => setShowInactive(e.target.checked)}
-              className="rounded"
-            />
-            비활성 표시
-          </label>
+          {hasPermission('customer.filter') && (
+            <label className="flex items-center gap-1.5 text-xs cursor-pointer mb-1.5 whitespace-nowrap">
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+                className="rounded"
+              />
+              비활성 표시
+            </label>
+          )}
           
           <div className="flex gap-1.5 ml-auto mb-1.5">
             {!isReadOnly && (
               <>
-                <Button size="sm" variant="secondary" onClick={onExport}>Excel</Button>
-                <Button size="sm" variant="secondary" onClick={() => setShowBulkUploadModal(true)}>일괄업로드</Button>
-                <Button size="sm" onClick={() => setIsModalOpen(true)}>+ 신규 추가</Button>
+                {hasPermission('customer.export') && (
+                  <Button size="sm" variant="secondary" onClick={onExport}>Excel</Button>
+                )}
+                {hasPermission('customer.bulk_upload') && (
+                  <Button size="sm" variant="secondary" onClick={() => setShowBulkUploadModal(true)}>일괄업로드</Button>
+                )}
+                {selectedOrg?.hasContractManagement && hasPermission('contract.view') && (
+                  <Button size="sm" variant="secondary" onClick={() => setShowContractModal(true)}>계약관리</Button>
+                )}
+                {hasPermission('customer.create') && (
+                  <Button size="sm" onClick={() => setIsModalOpen(true)}>+ 신규 추가</Button>
+                )}
               </>
             )}
           </div>
         </div>
       </div>
 
-      {/* 고객사 목록 테이블 */}
-      <div className="rounded-lg border overflow-x-auto max-h-[calc(100vh-180px)] overflow-y-auto">
+      {/* Desktop Table */}
+      <div className="hidden md:block rounded-lg border overflow-x-auto max-h-[calc(100vh-180px)] overflow-y-auto">
         <Table className="min-w-[1200px]">
           <Thead className="bg-gray-50 dark:bg-white/10 sticky top-0 z-10">
               <Tr>
@@ -485,6 +511,91 @@ export default function CustomersPage() {
           </Table>
         </div>
 
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          <div className="rounded-lg border bg-white/50 dark:bg-white/5 p-6 text-center text-gray-500">
+            로딩 중...
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="rounded-lg border bg-white/50 dark:bg-white/5 p-6 text-center text-gray-500">
+            {activeTab === "all" && "등록된 고객사가 없습니다"}
+            {activeTab === "internal" && "내부 관리 고객사가 없습니다"}
+            {activeTab === "connected" && "연결된 고객사가 없습니다"}
+            {activeTab === "search" && "검색 가능한 고객사가 없습니다"}
+          </div>
+        ) : (
+          Object.entries(grouped).map(([groupKey, customers]) => (
+            <div key={groupKey}>
+              {customers.map((c: any, idx: number) => {
+                const isActive = c.isActive !== false;
+                const isGrouped = customers.length > 1;
+                const isFirstInGroup = idx === 0;
+                return (
+                  <div key={c.id} className={`rounded-lg border bg-white/50 dark:bg-white/5 p-4 space-y-2 ${!isActive ? "opacity-50" : ""} ${isGrouped ? "border-l-4 border-l-blue-400" : ""}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className={`inline-block px-2 py-0.5 rounded text-xs ${isActive ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"}`}>
+                        {isActive ? "활성" : "비활성"}
+                      </span>
+                      {!isReadOnly && (
+                        <div className="flex gap-2">
+                          <button onClick={() => handleEdit(c)} className="text-xs text-green-600 hover:underline">수정</button>
+                          <button onClick={async () => {
+                            try {
+                              const res = await fetch(`/api/customers/${c.id}`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ isActive: !c.isActive }),
+                              });
+                              if (res.ok) fetchCustomers();
+                              else alert("상태 변경 실패");
+                            } catch (err) {
+                              alert("오류 발생");
+                            }
+                          }} className="text-xs text-blue-600 hover:underline">
+                            {isActive ? "비활성화" : "활성화"}
+                          </button>
+                          {!isActive && !c._count?.measurements && (
+                            <button onClick={async () => {
+                              const hasMeasurements = c._count?.measurements > 0;
+                              if (hasMeasurements) {
+                                alert("측정 기록이 있는 고객사는 삭제할 수 없습니다.");
+                                return;
+                              }
+                              if (!confirm(`"${c.name}" 고객사를 삭제하시겠습니까?`)) return;
+                              try {
+                                const res = await fetch(`/api/customers/${c.id}`, { method: "DELETE" });
+                                if (res.ok) fetchCustomers();
+                                else alert("삭제 실패");
+                              } catch (err) {
+                                alert("오류 발생");
+                              }
+                            }} className="text-xs text-red-600 hover:underline">삭제</button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div><span className="text-gray-500">📋 코드:</span> {c.code || "-"}</div>
+                      {isGrouped && isFirstInGroup && (
+                        <div className="text-blue-600"><span className="text-gray-500">🏢 사업장:</span> {customers.length}개</div>
+                      )}
+                      <div className="col-span-2"><span className="text-gray-500">🏭 정식명:</span> {c.fullName || c.name}</div>
+                      <div><span className="text-gray-500">📍 약칭:</span> {c.name}</div>
+                      <div><span className="text-gray-500">🏗️ 구분:</span> {c.siteType || "-"}</div>
+                      <div className="col-span-2"><span className="text-gray-500">📍 주소:</span> {c.address || "-"}</div>
+                      <div><span className="text-gray-500">🏢 업종:</span> {c.industry || "-"}</div>
+                      <div><span className="text-gray-500">⚙️ 종별:</span> {c.siteCategory || "-"}</div>
+                      <div><span className="text-gray-500">🏭 굴뚝:</span> {c._count?.stacks ?? 0}개</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))
+        )}
+      </div>
+
       {/* 고객사 등록/수정 모달 */}
       <CustomerFormModal
         isOpen={isModalOpen}
@@ -512,6 +623,11 @@ export default function CustomersPage() {
         templateFileName="고객사_일괄업로드_양식.csv"
         onUpload={handleBulkUpload}
         parseInstructions="고객사명(약칭)은 필수 항목입니다. 나머지 항목은 선택사항입니다."
+      />
+
+      <ContractManagementModal
+        isOpen={showContractModal}
+        onClose={() => setShowContractModal(false)}
       />
     </section>
   );

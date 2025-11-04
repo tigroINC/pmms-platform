@@ -632,7 +632,9 @@ export default function CustomerStacksPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto max-h-[calc(100vh-200px)] overflow-y-auto">
+            <>
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto max-h-[calc(100vh-200px)] overflow-y-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
                   <tr>
@@ -698,6 +700,16 @@ export default function CustomerStacksPage() {
                         stack.site.name?.toLowerCase().includes(q) ||
                         stack.facilityType?.toLowerCase().includes(q)
                       );
+                    })
+                    .sort((a, b) => {
+                      // 1. 생성일 최신순
+                      const dateA = new Date(a.createdAt).getTime();
+                      const dateB = new Date(b.createdAt).getTime();
+                      if (dateA !== dateB) {
+                        return dateB - dateA;
+                      }
+                      // 2. 굴뚝번호 순
+                      return (a.site.code || "").localeCompare(b.site.code || "");
                     })
                     .map((stack) => (
                     <tr key={stack.stackId} className="hover:bg-gray-50 dark:hover:bg-gray-800">
@@ -832,6 +844,57 @@ export default function CustomerStacksPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-3">
+              {pendingStacks
+                .filter((stack) => {
+                  if (!searchQuery) return true;
+                  const q = searchQuery.toLowerCase();
+                  return (
+                    stack.site.code?.toLowerCase().includes(q) ||
+                    stack.internal?.code?.toLowerCase().includes(q) ||
+                    stack.site.name?.toLowerCase().includes(q) ||
+                    stack.facilityType?.toLowerCase().includes(q)
+                  );
+                })
+                .sort((a, b) => {
+                  // 1. 생성일 최신순
+                  const dateA = new Date(a.createdAt).getTime();
+                  const dateB = new Date(b.createdAt).getTime();
+                  if (dateA !== dateB) {
+                    return dateB - dateA;
+                  }
+                  // 2. 굴뚝번호 순
+                  return (a.site.code || "").localeCompare(b.site.code || "");
+                })
+                .map((stack) => (
+                  <div key={stack.stackId} className="rounded-lg border bg-white/50 dark:bg-white/5 p-4 space-y-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="px-2 py-1 text-xs rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300">
+                        확인필요
+                      </span>
+                      {user?.role === "CUSTOMER_ADMIN" && (
+                        <button onClick={() => handleConfirm(stack.stackId)} className="text-xs text-blue-600 hover:underline">
+                          확인완료
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div><span className="text-gray-500">🏭 굴뚝번호:</span> {stack.site.code}</div>
+                      <div><span className="text-gray-500">📋 굴뚝코드:</span> {stack.internal?.code || "-"}</div>
+                      <div className="col-span-2"><span className="text-gray-500">📍 정식명칭:</span> {stack.site.name || "-"}</div>
+                      <div className="col-span-2"><span className="text-gray-500">⚙️ 배출시설:</span> {stack.facilityType || "-"}</div>
+                      <div><span className="text-gray-500">📏 높이:</span> {stack.physical.height ?? "-"}m</div>
+                      <div><span className="text-gray-500">⭕ 안지름:</span> {stack.physical.diameter ?? "-"}m</div>
+                      <div><span className="text-gray-500">🏷️ 종별:</span> {stack.category || "-"}</div>
+                      <div><span className="text-gray-500">🏢 담당:</span> {stack.internal?.organization.name || "-"}</div>
+                      <div className="col-span-2"><span className="text-gray-500">📅 생성일:</span> {new Date(stack.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '-').replace('.', '')}</div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+            </>
           )}
         </>
       )}
@@ -845,7 +908,9 @@ export default function CustomerStacksPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto max-h-[calc(100vh-200px)] overflow-y-auto">
+            <>
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto max-h-[calc(100vh-200px)] overflow-y-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
                   <tr>
@@ -906,24 +971,14 @@ export default function CustomerStacksPage() {
                       );
                     })
                     .sort((a, b) => {
-                      // 1. 확인상태 (확인필요 우선)
-                      if (a.isVerified !== b.isVerified) {
-                        return a.isVerified ? 1 : -1;
-                      }
-                      // 2. 날짜 최신순 (verifiedAt 또는 createdAt)
-                      const dateA = a.verifiedAt || a.id;
-                      const dateB = b.verifiedAt || b.id;
+                      // 1. 생성일 최신순
+                      const dateA = new Date(a.createdAt).getTime();
+                      const dateB = new Date(b.createdAt).getTime();
                       if (dateA !== dateB) {
-                        return dateB.localeCompare(dateA);
+                        return dateB - dateA;
                       }
-                      // 3. 환경측정기업
-                      const orgA = a.organizationNames?.[0] || "";
-                      const orgB = b.organizationNames?.[0] || "";
-                      if (orgA !== orgB) {
-                        return orgA.localeCompare(orgB);
-                      }
-                      // 4. 굴뚝명칭
-                      return a.name.localeCompare(b.name);
+                      // 2. 굴뚝번호 순
+                      return (a.name || "").localeCompare(b.name || "");
                     })
                     .map((stack) => (
                       <tr key={stack.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
@@ -1108,6 +1163,53 @@ export default function CustomerStacksPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-3">
+              {confirmedStacks
+                .filter((stack) => {
+                  if (!searchQuery) return true;
+                  const q = searchQuery.toLowerCase();
+                  return (
+                    stack.name?.toLowerCase().includes(q) ||
+                    stack.code?.toLowerCase().includes(q) ||
+                    stack.fullName?.toLowerCase().includes(q) ||
+                    stack.facilityType?.toLowerCase().includes(q)
+                  );
+                })
+                .sort((a, b) => {
+                  // 1. 생성일 최신순
+                  const dateA = new Date(a.createdAt).getTime();
+                  const dateB = new Date(b.createdAt).getTime();
+                  if (dateA !== dateB) {
+                    return dateB - dateA;
+                  }
+                  // 2. 굴뚝번호 순
+                  return (a.name || "").localeCompare(b.name || "");
+                })
+                .map((stack) => (
+                  <div key={stack.stackId} className="rounded-lg border bg-white/50 dark:bg-white/5 p-4 space-y-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="px-2 py-1 text-xs rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                        확정완료
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div><span className="text-gray-500">🏭 굴뚝번호:</span> {stack.name || "-"}</div>
+                      <div><span className="text-gray-500">📋 굴뚝코드:</span> {stack.code || "-"}</div>
+                      <div className="col-span-2"><span className="text-gray-500">📍 정식명칭:</span> {stack.fullName || "-"}</div>
+                      <div className="col-span-2"><span className="text-gray-500">⚙️ 배출시설:</span> {stack.facilityType || "-"}</div>
+                      <div><span className="text-gray-500">📏 높이:</span> {stack.height ?? "-"}m</div>
+                      <div><span className="text-gray-500">⭕ 안지름:</span> {stack.diameter ?? "-"}m</div>
+                      <div><span className="text-gray-500">🏷️ 종별:</span> {stack.category || "-"}</div>
+                      <div className="col-span-2"><span className="text-gray-500">🏢 담당:</span> {stack.organizationNames?.length > 0 ? stack.organizationNames.join(", ") : "-"}</div>
+                      <div><span className="text-gray-500">📊 측정:</span> {stack._count?.measurements || 0}건</div>
+                      <div><span className="text-gray-500">📅 생성:</span> {stack.createdAt ? new Date(stack.createdAt).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }) : "-"}</div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+            </>
           )}
         </>
       )}

@@ -9,6 +9,7 @@ interface Organization {
   businessNumber: string;
   subscriptionPlan: string;
   isActive: boolean;
+  hasContractManagement?: boolean; // 계약 관리 기능 활성화
 }
 
 interface OrganizationContextType {

@@ -10,6 +10,8 @@ export type MeasurementItem = {
   name: string;
   unit: string;
   limit: number;
+  category?: string;
+  order?: number;
 };
 
 export type MeasurementRecord = {

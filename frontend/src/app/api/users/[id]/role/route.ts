@@ -64,6 +64,14 @@ export async function PATCH(
       data: {
         customRoleId: customRoleId || null,
       },
+      include: {
+        customRole: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
     });
 
     // 활동 로그

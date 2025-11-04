@@ -14,16 +14,27 @@ export async function GET(request: Request) {
 
     const userRole = (session.user as any).role;
     const userCustomerId = (session.user as any).customerId;
+    
+    // 시스템 보기 모드 확인 (쿼리 파라미터로 전달)
+    const { searchParams } = new URL(request.url);
+    const viewAsCustomerId = searchParams.get("viewAsCustomer");
+    const targetCustomerId = viewAsCustomerId || userCustomerId;
+    
     const isCustomerUser = userRole === "CUSTOMER_ADMIN" || userRole === "CUSTOMER_USER";
+    const isSuperAdminViewingAsCustomer = userRole === "SUPER_ADMIN" && !!viewAsCustomerId;
 
-    if (!isCustomerUser || !userCustomerId) {
+    if (!isCustomerUser && !isSuperAdminViewingAsCustomer) {
       return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
+    }
+    
+    if (!targetCustomerId) {
+      return NextResponse.json({ error: "고객사 정보가 없습니다." }, { status: 400 });
     }
 
     // 고객사의 연결된 환경측정기업 목록 조회 (APPROVED 상태만)
     const customerOrganizations = await prisma.customerOrganization.findMany({
       where: {
-        customerId: userCustomerId,
+        customerId: targetCustomerId,
         status: "APPROVED",
       },
       include: {

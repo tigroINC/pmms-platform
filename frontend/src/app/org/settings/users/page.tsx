@@ -168,14 +168,12 @@ export default function UsersPermissionPage() {
       <AdminHeader />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">사용자 권한 관리</h1>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              사용자별 역할 및 권한 설정
-            </p>
-          </div>
-          <div className="flex gap-2">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">사용자 권한 관리</h1>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            사용자별 역할 및 권한 설정
+          </p>
+          <div className="flex gap-2 mt-4">
             <button
               onClick={() => setShowHelp(true)}
               className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors flex items-center gap-2"
@@ -202,7 +200,8 @@ export default function UsersPermissionPage() {
           />
         </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+      {/* Desktop Table */}
+      <div className="hidden md:block bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
@@ -234,19 +233,46 @@ export default function UsersPermissionPage() {
                     {getRoleBadge(user.role)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <select
-                      value={user.customRole?.id || ""}
-                      onChange={(e) => handleRoleChange(user.id, e.target.value || null)}
-                      className="border rounded px-2 py-1 text-sm"
-                      disabled={user.role === "SUPER_ADMIN"}
-                    >
-                      <option value="">기본 역할 사용</option>
-                      {customRoles.map((role) => (
-                        <option key={role.id} value={role.id}>
-                          {role.name}
-                        </option>
-                      ))}
-                    </select>
+                    {user.customRole ? (
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-1 bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200 rounded text-xs font-medium">
+                          {user.customRole.name}
+                        </span>
+                        <select
+                          value={user.customRole.id}
+                          onChange={(e) => handleRoleChange(user.id, e.target.value || null)}
+                          className="border rounded px-2 py-1 text-xs dark:bg-gray-700 dark:border-gray-600"
+                          disabled={user.role === "SUPER_ADMIN"}
+                        >
+                          <option value={user.customRole.id}>{user.customRole.name}</option>
+                          <option value="">기본 역할로 변경</option>
+                          {customRoles.filter(r => r.id !== user.customRole?.id).map((role) => (
+                            <option key={role.id} value={role.id}>
+                              {role.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-1 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded text-xs">
+                          기본 역할
+                        </span>
+                        <select
+                          value=""
+                          onChange={(e) => handleRoleChange(user.id, e.target.value || null)}
+                          className="border rounded px-2 py-1 text-xs dark:bg-gray-700 dark:border-gray-600"
+                          disabled={user.role === "SUPER_ADMIN"}
+                        >
+                          <option value="">선택</option>
+                          {customRoles.map((role) => (
+                            <option key={role.id} value={role.id}>
+                              {role.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {getAccessScopeBadge(user.accessScope)}
@@ -276,6 +302,61 @@ export default function UsersPermissionPage() {
               ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {users
+          .filter((user) =>
+            search === "" ||
+            user.name.toLowerCase().includes(search.toLowerCase()) ||
+            user.email.toLowerCase().includes(search.toLowerCase())
+          )
+          .map((user) => (
+            <div key={user.id} className="rounded-lg border bg-white/50 dark:bg-white/5 p-4 space-y-2">
+              <div className="flex items-center justify-between mb-2">
+                <div className="font-medium text-lg">{user.name}</div>
+                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                  user.isActive ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                }`}>
+                  {user.isActive ? "활성" : "비활성"}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-2 text-sm">
+                <div><span className="text-gray-500">📧 이메일:</span> {user.email}</div>
+                <div>
+                  <span className="text-gray-500">🏷️ 시스템 역할:</span> {getRoleBadge(user.role)}
+                </div>
+                <div>
+                  <span className="text-gray-500">🎯 커스텀 역할:</span>{" "}
+                  {user.customRole ? (
+                    <span className="px-2 py-1 bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200 rounded text-xs font-medium">
+                      {user.customRole.name}
+                    </span>
+                  ) : (
+                    <span className="px-2 py-1 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded text-xs">
+                      기본 역할
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <span className="text-gray-500">🔑 접근 범위:</span> {getAccessScopeBadge(user.accessScope)}
+                </div>
+                <div className="pt-2">
+                  <button
+                    onClick={() => {
+                      setSelectedUser(user);
+                      setShowPermissionModal(true);
+                    }}
+                    disabled={user.role === "SUPER_ADMIN"}
+                    className="w-full px-3 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded text-sm disabled:opacity-50"
+                  >
+                    개별 권한 설정
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
       </div>
 
       {/* 개별 권한 설정 모달 */}

@@ -21,6 +21,7 @@ interface Connection {
   customCode: string | null;
   contractStartDate: string | null;
   contractEndDate: string | null;
+  daysRemaining: number | null;
   createdAt: string;
   organization: Organization;
 }
@@ -54,13 +55,16 @@ export default function CustomerOrganizationsPage() {
     try {
       setLoading(true);
       const customerId = (session?.user as any)?.customerId;
+      console.log("[Frontend] Fetching connections for customerId:", customerId);
       const res = await fetch(`/api/connections/by-customer?customerId=${customerId}`);
       const data = await res.json();
       
       if (res.ok) {
+        console.log("[Frontend] Received connections:", data.connections?.length);
         setConnections(data.connections || []);
       } else {
         console.error("Failed to fetch connections:", data.error);
+        console.error("Error details:", data.details);
       }
     } catch (error) {
       console.error("Error fetching connections:", error);
@@ -222,9 +226,10 @@ export default function CustomerOrganizationsPage() {
         </div>
       </div>
 
-      {/* 테이블 */}
-      <div className="overflow-x-auto rounded-lg border bg-white dark:bg-gray-900">
-        <table className="min-w-full divide-y divide-gray-200">
+      {/* Desktop Table */}
+      <div className="hidden md:block rounded-lg border bg-white dark:bg-gray-900">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
@@ -232,8 +237,8 @@ export default function CustomerOrganizationsPage() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">기업명</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">사업자등록번호</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">연락처</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">세컨코드</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">계약기간</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">잔여일</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">액션</th>
             </tr>
           </thead>
@@ -263,13 +268,22 @@ export default function CustomerOrganizationsPage() {
                     <div>{conn.organization.phone}</div>
                     <div className="text-xs text-gray-400">{conn.organization.email}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-500">
-                    {conn.customCode || "-"}
-                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {conn.contractStartDate && conn.contractEndDate
-                      ? `${new Date(conn.contractStartDate).toLocaleDateString()} ~ ${new Date(conn.contractEndDate).toLocaleDateString()}`
-                      : "-"}
+                    {conn.contractStartDate && conn.contractEndDate ? (
+                      <div>{new Date(conn.contractStartDate).toLocaleDateString()} ~ {new Date(conn.contractEndDate).toLocaleDateString()}</div>
+                    ) : "-"}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    {conn.daysRemaining !== null ? (
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        conn.daysRemaining < 0 ? 'bg-red-100 text-red-700' :
+                        conn.daysRemaining <= 7 ? 'bg-red-50 text-red-600' :
+                        conn.daysRemaining <= 28 ? 'bg-yellow-50 text-yellow-700' :
+                        'bg-green-50 text-green-700'
+                      }`}>
+                        {conn.daysRemaining < 0 ? `만료 ${Math.abs(conn.daysRemaining)}일` : `${conn.daysRemaining}일`}
+                      </span>
+                    ) : "-"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     {conn.status === "PENDING" && conn.requestedBy === "ORGANIZATION" && isAdmin && (
@@ -315,6 +329,74 @@ export default function CustomerOrganizationsPage() {
             )}
           </tbody>
         </table>
+        </div>
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {filteredConnections.length === 0 ? (
+          <div className="rounded-lg border bg-white/50 dark:bg-white/5 p-6 text-center text-gray-500">
+            연결된 환경측정기업이 없습니다.
+          </div>
+        ) : (
+          filteredConnections.map((conn) => (
+            <div key={conn.id} className="rounded-lg border bg-white/50 dark:bg-white/5 p-4 space-y-2">
+              <div className="flex items-center justify-between mb-2">
+                {getStatusBadge(conn.status)}
+                {getRequestedByBadge(conn.requestedBy)}
+              </div>
+              <div className="grid grid-cols-1 gap-2 text-sm">
+                <div className="font-medium text-lg">{conn.organization.name}</div>
+                <div><span className="text-gray-500">💼 사업자:</span> {conn.organization.businessNumber}</div>
+                <div><span className="text-gray-500">📞 연락처:</span> {conn.organization.phone}</div>
+                <div className="text-xs text-gray-500">📧 {conn.organization.email}</div>
+                {conn.contractStartDate && conn.contractEndDate && (
+                  <div><span className="text-gray-500">📅 계약:</span> {new Date(conn.contractStartDate).toLocaleDateString()} ~ {new Date(conn.contractEndDate).toLocaleDateString()}</div>
+                )}
+                {conn.daysRemaining !== null && (
+                  <div>
+                    <span className="text-gray-500">⏱️ 잔여:</span>{" "}
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${
+                      conn.daysRemaining < 0 ? 'bg-red-100 text-red-700' :
+                      conn.daysRemaining <= 7 ? 'bg-red-50 text-red-600' :
+                      conn.daysRemaining <= 28 ? 'bg-yellow-50 text-yellow-700' :
+                      'bg-green-50 text-green-700'
+                    }`}>
+                      {conn.daysRemaining < 0 ? `만료 ${Math.abs(conn.daysRemaining)}일` : `${conn.daysRemaining}일`}
+                    </span>
+                  </div>
+                )}
+                <div className="flex flex-col gap-2 pt-2">
+                  {conn.status === "PENDING" && conn.requestedBy === "ORGANIZATION" && isAdmin && (
+                    <>
+                      <button onClick={() => handleApprove(conn.id)} className="w-full px-3 py-2 bg-green-500 text-white hover:bg-green-600 rounded text-sm">
+                        승인
+                      </button>
+                      <button onClick={() => handleReject(conn.id)} className="w-full px-3 py-2 bg-gray-500 text-white hover:bg-gray-600 rounded text-sm">
+                        거부
+                      </button>
+                    </>
+                  )}
+                  {conn.status === "APPROVED" && (
+                    <>
+                      <button onClick={() => router.push(`/customer/organizations/${conn.organization.id}`)} className="w-full px-3 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded text-sm">
+                        상세
+                      </button>
+                      {isAdmin && (
+                        <button onClick={() => handleDisconnect(conn.id)} className="w-full px-3 py-2 bg-gray-500 text-white hover:bg-gray-600 rounded text-sm">
+                          연결해제
+                        </button>
+                      )}
+                    </>
+                  )}
+                  {conn.status === "PENDING" && conn.requestedBy === "CUSTOMER" && (
+                    <div className="text-center text-gray-500">대기중</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* 연결 요청 모달 */}

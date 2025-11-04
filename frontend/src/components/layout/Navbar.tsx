@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import NotificationBell from "@/components/notifications/NotificationBell";
 
@@ -65,44 +65,72 @@ export default function Navbar() {
   const userCustomerId = (session?.user as any)?.customerId;
   const isCustomerUser = userRole === "CUSTOMER_ADMIN" || userRole === "CUSTOMER_USER";
   
+  // 시스템 보기 모드에서 고객사 정보 가져오기
+  const [viewAsCustomerName, setViewAsCustomerName] = useState<string>("");
+  
   // 시스템 보기 모드 확인
   const viewAsOrgId = typeof window !== "undefined" ? sessionStorage.getItem("viewAsOrganization") : null;
+  const viewAsCustomerId = typeof window !== "undefined" ? sessionStorage.getItem("viewAsCustomer") : null;
   const isViewingAsOrg = isSuperAdmin && !!viewAsOrgId;
+  const isViewingAsCustomer = isSuperAdmin && !!viewAsCustomerId;
   
-  // 시스템 보기 모드일 때는 ORG_ADMIN 권한으로 메뉴 필터링
-  const effectiveRole = isViewingAsOrg ? "ORG_ADMIN" : userRole;
+  // 고객사 시스템 보기 모드일 때 고객사명 로드
+  useEffect(() => {
+    if (isViewingAsCustomer && viewAsCustomerId) {
+      fetch(`/api/customers/${viewAsCustomerId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.customer) {
+            setViewAsCustomerName(data.customer.name);
+          }
+        })
+        .catch(err => console.error("Failed to load customer name:", err));
+    }
+  }, [isViewingAsCustomer, viewAsCustomerId]);
+  
+  // 시스템 보기 모드일 때 권한 변경
+  let effectiveRole = userRole;
+  if (isViewingAsOrg) {
+    effectiveRole = "ORG_ADMIN";
+  } else if (isViewingAsCustomer) {
+    effectiveRole = "CUSTOMER_ADMIN";
+  }
   const items = navItems.filter((i) => i.roles.includes(effectiveRole));
   return (
+    <>
     <header className="h-16 border-b border-gray-800 bg-gray-900 text-white sticky top-0 z-40">
       <div className="mx-auto h-full px-4 flex items-center gap-6">
         {/* Mobile: hamburger */}
         <button
-          className="md:hidden inline-flex items-center justify-center w-9 h-9 rounded border border-gray-700 hover:bg-white/10"
+          className="md:hidden inline-flex flex-col items-center justify-center w-9 h-9 rounded border border-gray-700 hover:bg-white/10 gap-1"
           aria-label="메뉴 열기"
           onClick={() => setOpen(true)}
         >
-          <span className="block w-4 h-0.5 bg-white" />
-          <span className="block w-4 h-0.5 bg-white mt-1" />
-          <span className="block w-4 h-0.5 bg-white mt-1" />
+          <span className="block w-5 h-0.5 bg-white" />
+          <span className="block w-5 h-0.5 bg-white" />
+          <span className="block w-5 h-0.5 bg-white" />
         </button>
 
         {/* 왼쪽: 회사명 + 메뉴 */}
         <div className="flex items-center gap-6">
-          {isCustomerUser ? (
-            // 고객사 사용자: 고객사명만 표시 (환경측정기업 선택은 대시보드 필터에서)
+          {isCustomerUser || isViewingAsCustomer ? (
+            // 고객사 사용자 또는 고객사 시스템 보기: 고객사명만 표시
             <Link href="/" className="font-semibold text-lg whitespace-nowrap text-white">
-              {(session?.user as any)?.customerName || "고객사"}
+              {isViewingAsCustomer ? viewAsCustomerName : ((session?.user as any)?.customerName || "고객사")}
             </Link>
           ) : isSuperAdmin ? (
             // SUPER_ADMIN: 환경측정기업 선택 드롭다운 + 시스템 보기 모드 표시
             <div className="flex items-center gap-2">
-              {isViewingAsOrg && (
+              {(isViewingAsOrg || isViewingAsCustomer) && (
                 <div className="flex items-center gap-2 px-3 py-1 bg-purple-600 rounded-md">
-                  <span className="text-sm font-medium">🔍 시스템 보기</span>
+                  <span className="text-sm font-medium">
+                    🔍 시스템 보기 {isViewingAsCustomer && "(고객사)"}
+                  </span>
                   <button
                     onClick={() => {
                       sessionStorage.removeItem("viewAsOrganization");
-                      window.location.href = "/admin/organizations";
+                      sessionStorage.removeItem("viewAsCustomer");
+                      window.location.href = isViewingAsCustomer ? "/admin/customers" : "/admin/organizations";
                     }}
                     className="text-xs px-2 py-0.5 bg-white/20 hover:bg-white/30 rounded"
                     title="시스템 관리자 모드로 돌아가기"
@@ -226,12 +254,12 @@ export default function Navbar() {
           </nav>
         </div>
 
-        {/* 오른쪽: 알림 + 사용자 메뉴 또는 로그인 */}
-        <div className="ml-auto flex items-center gap-3">
+        {/* 오른쪽: 알림 + 사용자 메뉴 */}
+        <div className="flex items-center gap-4 ml-auto">
+          <NotificationBell />
           {status === "authenticated" ? (
             <>
               {/* 알림 아이콘 */}
-              <NotificationBell />
               
               <div className="relative">
               <button
@@ -277,6 +305,24 @@ export default function Navbar() {
                       >
                         내 정보
                       </Link>
+                      {(userRole === "CUSTOMER_ADMIN" || userRole === "CUSTOMER_USER" || isViewingAsCustomer) && (
+                        <Link
+                          href="/customer/organization"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        >
+                          조직 정보
+                        </Link>
+                      )}
+                      {(userRole === "ORG_ADMIN" || userRole === "SUPER_ADMIN") && !isViewingAsCustomer && (
+                        <Link
+                          href="/org/settings/organization"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        >
+                          조직 정보
+                        </Link>
+                      )}
                       <button
                         onClick={() => {
                           setUserMenuOpen(false);
@@ -352,6 +398,15 @@ export default function Navbar() {
                 >
                   내 정보
                 </Link>
+                {(userRole === "ORG_ADMIN" || userRole === "SUPER_ADMIN") && (
+                  <Link
+                    href="/org/settings/organization"
+                    onClick={() => setOpen(false)}
+                    className="block px-3 py-2 text-sm text-gray-200 hover:bg-white/10 rounded"
+                  >
+                    조직 정보
+                  </Link>
+                )}
                 <button
                   onClick={() => {
                     setOpen(false);
@@ -367,5 +422,6 @@ export default function Navbar() {
         </div>
       )}
     </header>
+  </>
   );
 }
