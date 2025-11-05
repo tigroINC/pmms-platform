@@ -61,6 +61,8 @@ model Customer {
   customRoles       CustomRole[] // 고객사 커스텀 역할
   notifications     Notification[] // 알림
   contracts         Contract[] // 계약 관리
+  communications    Communication[] // CS 커뮤니케이션
+  internalNotes     CommunicationNote[] @relation("CustomerInternalNotes") // 내부메모
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
 
@@ -119,6 +121,7 @@ model Stack {
   updateLogs    StackUpdateLog[] // 수정 알림 로그
   notifications Notification[] // 알림
   measurementItems StackMeasurementItem[] // 굴뚝별 측정항목 설정
+  communications Communication[] // CS 커뮤니케이션
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -160,6 +163,9 @@ model Measurement {
   // 측정 수행 환경측정기업
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
+  
+  // CS 커뮤니케이션
+  communications Communication[]
 
   // Additional raw fields from CSV
   weather           String? // 기상
@@ -292,6 +298,8 @@ model Organization {
   invitations         CustomerInvitation[] // 고객사 초대
   customRoles         CustomRole[] // 조직 커스텀 역할
   contracts           Contract[] // 계약 관리
+  communicationTemplates CommunicationTemplate[] // CS 템플릿
+  internalNotes       CommunicationNote[] @relation("OrgInternalNotes") // 내부메모
 
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -437,6 +445,15 @@ model User {
 
   // 알림
   notifications Notification[]
+  
+  // CS 커뮤니케이션
+  createdCommunications    Communication[] @relation("CommunicationCreator")
+  assignedCommunications   Communication[] @relation("CommunicationAssignee")
+  uploadedAttachments      CommunicationAttachment[] @relation("AttachmentUploader")
+  createdReplies           CommunicationReply[] @relation("ReplyCreator")
+  createdNotes             CommunicationNote[] @relation("NoteCreator")
+  mentionedInNotes         CommunicationNote[] @relation("MentionedUser")
+  createdTemplates         CommunicationTemplate[] @relation("TemplateCreator")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -910,6 +927,11 @@ enum NotificationType {
   CONTRACT_EXPIRY_7              // 계약 만료 7일 전
   CONTRACT_EXPIRY_DAILY          // 계약 만료 6~1일 전 (매일)
   CONTRACT_EXPIRED               // 계약 만료
+  COMMUNICATION_MENTION          // CS 커뮤니케이션 @멘션됨
+  COMMUNICATION_URGENT           // CS 긴급 답변 필요
+  COMMUNICATION_CLIENT_REQUEST   // 고객사 요청사항 등록
+  COMMUNICATION_ASSIGNED         // CS 담당자 지정됨
+  COMMUNICATION_STATUS_CHANGED   // CS 상태 변경
 }
 
 // 알림
@@ -1027,4 +1049,195 @@ model Contract {
   @@index([customerId])
   @@index([status])
   @@index([endDate])
+}
+
+// ============================================
+// CS 커뮤니케이션 관리
+// ============================================
+
+// 커뮤니케이션 채널
+enum CommunicationChannel {
+  PHONE
+  EMAIL
+  VISIT
+  KAKAO
+  SMS
+  FAX
+  OTHER
+}
+
+// 커뮤니케이션 방향
+enum CommunicationDirection {
+  INBOUND  // 수신
+  OUTBOUND // 발신
+}
+
+// 커뮤니케이션 상태
+enum CommunicationStatus {
+  PENDING      // 답변대기
+  IN_PROGRESS  // 대화중
+  COMPLETED    // 완료
+  REFERENCE    // 참고
+}
+
+// 우선순위
+enum Priority {
+  URGENT
+  HIGH
+  NORMAL
+  LOW
+}
+
+// 커뮤니케이션 (메인)
+model Communication {
+  id              String   @id @default(cuid())
+  
+  // 고객 관계
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  // 측정/굴뚝 연결 (선택)
+  measurementId   String?
+  measurement     Measurement? @relation(fields: [measurementId], references: [id], onDelete: SetNull)
+  stackId         String?
+  stack           Stack? @relation(fields: [stackId], references: [id], onDelete: SetNull)
+  
+  // 소통 내역
+  contactAt       DateTime // 실제 소통 일시
+  channel         CommunicationChannel
+  direction       CommunicationDirection
+  subject         String? // 제목 (이메일 등)
+  content         String // TEXT
+  
+  // 상태/우선순위
+  status          CommunicationStatus @default(PENDING)
+  priority        Priority @default(NORMAL)
+  
+  // 담당자
+  createdById     String
+  createdBy       User @relation("CommunicationCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  assignedToId    String?
+  assignedTo      User? @relation("CommunicationAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  
+  // 상대방 정보 (등록 시 입력)
+  contactPerson   String? // 상대방 담당자명
+  contactOrg      String? // 상대방 조직명 (고객사 또는 측정기업)
+  
+  // 공유 설정
+  isShared        Boolean @default(true) // true: 고객사 공유, false: 내부 전용
+  
+  // Soft Delete
+  isDeleted       Boolean @default(false)
+  deletedAt       DateTime?
+  deletedById     String?
+  
+  // 관련 데이터
+  attachments     CommunicationAttachment[]
+  notes           CommunicationNote[]
+  replies         CommunicationReply[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // 최적화된 인덱스
+  @@index([customerId, status, contactAt(sort: Desc)])
+  @@index([assignedToId, status, isDeleted])
+  @@index([createdById, isDeleted])
+  @@index([isDeleted, contactAt(sort: Desc)])
+  
+  @@map("communications")
+}
+
+// 첨부파일
+model CommunicationAttachment {
+  id                String   @id @default(cuid())
+  communicationId   String
+  communication     Communication @relation(fields: [communicationId], references: [id], onDelete: Cascade)
+  
+  filename          String
+  originalFilename  String // 원본 파일명 별도 저장
+  fileUrl           String
+  fileSize          Int
+  mimeType          String
+  
+  uploadedById      String
+  uploadedBy        User @relation("AttachmentUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+  uploadedAt        DateTime @default(now())
+  
+  @@index([communicationId])
+  @@map("communication_attachments")
+}
+
+// 답변 (양방향 대화)
+model CommunicationReply {
+  id                String   @id @default(cuid())
+  communicationId   String
+  communication     Communication @relation(fields: [communicationId], references: [id], onDelete: Cascade)
+  
+  content           String // TEXT
+  direction         CommunicationDirection // INBOUND/OUTBOUND
+  
+  createdById       String
+  createdBy         User @relation("ReplyCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt         DateTime @default(now())
+  
+  @@index([communicationId, createdAt])
+  @@map("communication_replies")
+}
+
+// 내부 메모 (거래처 비공개)
+model CommunicationNote {
+  id                String   @id @default(cuid())
+  communicationId   String
+  communication     Communication @relation(fields: [communicationId], references: [id], onDelete: Cascade)
+  
+  note              String // TEXT
+  
+  // 어느 조직의 내부메모인지
+  organizationId    String?
+  organization      Organization? @relation("OrgInternalNotes", fields: [organizationId], references: [id], onDelete: SetNull)
+  customerId        String?
+  customer          Customer? @relation("CustomerInternalNotes", fields: [customerId], references: [id], onDelete: SetNull)
+  
+  mentionedUserId   String?
+  mentionedUser     User? @relation("MentionedUser", fields: [mentionedUserId], references: [id], onDelete: SetNull)
+  
+  createdById       String
+  createdBy         User @relation("NoteCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt         DateTime @default(now())
+  
+  @@index([communicationId])
+  @@index([organizationId])
+  @@index([customerId])
+  @@index([mentionedUserId])
+  @@map("communication_notes")
+}
+
+// 템플릿
+model CommunicationTemplate {
+  id              String   @id @default(cuid())
+  
+  title           String // "측정 일정 확인"
+  content         String // TEXT
+  channel         CommunicationChannel?
+  category        String? // "일정", "보고서", "문의"
+  
+  // 조직별 템플릿
+  organizationId  String? // null이면 전사 공용
+  organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  isShared        Boolean @default(false) // 전사 공유 여부
+  sortOrder       Int @default(0)
+  
+  createdById     String
+  createdBy       User @relation("TemplateCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  usageCount      Int @default(0)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([organizationId, isShared, category])
+  @@index([usageCount(sort: Desc)]) // 인기 템플릿
+  
+  @@map("communication_templates")
 }

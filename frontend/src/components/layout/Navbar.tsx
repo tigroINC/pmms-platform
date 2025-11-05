@@ -22,6 +22,7 @@ const navItems: NavItem[] = [
   
   // 고객사 관리
   { href: "/masters/customers", label: "고객사 관리", roles: ["SUPER_ADMIN", "ORG_ADMIN", "OPERATOR"], readOnly: ["OPERATOR"] },
+  { href: "/communications", label: "고객 소통", roles: ["SUPER_ADMIN", "ORG_ADMIN", "OPERATOR"] },
   { href: "/masters/stacks", label: "굴뚝 관리", roles: ["SUPER_ADMIN", "ORG_ADMIN", "OPERATOR"], readOnly: ["OPERATOR"] },
   
   // 기준 정보
@@ -31,6 +32,7 @@ const navItems: NavItem[] = [
   // 고객사 메뉴
   { href: "/customer/stacks", label: "굴뚝 관리", roles: ["SUPER_ADMIN", "CUSTOMER_ADMIN"] },
   { href: "/customer/organizations", label: "환경측정기업 관리", roles: ["SUPER_ADMIN", "CUSTOMER_ADMIN", "CUSTOMER_USER"] },
+  { href: "/communications", label: "소통 내역", roles: ["CUSTOMER_ADMIN", "CUSTOMER_USER"] },
   { href: "/customer/staff", label: "직원 관리", roles: ["SUPER_ADMIN", "CUSTOMER_ADMIN"] },
   
   // 공급회사 직원 관리
@@ -87,6 +89,7 @@ export default function Navbar() {
         .catch(err => console.error("Failed to load customer name:", err));
     }
   }, [isViewingAsCustomer, viewAsCustomerId]);
+  
   
   // 시스템 보기 모드일 때 권한 변경
   let effectiveRole = userRole;
@@ -246,7 +249,7 @@ export default function Navbar() {
               
               // 일반 메뉴
               return (
-                <Link key={item.href} href={item.href} className={`text-sm px-3 py-1 rounded hover:bg-white/10 ${active ? "font-medium bg-white/10" : "text-gray-200"}`}>
+                <Link key={item.href} href={item.href} className={`text-sm px-3 py-1 rounded hover:bg-white/10 relative ${active ? "font-medium bg-white/10" : "text-gray-200"}`}>
                   {item.label}
                 </Link>
               );
@@ -378,7 +381,7 @@ export default function Navbar() {
                     key={item.href}
                     href={item.href}
                     onClick={() => setOpen(false)}
-                    className={`text-sm px-3 py-2 rounded hover:bg-white/10 ${active ? "font-medium bg-white/10" : "text-gray-200"}`}
+                    className={`text-sm px-3 py-2 rounded hover:bg-white/10 relative ${active ? "font-medium bg-white/10" : "text-gray-200"}`}
                   >
                     {item.label}
                   </Link>
