@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
 import Button from "@/components/ui/Button";
-import { ArrowLeft, Trash2, Send, Lock, Edit } from "lucide-react";
+import { ArrowLeft, Trash2, Send, Lock, Edit, HelpCircle } from "lucide-react";
+import CommunicationHelpModal from "@/components/modals/CommunicationHelpModal";
 
 type Communication = {
   id: string;
@@ -69,6 +70,7 @@ export default function CommunicationDetailPage() {
   const [addingNote, setAddingNote] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState({ subject: "", content: "" });
+  const [showHelp, setShowHelp] = useState(false);
 
   const user = session?.user as any;
   const isCustomer = user?.role === "CUSTOMER_ADMIN" || user?.role === "CUSTOMER_USER";
@@ -292,6 +294,13 @@ export default function CommunicationDetailPage() {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
           커뮤니케이션 상세
         </h1>
+        <button
+          onClick={() => setShowHelp(true)}
+          className="ml-auto px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors flex items-center gap-1"
+        >
+          <HelpCircle className="w-4 h-4" />
+          도움말
+        </button>
       </div>
 
       {/* 기본 정보 */}
@@ -592,6 +601,12 @@ export default function CommunicationDetailPage() {
           )}
         </div>
       </div>
+
+      {/* 도움말 모달 */}
+      <CommunicationHelpModal
+        isOpen={showHelp}
+        onClose={() => setShowHelp(false)}
+      />
     </section>
   );
 }

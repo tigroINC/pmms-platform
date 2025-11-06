@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
-import { Plus, Filter, Search } from "lucide-react";
+import { Plus, Filter, Search, HelpCircle } from "lucide-react";
 import CommunicationFormModal from "@/components/modals/CommunicationFormModal";
+import CommunicationHelpModal from "@/components/modals/CommunicationHelpModal";
 
 type Communication = {
   id: string;
@@ -58,6 +59,7 @@ export default function CommunicationsPage() {
   const [showFormModal, setShowFormModal] = useState(false);
   const [showShareTypeDialog, setShowShareTypeDialog] = useState(false);
   const [selectedShareType, setSelectedShareType] = useState<boolean>(true); // true: 공유, false: 내부전용
+  const [showHelp, setShowHelp] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("");
   const [filterChannel, setFilterChannel] = useState<string>("");
@@ -234,23 +236,31 @@ export default function CommunicationsPage() {
           </div>
           
           {/* 통계 카드 */}
-          <div className="flex flex-wrap items-end gap-2 ml-auto">
-            <div className="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 px-3 py-1 flex items-center gap-1.5 mb-1.5">
+          <div className="flex flex-wrap items-center gap-2 ml-auto">
+            <div className="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 px-3 py-1 flex items-center gap-1.5">
               <span className="text-xs text-gray-600 dark:text-gray-400">전체</span>
               <span className="text-sm font-bold text-gray-900 dark:text-white">{communications.length}</span>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 px-3 py-1 flex items-center gap-1.5 mb-1.5">
+            <div className="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 px-3 py-1 flex items-center gap-1.5">
               <span className="text-xs text-gray-600 dark:text-gray-400">답변대기</span>
               <span className="text-sm font-bold text-yellow-600 dark:text-yellow-400">{communications.filter(c => c.status === "PENDING").length}</span>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 px-3 py-1 flex items-center gap-1.5 mb-1.5">
+            <div className="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 px-3 py-1 flex items-center gap-1.5">
               <span className="text-xs text-gray-600 dark:text-gray-400">완료</span>
               <span className="text-sm font-bold text-green-600 dark:text-green-400">{communications.filter(c => c.status === "COMPLETED").length}</span>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 px-3 py-1 flex items-center gap-1.5 mb-1.5">
+            <div className="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 px-3 py-1 flex items-center gap-1.5">
               <span className="text-xs text-gray-600 dark:text-gray-400">긴급</span>
               <span className="text-sm font-bold text-red-600 dark:text-red-400">{communications.filter(c => c.priority === "URGENT").length}</span>
             </div>
+            
+            <button
+              onClick={() => setShowHelp(true)}
+              className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors flex items-center gap-1"
+            >
+              <HelpCircle className="w-4 h-4" />
+              도움말
+            </button>
             
             <Button onClick={() => {
               if (isCustomer) {
@@ -508,6 +518,12 @@ export default function CommunicationsPage() {
           fetchCommunications();
         }}
         initialShareType={selectedShareType}
+      />
+
+      {/* 도움말 모달 */}
+      <CommunicationHelpModal
+        isOpen={showHelp}
+        onClose={() => setShowHelp(false)}
       />
     </section>
   );
