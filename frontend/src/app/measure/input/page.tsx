@@ -10,6 +10,8 @@ import { useMeasurementItems } from "@/hooks/useMeasurements";
 import BulkUploadModal from "@/components/modals/BulkUploadModal";
 import ResultModal from "@/components/modals/ResultModal";
 import TempDataManagement from "@/components/TempDataManagement";
+import HelpModal from "@/components/modals/HelpModal";
+import { getMeasurementInputHelpSections } from "@/lib/help/measurementInputHelp";
 
 type BulkRow = {
   stack: string;
@@ -40,6 +42,7 @@ export default function MeasureInputPage() {
 
   const [ndAll, setNdAll] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
+  const [savedItems, setSavedItems] = useState<Set<string>>(new Set()); // 저장된 항목 추적
   
   // 현재 시간으로 초기화
   const getCurrentDateTime = () => {
@@ -79,7 +82,13 @@ export default function MeasureInputPage() {
     try {
       const res = await fetch(`/api/stacks/${stackId}/measurement-items`);
       const json = await res.json();
-      // 활성화된 항목만 필터링
+      console.log("API 응답 - 오염물질 순서:", 
+        json.items?.filter((i: any) => i.category === "오염물질").map((i: any) => ({ name: i.name, order: i.order }))
+      );
+      console.log("API 응답 - 채취환경 순서:", 
+        json.items?.filter((i: any) => i.category === "채취환경").map((i: any) => ({ name: i.name, order: i.order }))
+      );
+      // 활성화된 항목만 필터링 (API에서 이미 정렬되어 옴)
       const activeItems = (json.items || []).filter((item: any) => item.isActive);
       setStackItems(activeItems);
     } catch (err) {
@@ -92,6 +101,7 @@ export default function MeasureInputPage() {
 
   // Bulk upload modal state
   const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
   
   // Result modal state
   const [resultModal, setResultModal] = useState<{
@@ -321,7 +331,7 @@ export default function MeasureInputPage() {
 
   const Status = ({ v, limit }: { v: string; limit: number }) => {
     const num = parseFloat(v);
-    if (ndAll || v.toLowerCase() === "nd" || v === "") return <span className="text-xs text-gray-500">불검출</span>;
+    if (ndAll || v.toLowerCase() === "nd" || v === "") return <span className="text-xs text-gray-500">미입력</span>;
     if (isNaN(num)) return <span className="text-xs text-gray-500">-</span>;
     const ratio = num / limit;
     if (ratio > 1) return <span className="text-xs text-red-600">초과</span>;
@@ -336,12 +346,16 @@ export default function MeasureInputPage() {
     if (!time) e["__time"] = "시간은 필수입니다";
     Object.entries(values).forEach(([k, v]) => {
       if (!v) return; // 빈 값(미입력)은 허용
+      // select 타입 항목은 숫자 검사 건너뛰기
+      const item = stackItems.find(i => i.key === k);
+      if (item?.inputType === "select" || item?.inputType === "text") return;
+      
       const num = Number(v);
       if (!Number.isFinite(num)) e[k] = "숫자를 입력하세요";
       else if (num < 0 || num > 999999) e[k] = "0~999999 범위";
     });
     return e;
-  }, [date, time, values]);
+  }, [date, time, values, stackItems]);
 
   const hasErrors = Object.keys(errors).length > 0;
 
@@ -354,6 +368,123 @@ export default function MeasureInputPage() {
     ndAll,
     values,
   });
+
+  // 항목별 임시저장
+  const handleItemTempSave = async (itemKey: string) => {
+    if (role === "customer") return;
+    
+    if (!selectedCustomerId || !selectedStackId) {
+      showResult("임시저장 실패", "고객사와 굴뚝을 선택해주세요.", "error");
+      return;
+    }
+
+    const v = values[itemKey] ?? "";
+    if (v === "") {
+      showResult("임시저장 실패", "값을 입력해주세요.", "warning");
+      return;
+    }
+
+    const item = stackItems.find(i => i.key === itemKey);
+    const isAuxiliary = item?.category === "채취환경" || item?.category === "보조항목";
+    
+    // 채취환경 항목인 경우
+    if (isAuxiliary) {
+      try {
+        const dt = new Date(date + "T" + (time || "00:00") + ":00");
+        const auxiliaryData: any = { [itemKey]: v };
+        
+        // 채취환경 일괄 업데이트 API 호출
+        const res = await fetch("/api/measurements-temp/auxiliary", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customerId: selectedCustomerId,
+            stackId: selectedStackId,
+            measurementDate: dt.toISOString(),
+            auxiliaryData,
+          }),
+        });
+
+        const json = await res.json();
+
+        if (res.ok) {
+          setSavedItems(prev => new Set(prev).add(itemKey));
+          showResult(
+            "채취환경 저장 완료",
+            (item?.name || itemKey) + " 항목이 저장되었습니다.\n동일 날짜/굴뚝의 " + json.updatedCount + "건 임시데이터에 적용되었습니다.",
+            "success"
+          );
+        } else {
+          showResult("저장 실패", json.error || "저장 중 오류가 발생했습니다.", "error");
+        }
+      } catch (error: any) {
+        showResult("저장 오류", error.message || "저장 중 오류가 발생했습니다.", "error");
+      }
+      return;
+    }
+    
+    // 오염물질 항목인 경우
+    // select/text 타입이 아닌 경우만 숫자 검사
+    if (item?.inputType !== "select" && item?.inputType !== "text") {
+      const num = Number(v);
+      if (!Number.isFinite(num)) {
+        showResult("임시저장 실패", "올바른 숫자를 입력해주세요.", "error");
+        return;
+      }
+    }
+
+    try {
+      const dt = new Date(date + "T" + (time || "00:00") + ":00");
+      
+      // select/text 타입은 문자열 그대로, 아니면 숫자로 변환
+      const value = (item?.inputType === "select" || item?.inputType === "text") ? v : Number(v);
+      
+      const measurements = [{
+        itemKey,
+        value: value,
+        unit: item?.unit || "",
+      }];
+
+      // 최신 채취환경 값 가져오기
+      const auxiliaryData: any = {};
+      stackItems
+        .filter(i => i.category === "채취환경" || i.category === "보조항목")
+        .forEach(i => {
+          const auxValue = values[i.key];
+          if (auxValue) {
+            auxiliaryData[i.key] = auxValue;
+          }
+        });
+      if (companySel) auxiliaryData.company = companySel;
+
+      const res = await fetch("/api/measurements-temp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerId: selectedCustomerId,
+          stackId: selectedStackId,
+          measurementDate: dt.toISOString(),
+          measurements,
+          auxiliaryData: Object.keys(auxiliaryData).length > 0 ? auxiliaryData : null,
+        }),
+      });
+
+      const json = await res.json();
+
+      if (res.ok) {
+        setSavedItems(prev => new Set(prev).add(itemKey));
+        showResult(
+          savedItems.has(itemKey) ? "재저장 완료" : "임시저장 완료",
+          (item?.name || itemKey) + " 항목이 임시 저장되었습니다.\n임시 ID: " + json.tempId,
+          "success"
+        );
+      } else {
+        showResult("저장 실패", json.error || "임시저장 중 오류가 발생했습니다.", "error");
+      }
+    } catch (error: any) {
+      showResult("저장 오류", error.message || "임시저장 중 오류가 발생했습니다.", "error");
+    }
+  };
 
   const handleTempSave = async () => {
     if (role === "customer") return;
@@ -368,31 +499,41 @@ export default function MeasureInputPage() {
     }
 
     try {
-      const dt = new Date(`${date}T${time || "00:00"}:00`);
+      const dt = new Date(date + "T" + (time || "00:00") + ":00");
       
-      // 측정값 배열 구성
+      // 측정값 배열 구성 (오염물질만)
       const measurements: any[] = [];
+      // 보조 데이터 (채취환경)
+      const auxiliaryData: any = {};
+      
       Object.entries(values).forEach(([key, v]) => {
         if (v !== "" && !ndAll) {
-          const num = Number(v);
-          if (Number.isFinite(num)) {
-            const item = stackItems.find(i => i.key === key);
-            measurements.push({
-              itemKey: key,
-              value: num,
-              unit: item?.unit || "",
-            });
+          const item = stackItems.find(i => i.key === key);
+          
+          // 채취환경 항목인지 확인
+          if (item?.category === "채취환경" || item?.category === "보조항목") {
+            // 채취환경은 auxiliaryData에 저장
+            auxiliaryData[key] = v;
+          } else {
+            // 오염물질은 measurements 배열에 저장
+            const num = Number(v);
+            if (Number.isFinite(num)) {
+              measurements.push({
+                itemKey: key,
+                value: num,
+                unit: item?.unit || "",
+              });
+            }
           }
         }
       });
 
-      if (measurements.length === 0) {
+      if (measurements.length === 0 && Object.keys(auxiliaryData).length === 0) {
         showResult("임시저장 실패", "저장할 측정값이 없습니다.", "warning");
         return;
       }
 
-      // 보조 데이터 (선택사항)
-      const auxiliaryData: any = {};
+      // 메타 데이터 추가
       if (companySel) auxiliaryData.company = companySel;
       if (ndAll) auxiliaryData.ndAll = true;
 
@@ -413,7 +554,7 @@ export default function MeasureInputPage() {
       if (res.ok) {
         showResult(
           "임시저장 완료",
-          `임시 ID: ${json.tempId}\n\n💡 임시 저장된 데이터는:\n- 측정 이력 및 대시보드에 반영되지 않습니다\n- [임시데이터관리] 탭에서 다운로드하여 검증 후\n- [확정일괄업로드] 탭으로 확정 등록하세요`,
+          "임시 ID: " + json.tempId + "\n\n💡 임시 저장된 데이터는:\n- 측정 이력 및 대시보드에 반영되지 않습니다\n- [임시데이터관리] 탭에서 다운로드하여 검증 후\n- [확정일괄업로드] 탭으로 확정 등록하세요",
           "success"
         );
         // 폼 초기화
@@ -433,6 +574,12 @@ export default function MeasureInputPage() {
       showResult("저장 실패", "유효성 오류를 먼저 해결해 주세요.", "error");
       return;
     }
+    
+    // 정식 저장은 임시저장 API를 사용하도록 변경
+    alert("정식 저장 기능은 임시저장 후 확정일괄업로드를 사용해주세요.");
+    return;
+    
+    /* 기존 개별 저장 방식은 채취환경 항목 처리 문제로 비활성화
     try {
       const dt = new Date(`${date}T${time || "00:00"}:00`);
       const bodyBase = { customerId: selectedCustomerId as string | undefined, stack: stackSel, measuredAt: dt.toISOString() };
@@ -444,13 +591,22 @@ export default function MeasureInputPage() {
       let okCount = 0;
       let failCount = 0;
       for (const [key, v] of entries) {
-        const num = Number(v);
-        if (!Number.isFinite(num)) continue;
+        const item = stackItems.find(i => i.key === key);
+        // select/text 타입은 문자열 그대로, 아니면 숫자로 변환
+        let value: any;
+        if (item?.inputType === "select" || item?.inputType === "text") {
+          value = v;
+        } else {
+          const num = Number(v);
+          if (!Number.isFinite(num)) continue;
+          value = num;
+        }
+        
         // key는 이제 itemKey 자체 (예: "dust", "sox" 등)
         const res = await fetch("/api/measurements", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...bodyBase, itemKey: key, value: num, measuredAt: dt.toISOString() }),
+          body: JSON.stringify({ ...bodyBase, itemKey: key, value: value, measuredAt: dt.toISOString() }),
         });
         if (res.ok) okCount += 1;
         else failCount += 1;
@@ -467,18 +623,20 @@ export default function MeasureInputPage() {
     } catch (e) {
       showResult("저장 오류", "저장 중 오류가 발생했습니다.", "error");
     }
+    */
   };
 
   return (
     <section className="space-y-3">
       {/* Compact Header - 제목과 탭 한 줄 */}
       <div className="rounded-lg border bg-white/50 dark:bg-white/5 p-2.5">
-        <div className="flex flex-wrap items-end gap-2">
-          <h1 className="text-lg font-semibold whitespace-nowrap mb-1.5">측정 입력</h1>
-          <span className="text-gray-300 dark:text-gray-600 mb-1.5">|</span>
-          
-          {/* 탭 */}
-          <div className="flex gap-2 mb-1.5">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div className="flex flex-wrap items-end gap-2">
+            <h1 className="text-lg font-semibold whitespace-nowrap mb-1.5">측정 입력</h1>
+            <span className="text-gray-300 dark:text-gray-600 mb-1.5">|</span>
+            
+            {/* 탭 */}
+            <div className="flex gap-2 mb-1.5">
             <button
               onClick={() => setActiveTab("field")}
               className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
@@ -510,6 +668,15 @@ export default function MeasureInputPage() {
               📤 확정일괄업로드
             </button>
           </div>
+          </div>
+          
+          {/* 도움말 버튼 */}
+          <button
+            onClick={() => setShowHelpModal(true)}
+            className="px-3 py-1.5 text-xs bg-blue-100 hover:bg-blue-200 dark:bg-blue-900 dark:hover:bg-blue-800 text-blue-700 dark:text-blue-300 rounded mb-1.5"
+          >
+            ❓ 도움말
+          </button>
         </div>
       </div>
 
@@ -537,18 +704,6 @@ export default function MeasureInputPage() {
                 disabled={role === "customer"}
               />
               {errors["__date"] && <div className="text-xs text-red-400 mt-1">{errors["__date"]}</div>}
-            </div>
-            {/* 측정시간 */}
-            <div className="space-y-2">
-              <label className="block text-xs sm:text-sm">측정시간</label>
-              <Input
-                type="time"
-                value={time}
-                onChange={(e)=>setTime((e.target as HTMLInputElement).value)}
-                className={`w-full text-xs sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-gray-700 ${errors["__time"]?"border-red-500":""}`}
-                disabled={role === "customer"}
-              />
-              {errors["__time"] && <div className="text-xs text-red-400 mt-1">{errors["__time"]}</div>}
             </div>
             <div className="space-y-2">
               <label className="block text-xs sm:text-sm">고객사</label>
@@ -589,15 +744,7 @@ export default function MeasureInputPage() {
 
         {/* Main: Form */}
         <main className="col-span-12 md:col-span-10">
-          <div className="rounded-lg border bg-white/50 dark:bg-white/5 p-6 space-y-6 relative">
-            {/* 임시저장 버튼 - 우상단 */}
-            {role !== "customer" && selectedStackId && stackItems.length > 0 && (
-              <div className="absolute top-4 right-4 flex gap-2">
-                <Button size="sm" variant="primary" className="disabled:opacity-50 bg-orange-500 hover:bg-orange-600" disabled={hasErrors} onClick={handleTempSave}>
-                  💾 임시저장
-                </Button>
-              </div>
-            )}
+          <div className="rounded-lg border bg-white/50 dark:bg-white/5 p-6 space-y-6">
             {!selectedStackId ? (
               <div className="text-center py-12 text-gray-500">
                 <p className="text-lg mb-2">🏭 굴뚝을 선택하세요</p>
@@ -614,31 +761,53 @@ export default function MeasureInputPage() {
               </div>
             ) : (
               <>
-                {/* 오염물질 항목 */}
-                {stackItems.filter(item => item.category === "오염물질").length > 0 && (
-                  <div className="mb-6">
-                    <h3 className="text-base font-semibold mb-3">🏭 오염물질</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* 채취환경 (상단 배치) */}
+                {stackItems.filter(item => item.category === "채취환경" || item.category === "보조항목").length > 0 && (
+                  <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                    <h3 className="text-base font-semibold mb-3">🌡️ 채취환경</h3>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                       {stackItems
-                        .filter(item => item.category === "오염물질")
+                        .filter(item => item.category === "채취환경" || item.category === "보조항목")
                         .map((item) => {
                           const key = item.key;
                           const v = values[key] ?? "";
+                          const isSelect = item.inputType === "select";
+                          const options = isSelect && item.options ? JSON.parse(item.options) : [];
+                          
                           return (
-                            <div key={key} className="flex items-center gap-2">
-                              <div className="w-32 text-sm font-medium">{item.name}</div>
-                              <Input
-                                type="text"
-                                className={`w-20 px-2 py-1 text-center ${errors[key]?"border-red-500":""}`}
-                                placeholder={ndAll ? "ND" : "값"}
-                                value={ndAll ? "" : v}
-                                onChange={(e) => setValue(key, (e.target as HTMLInputElement).value)}
-                                disabled={ndAll || role === "customer"}
-                              />
+                            <div key={key} className="flex items-center gap-1.5">
+                              <div className="w-20 text-xs font-medium leading-tight line-clamp-2">{item.name}</div>
+                              {isSelect ? (
+                                <select
+                                  className={`w-20 px-2 py-1 text-center text-sm border rounded ${errors[key]?"border-red-500":"border-gray-300"} bg-white dark:bg-gray-700`}
+                                  value={v}
+                                  onChange={(e) => setValue(key, e.target.value)}
+                                  disabled={role === "customer"}
+                                >
+                                  <option value="">선택</option>
+                                  {options.map((opt: string) => (
+                                    <option key={opt} value={opt}>{opt}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <Input
+                                  type="text"
+                                  className={`w-20 px-2 py-1 text-center text-sm ${errors[key]?"border-red-500":""}`}
+                                  placeholder="값"
+                                  value={v}
+                                  onChange={(e) => setValue(key, (e.target as HTMLInputElement).value)}
+                                  disabled={role === "customer"}
+                                />
+                              )}
                               {errors[key] && <div className="text-xs text-red-600">{errors[key]}</div>}
-                              <div className="text-xs text-gray-500 w-16">{item.unit}</div>
-                              <div className="text-xs text-gray-500 w-24">기준 {item.limit}</div>
-                              <Status v={v} limit={item.limit} />
+                              <div className="text-xs text-gray-500 w-12">{item.unit}</div>
+                              <button
+                                className="px-2 py-1 text-xs bg-orange-500 hover:bg-orange-600 text-white rounded disabled:opacity-50"
+                                disabled={role === "customer"}
+                                onClick={() => handleItemTempSave(key)}
+                              >
+                                {savedItems.has(key) ? "재저장" : "임시저장"}
+                              </button>
                             </div>
                           );
                         })}
@@ -646,29 +815,40 @@ export default function MeasureInputPage() {
                   </div>
                 )}
 
-                {/* 보조항목 */}
-                {stackItems.filter(item => item.category === "보조항목").length > 0 && (
+                {/* 오염물질 항목 */}
+                {stackItems.filter(item => item.category === "오염물질").length > 0 && (
                   <div>
-                    <h3 className="text-base font-semibold mb-3">🌡️ 보조항목</h3>
-                    <div className="grid grid-cols-2 gap-3">
+                    <h3 className="text-base font-semibold mb-3">🏭 오염물질</h3>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                       {stackItems
-                        .filter(item => item.category === "보조항목")
+                        .filter(item => item.category === "오염물질")
                         .map((item) => {
                           const key = item.key;
                           const v = values[key] ?? "";
                           return (
-                            <div key={key} className="flex items-center gap-2">
-                              <div className="w-32 text-sm font-medium">{item.name}</div>
+                            <div key={key} className="flex items-center gap-1.5">
+                              <div className="w-20 text-xs font-medium leading-tight line-clamp-2">{item.name}</div>
                               <Input
                                 type="text"
-                                className={`w-20 px-2 py-1 text-center ${errors[key]?"border-red-500":""}`}
-                                placeholder="값"
-                                value={v}
+                                className={`w-20 px-2 py-1 text-center text-sm ${errors[key]?"border-red-500":""}`}
+                                placeholder={ndAll ? "ND" : "값"}
+                                value={ndAll ? "" : v}
                                 onChange={(e) => setValue(key, (e.target as HTMLInputElement).value)}
-                                disabled={role === "customer"}
+                                disabled={ndAll || role === "customer"}
                               />
                               {errors[key] && <div className="text-xs text-red-600">{errors[key]}</div>}
-                              <div className="text-xs text-gray-500 w-16">{item.unit}</div>
+                              <div className="text-xs text-gray-500 w-12">{item.unit}</div>
+                              <div className="text-xs text-gray-500 w-16">기준 {item.limit}</div>
+                              <div className="w-12">
+                                <Status v={v} limit={item.limit} />
+                              </div>
+                              <button
+                                className="px-2 py-1 text-xs bg-orange-500 hover:bg-orange-600 text-white rounded disabled:opacity-50"
+                                disabled={role === "customer"}
+                                onClick={() => handleItemTempSave(key)}
+                              >
+                                {savedItems.has(key) ? "재저장" : "임시저장"}
+                              </button>
                             </div>
                           );
                         })}
@@ -737,6 +917,14 @@ export default function MeasureInputPage() {
         title={resultModal.title}
         message={resultModal.message}
         type={resultModal.type}
+      />
+
+      {/* Help Modal */}
+      <HelpModal
+        isOpen={showHelpModal}
+        title="측정 입력 도움말"
+        sections={getMeasurementInputHelpSections()}
+        onClose={() => setShowHelpModal(false)}
       />
     </section>
   );

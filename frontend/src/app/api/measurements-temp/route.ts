@@ -220,28 +220,24 @@ export async function GET(req: NextRequest) {
       // 굴뚝명
       const stackName = temp.stack?.siteName || temp.stack?.name || "";
 
-      // 보조 데이터
+      // 보조 데이터 (여러 키 형식 지원)
       const weather = auxiliaryData.weather || "";
       const temperature = auxiliaryData.temperature || "";
       const humidity = auxiliaryData.humidity || "";
       const pressure = auxiliaryData.pressure || "";
-      const windDir = auxiliaryData.windDirection || "";
-      const windSpeed = auxiliaryData.windSpeed || "";
-      const gasVel = auxiliaryData.gasVelocity || "";
-      const gasTemp = auxiliaryData.gasTemp || "";
+      const windDir = auxiliaryData.wind_direction || auxiliaryData.windDirection || "";
+      const windSpeed = auxiliaryData.wind_speed || auxiliaryData.windSpeed || "";
+      const gasVel = auxiliaryData.gas_velocity || auxiliaryData.gasVelocity || "";
+      const gasTemp = auxiliaryData.gas_temp || auxiliaryData.gasTemp || "";
       const moisture = auxiliaryData.moisture || "";
-      const o2Measured = auxiliaryData.oxygenMeasured || "";
-      const o2Standard = auxiliaryData.oxygenStd || "";
-      const flowRate = auxiliaryData.flowRate || "";
+      const o2Measured = auxiliaryData.oxygen_measured || auxiliaryData.oxygenMeasured || "";
+      const o2Standard = auxiliaryData.oxygen_std || auxiliaryData.oxygenStd || "";
+      const flowRate = auxiliaryData.flow || auxiliaryData.flowRate || "";
       const company = auxiliaryData.company || "";
 
-      // 각 측정항목별로 행 생성
-      for (const m of measurements) {
-        const itemInfo = itemMap.get(m.itemKey);
-        const itemName = itemInfo?.name || m.itemKey;
-        const limit = itemInfo?.limit || "";
-        const limitCheck = limit && m.value <= limit ? "적합" : "";
-
+      // 오염물질 항목만 행 생성 (채취환경은 각 행의 컬럼으로 표시)
+      if (measurements.length === 0) {
+        // 측정값이 없고 채취환경만 있는 경우 1개 행 생성
         rows.push({
           id: temp.id,
           tempId: temp.tempId,
@@ -260,14 +256,49 @@ export async function GET(req: NextRequest) {
           o2Measured,
           o2Standard,
           flowRate,
-          pollutant: itemName,
-          value: m.value,
-          limit,
-          limitCheck,
+          pollutant: "-",
+          value: "",
+          limit: "",
+          limitCheck: "",
           company,
           createdBy: creatorMap.get(temp.createdBy) || "알 수 없음",
           createdAt: temp.createdAt.toISOString(),
         });
+      } else {
+        // 각 측정항목별로 행 생성
+        for (const m of measurements) {
+          const itemInfo = itemMap.get(m.itemKey);
+          const itemName = itemInfo?.name || m.itemKey;
+          const limit = itemInfo?.limit || "";
+          const limitCheck = limit && m.value <= limit ? "적합" : "";
+
+          rows.push({
+            id: temp.id,
+            tempId: temp.tempId,
+            measuredAt,
+            customer: customerName,
+            stack: stackName,
+            weather,
+            temp: temperature,
+            humidity,
+            pressure,
+            windDir,
+            windSpeed,
+            gasVel,
+            gasTemp,
+            moisture,
+            o2Measured,
+            o2Standard,
+            flowRate,
+            pollutant: itemName,
+            value: m.value,
+            limit,
+            limitCheck,
+            company,
+            createdBy: creatorMap.get(temp.createdBy) || "알 수 없음",
+            createdAt: temp.createdAt.toISOString(),
+          });
+        }
       }
     }
 

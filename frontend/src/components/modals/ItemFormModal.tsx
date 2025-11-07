@@ -21,6 +21,8 @@ export default function ItemFormModal({ isOpen, onClose, onSuccess, item }: Item
     category: "",
     classification: "",
     hasLimit: true,
+    inputType: "number",
+    options: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -37,6 +39,8 @@ export default function ItemFormModal({ isOpen, onClose, onSuccess, item }: Item
         category: item.category || "",
         classification: item.classification || "",
         hasLimit: item.hasLimit !== false,
+        inputType: item.inputType || "number",
+        options: item.options || "",
       });
     } else if (isOpen && !item) {
       // 신규 등록 모드일 때 초기화
@@ -49,6 +53,8 @@ export default function ItemFormModal({ isOpen, onClose, onSuccess, item }: Item
         category: "",
         classification: "",
         hasLimit: true,
+        inputType: "number",
+        options: "",
       });
     }
     setError("");
@@ -56,7 +62,7 @@ export default function ItemFormModal({ isOpen, onClose, onSuccess, item }: Item
 
   const categoryOptions = [
     "오염물질",
-    "보조항목",
+    "채취환경",
   ];
 
   const handleChange = (field: string, value: string | boolean) => {
@@ -92,11 +98,13 @@ export default function ItemFormModal({ isOpen, onClose, onSuccess, item }: Item
         unit: formData.unit.trim(),
         limit: parseFloat(formData.limit),
         hasLimit: formData.hasLimit,
+        inputType: formData.inputType,
       };
       
       if (formData.englishName) payload.englishName = formData.englishName.trim();
       if (formData.category) payload.category = formData.category;
       if (formData.classification) payload.classification = formData.classification.trim();
+      if (formData.options) payload.options = formData.options.trim();
 
       const url = isEditMode ? `/api/items/${item.id}` : "/api/items";
       const method = isEditMode ? "PATCH" : "POST";
@@ -122,6 +130,8 @@ export default function ItemFormModal({ isOpen, onClose, onSuccess, item }: Item
         category: "",
         classification: "",
         hasLimit: true,
+        inputType: "number",
+        options: "",
       });
       onSuccess();
       onClose();
@@ -187,7 +197,7 @@ export default function ItemFormModal({ isOpen, onClose, onSuccess, item }: Item
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-gray-500">오염물질 또는 보조항목</p>
+              <p className="text-xs text-gray-500">오염물질 또는 채취환경</p>
             </div>
           </div>
 
@@ -268,6 +278,35 @@ export default function ItemFormModal({ isOpen, onClose, onSuccess, item }: Item
               체크 시 배출허용기준이 있는 항목으로 표시됩니다
             </p>
           </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium">
+              입력 타입 <span className="text-gray-400">(선택)</span>
+            </label>
+            <select
+              value={formData.inputType}
+              onChange={(e) => handleChange("inputType", e.target.value)}
+              className="w-full border rounded px-3 py-2 bg-white dark:bg-gray-700"
+            >
+              <option value="number">숫자 입력</option>
+              <option value="select">선택 입력 (드롭다운)</option>
+              <option value="text">텍스트 입력</option>
+            </select>
+          </div>
+
+          {formData.inputType === "select" && (
+            <div className="space-y-1">
+              <label className="text-sm font-medium">
+                선택 옵션 <span className="text-red-500">*</span>
+              </label>
+              <Input
+                value={formData.options}
+                onChange={(e) => handleChange("options", (e.target as HTMLInputElement).value)}
+                placeholder='예: ["맑음","구름","비","눈"]'
+              />
+              <p className="text-xs text-gray-500">JSON 배열 형식으로 입력하세요</p>
+            </div>
+          )}
 
           <div className="flex gap-3 pt-4">
             <Button type="button" variant="secondary" onClick={onClose} className="flex-1">

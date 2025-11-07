@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { AUXILIARY_FIELD_MAP, isAuxiliaryItem } from "@/lib/itemKeyMapping";
 
 export async function GET(request: Request) {
   try {
@@ -287,7 +288,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { customerId, stack, itemKey, value, measuredAt } = body || {};
     
-    if (!customerId || !stack || !itemKey || typeof value !== "number") {
+    if (!customerId || !stack || !itemKey || (value === null || value === undefined)) {
       return NextResponse.json({ error: "customerId, stack(name), itemKey, value are required" }, { status: 400 });
     }
     
@@ -303,16 +304,27 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
     
-    const created = await prisma.measurement.create({
-      data: {
-        customerId,
-        stackId: stackRow.id,
-        itemKey,
-        value,
-        measuredAt: measuredAt ? new Date(measuredAt) : new Date(),
-        organizationId: userOrgId, // 필수 필드 추가
-      },
-    });
+    // 데이터 구성
+    const data: any = {
+      customerId,
+      stackId: stackRow.id,
+      measuredAt: measuredAt ? new Date(measuredAt) : new Date(),
+      organizationId: userOrgId,
+    };
+    
+    // 채취환경 항목인 경우 개별 필드에 저장
+    if (isAuxiliaryItem(itemKey)) {
+      const fieldName = AUXILIARY_FIELD_MAP[itemKey];
+      data[fieldName] = typeof value === 'string' ? value : Number(value);
+      data.itemKey = 'auxiliary'; // 더미 itemKey
+      data.value = 0; // 더미 value
+    } else {
+      // 오염물질은 itemKey와 value에 저장
+      data.itemKey = itemKey;
+      data.value = Number(value);
+    }
+    
+    const created = await prisma.measurement.create({ data });
     
     return NextResponse.json({ ok: true, data: created }, { status: 201 });
   } catch (error) {

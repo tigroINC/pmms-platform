@@ -6,6 +6,8 @@ import Button from "@/components/ui/Button";
 import { Table, Thead, Tbody, Tr, Th, Td } from "@/components/ui/Table";
 import ItemFormModal from "@/components/modals/ItemFormModal";
 import BulkUploadModal from "@/components/modals/BulkUploadModal";
+import HelpModal from "@/components/modals/HelpModal";
+import { getMeasurementItemsHelpSections } from "@/lib/help/measurementItemsHelp";
 
 type Item = {
   id?: string;
@@ -44,6 +46,7 @@ export default function ItemsPage() {
   const [loadingStackItems, setLoadingStackItems] = useState(false);
   const [showAddItemModal, setShowAddItemModal] = useState(false);
   const [availableItemsToAdd, setAvailableItemsToAdd] = useState<any[]>([]);
+  const [showHelpModal, setShowHelpModal] = useState(false);
 
   useEffect(() => {
     fetchItems();
@@ -99,12 +102,15 @@ export default function ItemsPage() {
 
   const fetchStackItems = async (stackId: string) => {
     setLoadingStackItems(true);
+    console.log(`[fetchStackItems] 굴뚝 ID: ${stackId}`);
     try {
       const res = await fetch(`/api/stacks/${stackId}/measurement-items`);
+      console.log(`[fetchStackItems] API 응답 상태:`, res.status);
       const json = await res.json();
+      console.log(`[fetchStackItems] API 응답 데이터:`, json);
       setStackItems(json.items || []);
     } catch (err) {
-      console.error(err);
+      console.error('[fetchStackItems] 에러:', err);
       setStackItems([]);
     } finally {
       setLoadingStackItems(false);
@@ -145,10 +151,10 @@ export default function ItemsPage() {
   };
 
   const handleOpenAddItemModal = () => {
-    // 현재 굴뚝에 없는 오염물질 + 보조항목 필터링
+    // 현재 굴뚝에 없는 오염물질 + 채취환경 필터링
     const currentItemKeys = new Set(stackItems.map(item => item.key));
     const available = list.filter(item => 
-      (item.category === "오염물질" || item.category === "보조항목") && !currentItemKeys.has(item.key)
+      (item.category === "오염물질" || item.category === "채취환경") && !currentItemKeys.has(item.key)
     );
     setAvailableItemsToAdd(available);
     setShowAddItemModal(true);
@@ -225,6 +231,29 @@ export default function ItemsPage() {
     }
   };
 
+  const handleResetStackItems = async () => {
+    if (!selectedStackId) return;
+    
+    if (!confirm("해당 굴뚝의 측정항목 설정을 전체 기준으로 초기화하시겠습니까?\n\n개별 설정된 모든 항목이 삭제되고, 전체 기본 항목으로 대체됩니다.")) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/stacks/${selectedStackId}/measurement-items`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        throw new Error("초기화 실패");
+      }
+
+      await fetchStackItems(selectedStackId);
+      alert("전체 기준으로 초기화되었습니다.");
+    } catch (err: any) {
+      alert(err.message || "초기화 중 오류가 발생했습니다.");
+    }
+  };
+
   const handleUpdateOrder = async (itemKey: string, newOrder: number) => {
     if (!selectedStackId) return;
 
@@ -296,17 +325,17 @@ export default function ItemsPage() {
       return aOrder - bOrder;
     };
 
-    // 오염물질과 보조항목 분리
+    // 오염물질과 채취환경 분리
     const pollutants = items.filter(item => item.category === "오염물질");
-    const auxiliary = items.filter(item => item.category === "보조항목");
-    const others = items.filter(item => item.category !== "오염물질" && item.category !== "보조항목");
+    const auxiliary = items.filter(item => item.category === "채취환경");
+    const others = items.filter(item => item.category !== "오염물질" && item.category !== "채취환경");
     
     // 각각 정렬
     pollutants.sort(sortByOrder);
     auxiliary.sort(sortByOrder);
     others.sort(sortByOrder);
     
-    // 오염물질 → 보조항목 → 기타 순서
+    // 오염물질 → 채취환경 → 기타 순서
     return [...pollutants, ...auxiliary, ...others];
   }, [list, q, categoryFilter, showInactive]);
 
@@ -368,6 +397,7 @@ export default function ItemsPage() {
   const handleEdit = (item: any) => {
     setEditingRowKey(item.key);
     setEditingData({
+      key: item.key,
       name: item.name,
       englishName: item.englishName,
       unit: item.unit,
@@ -375,6 +405,8 @@ export default function ItemsPage() {
       classification: item.classification,
       limit: item.limit,
       hasLimit: item.hasLimit,
+      inputType: item.inputType || "number",
+      options: item.options || "",
     });
   };
 
@@ -463,12 +495,13 @@ export default function ItemsPage() {
     <section className="space-y-3">
       {/* Compact Header - 반응형 필터 */}
       <div className="rounded-lg border bg-white/50 dark:bg-white/5 p-2.5">
-        <div className="flex flex-wrap items-end gap-2">
-          <h1 className="text-lg font-semibold whitespace-nowrap mb-1.5">측정항목 관리</h1>
-          <span className="text-gray-300 dark:text-gray-600 mb-1.5">|</span>
-          
-          {/* 탭 */}
-          <div className="flex gap-2 mb-1.5">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div className="flex flex-wrap items-end gap-2">
+            <h1 className="text-lg font-semibold whitespace-nowrap mb-1.5">측정항목 관리</h1>
+            <span className="text-gray-300 dark:text-gray-600 mb-1.5">|</span>
+            
+            {/* 탭 */}
+            <div className="flex gap-2 mb-1.5">
             <button
               onClick={() => setActiveTab("items")}
               className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
@@ -490,6 +523,18 @@ export default function ItemsPage() {
               🏭 굴뚝별 측정 대상 설정
             </button>
           </div>
+          </div>
+          
+          {/* 도움말 버튼 */}
+          <button
+            onClick={() => setShowHelpModal(true)}
+            className="px-3 py-1.5 text-xs bg-blue-100 hover:bg-blue-200 dark:bg-blue-900 dark:hover:bg-blue-800 text-blue-700 dark:text-blue-300 rounded mb-1.5"
+          >
+            ❓ 도움말
+          </button>
+        </div>
+        
+        <div className="flex flex-wrap items-end gap-2">
           <span className="text-gray-300 dark:text-gray-600 mb-1.5">|</span>
           <div className="flex flex-col">
             <label className="text-xs text-gray-600 dark:text-gray-400 mb-0.5">검색</label>
@@ -556,13 +601,15 @@ export default function ItemsPage() {
               <Th className="bg-gray-50 dark:bg-gray-800">기본단위</Th>
               <Th className="bg-gray-50 dark:bg-gray-800">항목분류</Th>
               <Th className="bg-gray-50 dark:bg-gray-800">허용기준값(기본)</Th>
+              <Th className="bg-gray-50 dark:bg-gray-800">입력타입</Th>
+              <Th className="bg-gray-50 dark:bg-gray-800">선택옵션</Th>
               {(role === "SUPER_ADMIN" || role === "ORG_ADMIN") && <Th className="w-40 bg-gray-50 dark:bg-gray-800">액션</Th>}
             </Tr>
           </Thead>
           <Tbody>
             {filtered.length === 0 ? (
               <Tr>
-                <Td colSpan={(role === "SUPER_ADMIN" || role === "ORG_ADMIN") ? 10 : 9} className="text-center text-gray-500 py-8">
+                <Td colSpan={(role === "SUPER_ADMIN" || role === "ORG_ADMIN") ? 12 : 11} className="text-center text-gray-500 py-8">
                   등록된 측정항목이 없습니다
                 </Td>
               </Tr>
@@ -602,7 +649,7 @@ export default function ItemsPage() {
                         >
                           <option value="">-</option>
                           <option value="오염물질">오염물질</option>
-                          <option value="보조항목">보조항목</option>
+                          <option value="채취환경">채취환경</option>
                         </select>
                       ) : (
                         item.category || "-"
@@ -669,6 +716,35 @@ export default function ItemsPage() {
                           />
                         ) : (
                           item.limit
+                        )}
+                      </Td>
+                      <Td>
+                        {isEditing ? (
+                          <select
+                            value={(editingData as any).inputType || "number"}
+                            onChange={(e) => setEditingData({ ...editingData, inputType: e.target.value } as any)}
+                            className="w-full px-2 py-1 border rounded text-sm"
+                          >
+                            <option value="number">숫자</option>
+                            <option value="select">선택</option>
+                            <option value="text">텍스트</option>
+                          </select>
+                        ) : (
+                          item.inputType === "select" ? "선택" : item.inputType === "text" ? "텍스트" : "숫자"
+                        )}
+                      </Td>
+                      <Td>
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={(editingData as any).options || ""}
+                            onChange={(e) => setEditingData({ ...editingData, options: e.target.value } as any)}
+                            className="w-full px-2 py-1 border rounded text-sm"
+                            placeholder='["옵션1","옵션2"]'
+                            disabled={(editingData as any).inputType !== "select"}
+                          />
+                        ) : (
+                          item.options || "-"
                         )}
                       </Td>
                       {(role === "SUPER_ADMIN" || role === "ORG_ADMIN") && (
@@ -742,8 +818,8 @@ export default function ItemsPage() {
                     </span>
                     {(role === "SUPER_ADMIN" || role === "ORG_ADMIN") && !isEditing && (
                       <div className="flex gap-2">
-                        <button onClick={() => handleEditRow(item)} className="text-xs text-blue-600 hover:underline">수정</button>
-                        <button onClick={() => handleToggleActive(item.key)} className="text-xs text-blue-600 hover:underline">
+                        <button onClick={() => handleEdit(item)} className="text-xs text-blue-600 hover:underline">수정</button>
+                        <button onClick={() => toggleActive(item)} className="text-xs text-blue-600 hover:underline">
                           {isActive ? "비활성화" : "활성화"}
                         </button>
                         {!isActive && (
@@ -764,7 +840,7 @@ export default function ItemsPage() {
                         >
                           <option value="">-</option>
                           <option value="오염물질">오염물질</option>
-                          <option value="보조항목">보조항목</option>
+                          <option value="채취환경">채취환경</option>
                         </select>
                       </div>
                       <div>
@@ -799,14 +875,14 @@ export default function ItemsPage() {
                           <label className="text-xs text-gray-500">기준값</label>
                           <input
                             type="number"
-                            value={editingData.defaultLimit || ""}
-                            onChange={(e) => setEditingData({ ...editingData, defaultLimit: parseFloat(e.target.value) || 0 })}
+                            value={editingData.limit || ""}
+                            onChange={(e) => setEditingData({ ...editingData, limit: parseFloat(e.target.value) || 0 })}
                             className="w-full px-2 py-1 border rounded text-sm mt-1"
                           />
                         </div>
                       </div>
                       <div className="flex gap-2 pt-2">
-                        <button onClick={handleSaveRow} className="flex-1 px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">저장</button>
+                        <button onClick={() => handleSaveEdit(item.key)} className="flex-1 px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">저장</button>
                         <button onClick={handleCancelEdit} className="flex-1 px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm">취소</button>
                       </div>
                     </div>
@@ -881,9 +957,14 @@ export default function ItemsPage() {
                   </p>
                 </div>
                 {(role === "SUPER_ADMIN" || role === "ORG_ADMIN") && (
-                  <Button size="sm" onClick={handleOpenAddItemModal}>
-                    + 신규추가
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="secondary" onClick={handleResetStackItems}>
+                      🔄 전체 기준으로 초기화
+                    </Button>
+                    <Button size="sm" onClick={handleOpenAddItemModal}>
+                      + 신규추가
+                    </Button>
+                  </div>
                 )}
               </div>
 
@@ -982,14 +1063,14 @@ export default function ItemsPage() {
                     </div>
                   )}
 
-                  {/* 보조항목 */}
-                  {stackItems.filter(item => item.category === "보조항목").length > 0 && (
+                  {/* 채취환경 */}
+                  {stackItems.filter(item => item.category === "채취환경").length > 0 && (
                     <div>
                       <h4 className="text-sm font-semibold mb-3 text-gray-700 dark:text-gray-300">
-                        🌡️ 보조항목 ({stackItems.filter(item => item.category === "보조항목").length}개)
+                        🌡️ 채취환경 ({stackItems.filter(item => item.category === "채취환경").length}개)
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {stackItems.filter(item => item.category === "보조항목").map((item) => (
+                        {stackItems.filter(item => item.category === "채취환경").map((item) => (
                           <div
                             key={item.key}
                             className={`border rounded-lg p-3 hover:shadow-md transition-shadow ${
@@ -1079,7 +1160,7 @@ export default function ItemsPage() {
         exampleRow={["EA-I-0001", "먼지", "Dust", "mg/Sm³", "오염물질", "무기물질", "30"]}
         templateFileName="측정항목_일괄업로드_양식.csv"
         onUpload={handleBulkUpload}
-        parseInstructions="항목코드, 항목명(한글), 기본단위, 허용기준값(기본)은 필수 항목입니다. 구분은 '오염물질' 또는 '보조항목'을 입력하세요."
+        parseInstructions="항목코드, 항목명(한글), 기본단위, 허용기준값(기본)은 필수 항목입니다. 구분은 '오염물질' 또는 '채취환경'을 입력하세요."
       />
 
       {/* 항목 추가 모달 */}
@@ -1100,7 +1181,7 @@ export default function ItemsPage() {
             </div>
 
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              이 굴뚝에 추가할 측정항목을 선택하세요. (오염물질 + 보조항목)
+              이 굴뚝에 추가할 측정항목을 선택하세요. (오염물질 + 채취환경)
             </p>
 
             {availableItemsToAdd.length === 0 ? (
@@ -1142,6 +1223,14 @@ export default function ItemsPage() {
           </div>
         </div>
       )}
+      
+      {/* Help Modal */}
+      <HelpModal
+        isOpen={showHelpModal}
+        title="측정항목 관리 도움말"
+        sections={getMeasurementItemsHelpSections()}
+        onClose={() => setShowHelpModal(false)}
+      />
     </section>
   );
 }

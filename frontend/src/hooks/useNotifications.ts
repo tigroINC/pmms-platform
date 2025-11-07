@@ -136,13 +136,13 @@ export function useNotifications() {
     }
   }, [user]);
 
-  // 폴링: 30초마다 읽지 않은 개수 확인
+  // 폴링: 2분마다 읽지 않은 개수 확인 (성능 개선)
   useEffect(() => {
     if (!user) return;
 
     const interval = setInterval(() => {
       fetchUnreadCount();
-    }, 30000); // 30초
+    }, 120000); // 2분 (120초)
 
     return () => clearInterval(interval);
   }, [user]);

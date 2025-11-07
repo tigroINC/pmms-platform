@@ -32,8 +32,21 @@ export default function LimitFormModal({
 
   const { list: stacks } = useStacks(customerId || undefined);
 
-  // 허용기준이 있는 항목만 필터링
-  const itemsWithLimit = items.filter((item: any) => item.hasLimit);
+  // 오염물질과 채취환경 항목 필터링 및 정렬 (활성화된 항목)
+  const itemsWithLimit = items
+    .filter((item: any) => 
+      (item.category === "오염물질" || item.category === "채취환경" || item.category === "보조항목") && 
+      item.isActive !== false
+    )
+    .sort((a: any, b: any) => {
+      // 오염물질 우선, 채취환경/보조항목 나중
+      const aIsPollutant = a.category === "오염물질";
+      const bIsPollutant = b.category === "오염물질";
+      if (aIsPollutant && !bIsPollutant) return -1;
+      if (!aIsPollutant && bIsPollutant) return 1;
+      // 같은 카테고리 내에서는 이름순
+      return a.name.localeCompare(b.name);
+    });
 
   useEffect(() => {
     if (isOpen && limit) {

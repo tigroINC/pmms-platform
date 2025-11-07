@@ -323,7 +323,21 @@ async def generate_insight_report(request: PredictionRequest):
                 detail=f"PDF 생성 실패: {str(pdf_error)}. Playwright가 올바르게 설치되었는지 확인하세요."
             )
         
-        return {
+        # NaN 값을 None으로 변환하여 JSON 직렬화 가능하게 만듦
+        def sanitize_for_json(obj):
+            """NaN, Infinity 값을 JSON 호환 값으로 변환"""
+            import math
+            if isinstance(obj, dict):
+                return {k: sanitize_for_json(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [sanitize_for_json(item) for item in obj]
+            elif isinstance(obj, float):
+                if math.isnan(obj) or math.isinf(obj):
+                    return None
+                return obj
+            return obj
+        
+        response_data = {
             "predictions": result['predictions'],
             "model_info": result['model_info'],
             "training_samples": len(rows),
@@ -331,6 +345,8 @@ async def generate_insight_report(request: PredictionRequest):
             "insight_report": report,
             "pdf_base64": pdf_base64
         }
+        
+        return sanitize_for_json(response_data)
         
     except HTTPException:
         raise

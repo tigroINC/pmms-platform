@@ -140,27 +140,38 @@ class InsightGenerator:
         return analysis
     
     def _analyze_trend(self, historical: pd.DataFrame, predictions: List[Dict]) -> Dict:
-        """트렌드 분석"""
+        """트렌드 분석 - 과거 평균 대비 예측 평균 비교"""
         hist_values = historical['y'].values
         pred_values = [p['predicted_value'] for p in predictions]
         
-        # 최근 추세 (마지막 30% 데이터)
-        recent_count = max(int(len(hist_values) * 0.3), 10)
-        recent_values = hist_values[-recent_count:]
-        recent_trend = np.polyfit(range(len(recent_values)), recent_values, 1)[0]
+        # 과거 평균
+        hist_mean = np.mean(hist_values)
         
-        # 예측 추세
-        pred_trend = np.polyfit(range(len(pred_values)), pred_values, 1)[0]
+        # 예측 평균
+        pred_mean = np.mean(pred_values)
         
-        # 추세 판단 기준값 (더 민감하게)
-        threshold = 0.01
+        # 평균 변화율
+        change_rate = ((pred_mean - hist_mean) / hist_mean * 100) if hist_mean != 0 else 0
+        
+        # 추세 판단 (5% 이상 변화를 의미있는 변화로 간주)
+        threshold = 5.0
+        
+        if change_rate > threshold:
+            overall_trend = "상승"
+        elif change_rate < -threshold:
+            overall_trend = "하락"
+        else:
+            overall_trend = "안정"
+        
+        # 예측 기간 내 선형 추세 (참고용)
+        pred_trend_slope = np.polyfit(range(len(pred_values)), pred_values, 1)[0]
         
         return {
-            "historical_trend": "상승" if recent_trend > threshold else "하락" if recent_trend < -threshold else "안정",
-            "historical_trend_value": round(float(recent_trend), 3),
-            "prediction_trend": "상승" if pred_trend > threshold else "하락" if pred_trend < -threshold else "안정",
-            "prediction_trend_value": round(float(pred_trend), 3),
-            "trend_change": "가속" if abs(pred_trend) > abs(recent_trend) * 1.2 else "감속" if abs(pred_trend) < abs(recent_trend) * 0.8 else "유지"
+            "historical_mean": round(float(hist_mean), 2),
+            "prediction_mean": round(float(pred_mean), 2),
+            "change_rate": round(float(change_rate), 1),
+            "trend": overall_trend,
+            "prediction_slope": round(float(pred_trend_slope), 3)
         }
     
     def _assess_risk(self, predictions: List[Dict], limit_value: float, historical: pd.DataFrame) -> Dict:
@@ -470,9 +481,9 @@ class InsightGenerator:
 </tr>
 <tr style="background-color: white;">
 <td style="padding: 12px; border: 1px solid #ddd;"><strong>배출 농도</strong></td>
-<td style="padding: 12px; text-align: center; border: 1px solid #ddd;">{historical['average']} mg/S㎥</td>
-<td style="padding: 12px; text-align: center; border: 1px solid #ddd;">{prediction['average']} mg/S㎥</td>
-<td style="padding: 12px; text-align: center; border: 1px solid #ddd;">{prediction['trend']}</td>
+<td style="padding: 12px; text-align: center; border: 1px solid #ddd;">{trend['historical_mean']} mg/S㎥</td>
+<td style="padding: 12px; text-align: center; border: 1px solid #ddd;">{trend['prediction_mean']} mg/S㎥</td>
+<td style="padding: 12px; text-align: center; border: 1px solid #ddd;"><strong style="color: {'#4caf50' if trend['trend'] == '하락' else '#ff9800' if trend['trend'] == '상승' else '#666'};">{trend['trend']}</strong> ({trend['change_rate']:+.1f}%)</td>
 </tr>
 </table>
 
@@ -492,27 +503,27 @@ class InsightGenerator:
 <h3>🔮 AI 예측 결과 요약</h3>
 
 <ul>
-<li><strong>예측 평균 농도</strong>: {prediction['average']} mg/S㎥</li>
+<li><strong>예측 평균 농도</strong>: {trend['prediction_mean']} mg/S㎥</li>
 <li><strong>예측 범위</strong>: {prediction['min']} ~ {prediction['max']} mg/S㎥</li>
-<li><strong>예측 추세</strong>: {prediction['trend']}</li>
+<li><strong>과거 대비 변화</strong>: {trend['change_rate']:+.1f}% ({trend['trend']})</li>
 <li><strong>불확실성</strong>: ±{prediction['uncertainty_avg']} mg/S㎥</li>
 </ul>
 """
 
         # 예측 추세 해석
-        if prediction['trend'] == "상승":
+        if trend['trend'] == "상승":
             report += f"""
-<p><strong>해석</strong>: AI 모델은 향후 30일간 배출 농도가 <strong>상승하는 경향</strong>을 보일 것으로 예측합니다.
+<p><strong>해석</strong>: AI 모델은 향후 30일간 배출 농도가 과거 평균({trend['historical_mean']} mg/S㎥) 대비 <strong>{trend['change_rate']:+.1f}% 상승</strong>할 것으로 예측합니다.
 현재 추세가 지속될 경우 배출 농도가 점진적으로 증가할 수 있으므로, 사전 대응이 필요합니다.</p>
 """
-        elif prediction['trend'] == "하락":
+        elif trend['trend'] == "하락":
             report += f"""
-<p><strong>해석</strong>: AI 모델은 향후 30일간 배출 농도가 <strong>하락하는 경향</strong>을 보일 것으로 예측합니다.
+<p><strong>해석</strong>: AI 모델은 향후 30일간 배출 농도가 과거 평균({trend['historical_mean']} mg/S㎥) 대비 <strong>{trend['change_rate']:+.1f}% 하락</strong>할 것으로 예측합니다.
 현재의 배출 저감 노력이 지속적인 효과를 나타낼 것으로 판단됩니다.</p>
 """
         else:
             report += f"""
-<p><strong>해석</strong>: AI 모델은 향후 30일간 배출 농도가 <strong>안정적으로 유지</strong>될 것으로 예측합니다.
+<p><strong>해석</strong>: AI 모델은 향후 30일간 배출 농도가 과거 평균({trend['historical_mean']} mg/S㎥) 대비 <strong>안정적으로 유지</strong>될 것으로 예측합니다 (변화율: {trend['change_rate']:+.1f}%).
 현재 수준의 배출 관리를 지속하시면 됩니다.</p>
 """
         
@@ -819,34 +830,29 @@ class InsightGenerator:
 
 <h3>과거 vs 예측 비교</h3>
 <ul>
-<li><strong>과거 추세</strong>: {trend['historical_trend']} (기울기: {trend['historical_trend_value']})</li>
-<li><strong>예측 추세</strong>: {trend['prediction_trend']} (기울기: {trend['prediction_trend_value']})</li>
-<li><strong>추세 변화</strong>: {trend['trend_change']}</li>
+<li><strong>과거 평균</strong>: {trend['historical_mean']} mg/S㎥</li>
+<li><strong>예측 평균</strong>: {trend['prediction_mean']} mg/S㎥</li>
+<li><strong>변화율</strong>: {trend['change_rate']:+.1f}%</li>
+<li><strong>추세</strong>: {trend['trend']}</li>
 </ul>
 
 <h3>해석</h3>
 """
 
-        if trend['trend_change'] == "가속":
-            if trend['prediction_trend'] == "상승":
-                report += f"""
-<p>과거에는 {trend['historical_trend']} 추세를 보였으나, 향후에는 상승 속도가 <strong>가속화</strong>될 것으로 예측됩니다.
-이는 배출 농도 증가 속도가 빨라지고 있음을 의미하며, 즉각적인 원인 분석과 대응이 필요합니다.
+        if trend['trend'] == "상승":
+            report += f"""
+<p>과거 평균({trend['historical_mean']} mg/S㎥) 대비 예측 평균({trend['prediction_mean']} mg/S㎥)이 <strong>{trend['change_rate']:+.1f}% 상승</strong>할 것으로 예측됩니다.
+배출 농도가 증가하는 추세이므로, 원인 분석과 사전 대응이 필요합니다.
 배출원의 활동 증가, 저감 설비 효율 저하 등을 점검해야 합니다.</p>
 """
-            else:
-                report += f"""
-<p>과거에는 {trend['historical_trend']} 추세를 보였으나, 향후에는 하락 속도가 <strong>가속화</strong>될 것으로 예측됩니다.
-이는 배출 저감 노력이 더욱 효과를 발휘할 것으로 예상되는 긍정적인 신호입니다.</p>
-"""
-        elif trend['trend_change'] == "감속":
+        elif trend['trend'] == "하락":
             report += f"""
-<p>과거 대비 추세 변화의 속도가 <strong>감소</strong>하고 있습니다.
-배출 농도가 점차 안정화되고 있는 것으로 판단되며, 현재의 관리 방식이 효과적인 것으로 평가됩니다.</p>
+<p>과거 평균({trend['historical_mean']} mg/S㎥) 대비 예측 평균({trend['prediction_mean']} mg/S㎥)이 <strong>{trend['change_rate']:+.1f}% 하락</strong>할 것으로 예측됩니다.
+배출 저감 노력이 효과를 발휘하고 있는 긍정적인 신호입니다.</p>
 """
         else:
             report += f"""
-<p>과거와 유사한 수준의 추세가 <strong>유지</strong>될 것으로 예측됩니다.
+<p>과거 평균({trend['historical_mean']} mg/S㎥) 대비 예측 평균({trend['prediction_mean']} mg/S㎥)이 <strong>안정적으로 유지</strong>될 것으로 예측됩니다 (변화율: {trend['change_rate']:+.1f}%).
 현재의 배출 패턴이 지속될 것으로 예상되므로, 기존 관리 방식을 계속 적용하시면 됩니다.</p>
 """
 
@@ -1232,7 +1238,9 @@ class InsightGenerator:
         else:
             recommendations.append("현재 관리 수준을 유지하세요.")
         
-        if trend['trend_change'] == "가속":
-            recommendations.append("농도 변화 속도가 증가하고 있으니 원인 분석이 필요합니다.")
+        if trend['trend'] == "상승":
+            recommendations.append(f"배출 농도가 {abs(trend['change_rate']):.1f}% 상승 추세이므로 원인 분석이 필요합니다.")
+        elif trend['trend'] == "하락":
+            recommendations.append(f"배출 농도가 {abs(trend['change_rate']):.1f}% 하락 추세로 양호합니다. 현재 관리 방식을 유지하세요.")
         
         return recommendations

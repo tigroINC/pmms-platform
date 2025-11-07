@@ -97,34 +97,10 @@ export default function LimitsPage() {
     return "전체";
   };
 
-  // hasLimit=true인 항목들을 EmissionLimit과 병합
+  // 실제 EmissionLimit 데이터만 사용
   const mergedLimits = useMemo(() => {
-    const itemsWithLimit = items.filter((item: any) => item.hasLimit !== false);
-    const limitMap = new Map(limits.map(l => [l.itemKey, l]));
-    
-    // 기존 EmissionLimit + hasLimit=true인 항목들 (기본값으로)
-    const merged: any[] = [...limits];
-    
-    itemsWithLimit.forEach((item: any) => {
-      if (!limitMap.has(item.key)) {
-        // EmissionLimit에 없는 항목은 기본값으로 추가
-        merged.push({
-          id: `default-${item.key}`,
-          itemKey: item.key,
-          limit: item.limit || 0,
-          region: null,
-          customerId: null,
-          stackId: null,
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          isDefault: true, // 기본값 표시용
-        });
-      }
-    });
-    
-    return merged;
-  }, [limits, items]);
+    return limits;
+  }, [limits]);
 
   const filtered = useMemo(() => {
     const filteredItems = mergedLimits.filter((limit) => {
@@ -160,12 +136,12 @@ export default function LimitsPage() {
       return aOrder - bOrder;
     };
 
-    // 오염물질과 보조항목 분리
+    // 오염물질과 채취환경 분리
     const pollutants = filteredItems.filter(limit => getItemCategory(limit.itemKey) === "오염물질");
-    const auxiliary = filteredItems.filter(limit => getItemCategory(limit.itemKey) === "보조항목");
+    const auxiliary = filteredItems.filter(limit => getItemCategory(limit.itemKey) === "채취환경");
     const others = filteredItems.filter(limit => {
       const cat = getItemCategory(limit.itemKey);
-      return cat !== "오염물질" && cat !== "보조항목";
+      return cat !== "오염물질" && cat !== "채취환경";
     });
     
     // 각각 정렬
@@ -173,7 +149,7 @@ export default function LimitsPage() {
     auxiliary.sort(sortByOrder);
     others.sort(sortByOrder);
     
-    // 오염물질 → 보조항목 → 기타 순서
+    // 오염물질 → 채취환경 → 기타 순서
     return [...pollutants, ...auxiliary, ...others];
   }, [mergedLimits, search, filterScope, showInactive, items]);
 
@@ -219,20 +195,6 @@ export default function LimitsPage() {
     }
   };
 
-  const handleResetToDefault = async (limit: EmissionLimit) => {
-    if (!confirm(`${getItemName(limit.itemKey)} 기준을 삭제하고 기본값으로 되돌리시겠습니까?`)) return;
-    try {
-      const res = await fetch(`/api/limits?id=${limit.id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "삭제 실패");
-      }
-      alert("기본값으로 되돌렸습니다.");
-      fetchLimits();
-    } catch (err: any) {
-      alert(err.message || "오류가 발생했습니다.");
-    }
-  };
 
 
   const handleExport = () => {
@@ -435,7 +397,7 @@ export default function LimitsPage() {
                       <span className={`px-2 py-1 rounded text-xs ${
                         getItemCategory(limit.itemKey) === "오염물질"
                           ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
-                          : getItemCategory(limit.itemKey) === "보조항목"
+                          : getItemCategory(limit.itemKey) === "채취환경"
                           ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
                           : "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
                       }`}>
@@ -475,14 +437,6 @@ export default function LimitsPage() {
                               className="text-xs text-red-600 hover:underline"
                             >
                               삭제
-                            </button>
-                          )}
-                          {!(limit as any).isDefault && isActive && (
-                            <button
-                              onClick={() => handleResetToDefault(limit)}
-                              className="text-xs text-orange-600 hover:underline"
-                            >
-                              기본값으로
                             </button>
                           )}
                         </div>
@@ -539,7 +493,7 @@ export default function LimitsPage() {
                     <span className="text-gray-500">🏷️ 구분:</span>{" "}
                     <span className={`px-2 py-1 rounded text-xs ${
                       getItemCategory(limit.itemKey) === "오염물질" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" :
-                      getItemCategory(limit.itemKey) === "보조항목" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" :
+                      getItemCategory(limit.itemKey) === "채취환경" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" :
                       "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
                     }`}>
                       {getItemCategory(limit.itemKey) || "-"}
@@ -555,13 +509,6 @@ export default function LimitsPage() {
                   <div><span className="text-gray-500">📏 단위:</span> {getItemUnit(limit.itemKey)}</div>
                   <div><span className="text-gray-500">⚠️ 기준:</span> <span className="font-semibold">{limit.limit}</span></div>
                   <div className="col-span-2"><span className="text-gray-500">🗺️ 지역:</span> {limit.region || "-"}</div>
-                  {(role === "SUPER_ADMIN" || role === "ORG_ADMIN") && !(limit as any).isDefault && (
-                    <div className="col-span-2 pt-2">
-                      <button onClick={() => handleResetToDefault(limit)} className="w-full px-3 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm">
-                        기본값으로
-                      </button>
-                    </div>
-                  )}
                 </div>
               </div>
             );

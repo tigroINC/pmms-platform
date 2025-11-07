@@ -144,6 +144,8 @@ model Item {
   hasLimit       Boolean? // 허용기준여부(Y/N)
   isActive       Boolean            @default(true) // 활성화 상태
   order          Int                @default(0) // 기본 표시 순서
+  inputType      String?            @default("number") // 입력 타입: number, select, text
+  options        String?            // 선택 옵션 (JSON 배열 형식: ["맑음","구름","비","눈"])
   measurements   Measurement[]
   limitHistory   ItemLimitHistory[]
   stackMeasurementItems StackMeasurementItem[] // 굴뚝별 측정항목 설정
@@ -226,6 +228,7 @@ model EmissionLimit {
   region     String? // 일반지역, 특별대책지역
   customerId String   @default("") // 빈 문자열이면 전체 기준
   stackId    String   @default("") // 빈 문자열이면 고객사 전체 기준
+  isActive   Boolean  @default(true) // 활성화 상태
   createdBy  String? // 설정한 사용자
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt

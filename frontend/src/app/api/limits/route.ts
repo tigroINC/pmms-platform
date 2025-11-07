@@ -59,7 +59,40 @@ export async function GET(request: Request) {
       ],
     });
 
-    return NextResponse.json({ data: limits });
+    // Item 테이블에서 hasLimit=true인 항목 조회
+    const items = await prisma.item.findMany({
+      where: {
+        hasLimit: true,
+        isActive: true,
+      },
+    });
+
+    // EmissionLimit에 없는 항목을 자동으로 생성
+    const existingItemKeys = new Set(limits.map(l => l.itemKey));
+    const newLimits = [];
+
+    for (const item of items) {
+      if (!existingItemKeys.has(item.key)) {
+        // @ts-ignore
+        const newLimit = await prisma.emissionLimit.create({
+          data: {
+            itemKey: item.key,
+            limit: item.limit,
+            region: null,
+            customerId: "",
+            stackId: "",
+            isActive: true,
+            createdBy: "SYSTEM",
+          },
+        });
+        newLimits.push(newLimit);
+      }
+    }
+
+    // 새로 생성된 항목 포함하여 반환
+    const allLimits = [...limits, ...newLimits];
+
+    return NextResponse.json({ data: allLimits });
   } catch (error: any) {
     console.error("Error fetching emission limits:", error);
     return NextResponse.json(

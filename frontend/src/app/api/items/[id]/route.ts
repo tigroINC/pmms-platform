@@ -8,7 +8,7 @@ export async function PATCH(
   try {
     const id = params.id;
     const body = await request.json();
-    const { key, name, englishName, unit, limit, category, classification, hasLimit, isActive, order } = body;
+    const { key, name, englishName, unit, limit, category, classification, hasLimit, isActive, order, inputType, options } = body;
 
     // 기존 항목 확인
     const existing = await prisma.item.findUnique({
@@ -42,9 +42,9 @@ export async function PATCH(
 
     // 전체 필드 수정하는 경우
     // 필수 필드 검증
-    if (!key || !name || !unit || limit === undefined) {
+    if (!key || !name) {
       return NextResponse.json(
-        { error: "항목코드, 항목명, 단위, 허용기준값은 필수입니다." },
+        { error: "항목코드, 항목명은 필수입니다." },
         { status: 400 }
       );
     }
@@ -70,13 +70,15 @@ export async function PATCH(
         key: key.trim(),
         name: name.trim(),
         englishName: englishName?.trim() || null,
-        unit: unit.trim(),
-        limit: parseFloat(limit),
-        category: category || null,
-        classification: classification?.trim() || null,
-        hasLimit: hasLimit !== false,
+        unit: unit?.trim() || existing.unit,
+        limit: limit !== undefined ? parseFloat(limit) : existing.limit,
+        category: category || existing.category,
+        classification: classification?.trim() || existing.classification,
+        hasLimit: hasLimit !== undefined ? hasLimit : existing.hasLimit,
         isActive: isActive !== undefined ? isActive : existing.isActive,
         order: order !== undefined ? order : existing.order,
+        inputType: inputType || existing.inputType,
+        options: options !== undefined ? options : existing.options,
       },
     });
 
