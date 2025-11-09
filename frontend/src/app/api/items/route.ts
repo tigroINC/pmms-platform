@@ -23,12 +23,12 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { key, name, englishName, unit, limit, category, classification, hasLimit } = body;
+    const { key, name, englishName, unit, limit, category, classification, analysisMethod, hasLimit } = body;
 
     // 필수 필드 검증
-    if (!key || !name || !unit || limit === undefined) {
+    if (!key || !name) {
       return NextResponse.json(
-        { error: "항목코드, 항목명, 단위, 허용기준값은 필수입니다." },
+        { error: "항목코드, 항목명은 필수입니다." },
         { status: 400 }
       );
     }
@@ -51,10 +51,11 @@ export async function POST(request: Request) {
         key: key.trim(),
         name: name.trim(),
         englishName: englishName?.trim() || null,
-        unit: unit.trim(),
-        limit: parseFloat(limit),
+        unit: unit?.trim() || null,
+        limit: limit ? parseFloat(limit) : null,
         category: category || null,
         classification: classification?.trim() || null,
+        analysisMethod: analysisMethod?.trim() || null,
         hasLimit: hasLimit !== false,
       },
     });

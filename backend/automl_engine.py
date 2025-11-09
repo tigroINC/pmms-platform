@@ -6,6 +6,8 @@
 """
 import pandas as pd
 import numpy as np
+import os
+os.environ['CMDSTAN'] = ''  # Disable cmdstan requirement
 from prophet import Prophet
 import optuna
 from datetime import datetime, timedelta
@@ -159,6 +161,9 @@ class BoazAutoMLPredictor:
             # 모델 학습
             try:
                 # Prophet 모델 생성 (간단한 파라미터만 사용)
+                import os
+                os.environ['PROPHET_SUPPRESS_WARNINGS'] = '1'
+                from prophet.serialize import model_to_json, model_from_json
                 model = Prophet(
                     changepoint_prior_scale=params['changepoint_prior_scale'],
                     seasonality_prior_scale=params['seasonality_prior_scale'],
@@ -181,7 +186,7 @@ class BoazAutoMLPredictor:
                 # 경고 메시지 억제
                 import warnings
                 warnings.filterwarnings('ignore')
-                model.fit(train_df, algorithm='LBFGS')
+                model.fit(train_df)
                 
                 # 검증
                 if len(test_df) > 0:
@@ -205,6 +210,9 @@ class BoazAutoMLPredictor:
     
     def _train_model(self, df: pd.DataFrame, params: Dict) -> Prophet:
         """최적 파라미터로 모델 학습"""
+        import os
+        os.environ['PROPHET_SUPPRESS_WARNINGS'] = '1'
+        from prophet.serialize import model_to_json, model_from_json
         model = Prophet(
             changepoint_prior_scale=params['changepoint_prior_scale'],
             seasonality_prior_scale=params['seasonality_prior_scale'],
@@ -222,7 +230,7 @@ class BoazAutoMLPredictor:
         # 전체 데이터로 학습
         import warnings
         warnings.filterwarnings('ignore')
-        model.fit(df, algorithm='LBFGS')
+        model.fit(df)
         
         self.model = model
         return model

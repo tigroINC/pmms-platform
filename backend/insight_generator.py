@@ -31,7 +31,8 @@ class InsightGenerator:
         accuracy_metrics: Dict,
         customer_name: str,
         item_name: str,
-        limit_value: float = None
+        limit_value: float = None,
+        chart_image: str = None
     ) -> Dict[str, Any]:
         """
         종합 인사이트 보고서 생성
@@ -74,7 +75,8 @@ class InsightGenerator:
                 influence_factors,
                 correlation_analysis,
                 stack_contribution,
-                accuracy_metrics
+                accuracy_metrics,
+                chart_image
             )
             
             return {
@@ -450,14 +452,27 @@ class InsightGenerator:
         factors: List[Dict],
         correlation: Dict,
         stack_contribution: Dict,
-        metrics: Dict
+        metrics: Dict,
+        chart_image: str = None
     ) -> str:
         """자연어 보고서 생성 - 두괄식 구조"""
+        
+        # 차트 이미지 HTML
+        chart_html = ""
+        if chart_image:
+            chart_html = f"""
+<div style="margin: 20px 0; text-align: center;">
+<h2 style="color: #1e40af; margin-bottom: 15px;">📊 측정 데이터 추이 및 예측</h2>
+<img src="data:image/png;base64,{chart_image}" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" />
+</div>
+"""
         
         report = f"""
 <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px;" class="report-main">
 
 <h1 style="color: #1e40af; border-bottom: 3px solid #3b82f6; padding-bottom: 10px; margin-top: 0;">📋 {customer} - {item} 예측 분석 보고서</h1>
+
+{chart_html}
 
 <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; margin: 20px 0;">
 

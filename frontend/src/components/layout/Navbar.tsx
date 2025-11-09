@@ -19,6 +19,7 @@ const navItems: NavItem[] = [
   { href: "/dashboard", label: "대시보드", roles: ["SUPER_ADMIN", "ORG_ADMIN", "OPERATOR", "CUSTOMER_ADMIN", "CUSTOMER_USER"] },
   { href: "/measure/input", label: "측정 입력", roles: ["SUPER_ADMIN", "ORG_ADMIN", "OPERATOR"] },
   { href: "/measure/history", label: "측정 이력", roles: ["SUPER_ADMIN", "ORG_ADMIN", "OPERATOR", "CUSTOMER_ADMIN", "CUSTOMER_USER"] },
+  { href: "/reports", label: "보고서", roles: ["SUPER_ADMIN", "ORG_ADMIN", "OPERATOR"] },
   
   // 고객사 관리
   { href: "/masters/customers", label: "고객사 관리", roles: ["SUPER_ADMIN", "ORG_ADMIN", "OPERATOR"], readOnly: ["OPERATOR"] },
@@ -30,6 +31,7 @@ const navItems: NavItem[] = [
   { href: "/masters/limits", label: "배출허용기준", roles: ["SUPER_ADMIN", "ORG_ADMIN", "OPERATOR"], readOnly: ["OPERATOR"] },
   
   // 고객사 메뉴
+  { href: "/customer/reports", label: "받은 보고서", roles: ["SUPER_ADMIN", "CUSTOMER_ADMIN", "CUSTOMER_USER"] },
   { href: "/customer/stacks", label: "굴뚝 관리", roles: ["SUPER_ADMIN", "CUSTOMER_ADMIN"] },
   { href: "/customer/organizations", label: "환경측정기업 관리", roles: ["SUPER_ADMIN", "CUSTOMER_ADMIN", "CUSTOMER_USER"] },
   { href: "/communications", label: "소통 내역", roles: ["CUSTOMER_ADMIN", "CUSTOMER_USER"] },
@@ -327,7 +329,7 @@ export default function Navbar() {
                         </Link>
                       )}
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           setUserMenuOpen(false);
                           // 로컬 스토리지 정리
                           localStorage.removeItem("selectedOrgId");
@@ -335,7 +337,7 @@ export default function Navbar() {
                           sessionStorage.removeItem("viewAsOrganization");
                           sessionStorage.removeItem("viewAsCustomer");
                           // 로그아웃
-                          signOut({ callbackUrl: "/login" });
+                          await signOut({ callbackUrl: "/login", redirect: true });
                         }}
                         className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
                       >
@@ -411,9 +413,9 @@ export default function Navbar() {
                   </Link>
                 )}
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     setOpen(false);
-                    signOut({ callbackUrl: "/login" });
+                    await signOut({ callbackUrl: "/login", redirect: true });
                   }}
                   className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-white/10 rounded"
                 >

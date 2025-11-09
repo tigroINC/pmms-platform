@@ -15,6 +15,8 @@ interface Customer {
   phone: string | null;
   email: string | null;
   representative: string | null;
+  subscriptionPlan: string;
+  subscriptionStatus: string;
   isActive: boolean;
   createdAt: string;
   _count: {
@@ -33,6 +35,9 @@ export default function CustomersManagementPage() {
   const router = useRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [planFilter, setPlanFilter] = useState("ALL");
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -47,10 +52,21 @@ export default function CustomersManagementPage() {
     }
   }, [status, session, router]);
 
+  useEffect(() => {
+    if (status === "authenticated") {
+      fetchCustomers();
+    }
+  }, [search, statusFilter, planFilter]);
+
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/customers");
+      const params = new URLSearchParams();
+      if (statusFilter !== "ALL") params.append("status", statusFilter);
+      if (planFilter !== "ALL") params.append("plan", planFilter);
+      if (search) params.append("search", search);
+
+      const response = await fetch(`/api/customers?${params}`);
       const data = await response.json();
 
       if (response.ok) {
@@ -153,33 +169,61 @@ export default function CustomersManagementPage() {
           </Link>
         </div>
 
-        {/* 통계 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <div className="text-sm text-gray-600 dark:text-gray-400">전체</div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">
-              {customers.length}
+        {/* 필터 및 통계 */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
+          <div className="flex flex-wrap items-center gap-4">
+            {/* 통계 */}
+            <div className="flex gap-4">
+              <div className="text-sm">
+                <span className="text-gray-600 dark:text-gray-400">전체 </span>
+                <span className="font-bold text-gray-900 dark:text-white">{customers.length}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-gray-600 dark:text-gray-400">승인대기 </span>
+                <span className="font-bold text-yellow-600">{customers.filter((c) => !c.isActive).length}</span>
+              </div>
             </div>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <div className="text-sm text-gray-600 dark:text-gray-400">승인 대기</div>
-            <div className="text-2xl font-bold text-yellow-600">
-              {customers.filter((c) => !c.isActive).length}
-            </div>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <div className="text-sm text-gray-600 dark:text-gray-400">활성</div>
-            <div className="text-2xl font-bold text-green-600">
-              {customers.filter((c) => c.isActive).length}
-            </div>
+
+            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
+
+            {/* 검색 및 필터 */}
+            <input
+              type="text"
+              placeholder="회사명 또는 사업자등록번호 검색"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+            />
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+            >
+              <option value="ALL">전체 상태</option>
+              <option value="PENDING">승인 대기</option>
+              <option value="APPROVED">승인됨</option>
+            </select>
+
+            <select
+              value={planFilter}
+              onChange={(e) => setPlanFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+            >
+              <option value="ALL">전체 플랜</option>
+              <option value="FREE">FREE</option>
+              <option value="BASIC">BASIC</option>
+              <option value="PLUS">PLUS</option>
+              <option value="MASTER">MASTER</option>
+            </select>
           </div>
         </div>
 
         {/* Desktop Table */}
         <div className="hidden md:block bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-900">
+              <thead className="bg-gray-50 dark:bg-gray-900 sticky top-0 z-10">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     회사명

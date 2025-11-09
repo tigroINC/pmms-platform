@@ -33,9 +33,16 @@ export default function SystemManagementPage() {
 
   return (
     <div className="p-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">시스템 관리</h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-2">플랫폼 전체의 환경측정기업, 사용자, 역할, 권한을 관리합니다</p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">시스템 관리</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">플랫폼 전체의 환경측정기업, 사용자, 역할, 권한을 관리합니다</p>
+        </div>
+        <Link href="/admin/dashboard">
+          <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+            ← 대시보드로
+          </button>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

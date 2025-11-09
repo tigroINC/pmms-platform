@@ -11,6 +11,7 @@ import BulkUploadModal from "@/components/modals/BulkUploadModal";
 import ResultModal from "@/components/modals/ResultModal";
 import TempDataManagement from "@/components/TempDataManagement";
 import HelpModal from "@/components/modals/HelpModal";
+import AnomalyWarningModal from "@/components/modals/AnomalyWarningModal";
 import { getMeasurementInputHelpSections } from "@/lib/help/measurementInputHelp";
 
 type BulkRow = {
@@ -102,6 +103,16 @@ export default function MeasureInputPage() {
   // Bulk upload modal state
   const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  
+  // Anomaly warning modal state
+  const [anomalyWarning, setAnomalyWarning] = useState<{
+    isOpen: boolean;
+    itemKey: string;
+    itemName: string;
+    inputValue: number;
+    lowerBound: number;
+    upperBound: number;
+  } | null>(null);
   
   // Result modal state
   const [resultModal, setResultModal] = useState<{
@@ -370,7 +381,7 @@ export default function MeasureInputPage() {
   });
 
   // 항목별 임시저장
-  const handleItemTempSave = async (itemKey: string) => {
+  const handleItemTempSave = async (itemKey: string, skipValidation = false) => {
     if (role === "customer") return;
     
     if (!selectedCustomerId || !selectedStackId) {
@@ -430,6 +441,40 @@ export default function MeasureInputPage() {
       if (!Number.isFinite(num)) {
         showResult("임시저장 실패", "올바른 숫자를 입력해주세요.", "error");
         return;
+      }
+      
+      // 이상치 검증 (skipValidation이 false일 때만)
+      if (!skipValidation) {
+        try {
+          const validationRes = await fetch('http://localhost:8000/api/validate-measurement', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              customer_id: selectedCustomerId,
+              stack: stackSel,
+              item_key: itemKey,
+              value: num
+            })
+          });
+          
+          const validationData = await validationRes.json();
+          
+          if (validationData.anomaly_detected) {
+            // 이상치 감지 시 모달 표시
+            setAnomalyWarning({
+              isOpen: true,
+              itemKey,
+              itemName: item?.name || itemKey,
+              inputValue: num,
+              lowerBound: validationData.details.lower_bound,
+              upperBound: validationData.details.upper_bound
+            });
+            return; // 저장 중단
+          }
+        } catch (validationError) {
+          console.warn('검증 실패, 저장 계속 진행:', validationError);
+          // 검증 실패 시에도 저장은 계속 진행
+        }
       }
     }
 
@@ -926,6 +971,23 @@ export default function MeasureInputPage() {
         sections={getMeasurementInputHelpSections()}
         onClose={() => setShowHelpModal(false)}
       />
+
+      {/* Anomaly Warning Modal */}
+      {anomalyWarning && (
+        <AnomalyWarningModal
+          isOpen={anomalyWarning.isOpen}
+          onClose={() => setAnomalyWarning(null)}
+          onConfirm={() => {
+            // 검증 우회하고 저장
+            handleItemTempSave(anomalyWarning.itemKey, true);
+            setAnomalyWarning(null);
+          }}
+          inputValue={anomalyWarning.inputValue}
+          lowerBound={anomalyWarning.lowerBound}
+          upperBound={anomalyWarning.upperBound}
+          itemName={anomalyWarning.itemName}
+        />
+      )}
     </section>
   );
 }

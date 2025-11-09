@@ -27,9 +27,7 @@ export async function GET(request: Request) {
 
     // 고객사 사용자: 자사 굴뚝만 조회
     if (userRole === "CUSTOMER_ADMIN" || userRole === "CUSTOMER_USER") {
-      if (userCustomerId) {
-        where.customerId = userCustomerId;
-      }
+      where.customerId = userCustomerId;
     } else {
       // 환경측정기업 사용자: 조직 필터링 (내부 관리 + 연결된 고객사)
       const userId = (session.user as any).id;

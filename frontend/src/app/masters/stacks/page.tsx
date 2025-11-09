@@ -93,31 +93,25 @@ function StackRow({ stack, role, onRefetch, onEdit }: { stack: Stack; role: stri
           </span>
         )}
       </Td>
-      <Td className="font-mono text-xs whitespace-nowrap">{stack.name}</Td>
-      <Td className="font-mono text-xs whitespace-nowrap">{stack.code || "-"}</Td>
-      <Td className="text-sm max-w-[200px]">
-        <div className="line-clamp-2">{stack.fullName || "-"}</div>
+      <Td className="font-mono text-xs break-words">{stack.name}</Td>
+      <Td className="font-mono text-xs break-words">{stack.code || "-"}</Td>
+      <Td className="text-sm break-words">{stack.fullName || "-"}</Td>
+      <Td className="text-sm break-words">{stack.facilityType || "-"}</Td>
+      <Td className="text-center break-words">{stack.height ?? "-"}</Td>
+      <Td className="text-center break-words">{stack.diameter ?? "-"}</Td>
+      <Td className="text-center break-words">{stack.category || "-"}</Td>
+      <Td className="break-words">
+        <span className="font-medium">{stack.customer.name}</span>
+        {stack.customer.code && (
+          <span className="text-xs text-gray-500"> ({stack.customer.code})</span>
+        )}
+        {!isCustomerActive && (
+          <span className="text-xs px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 ml-1">
+            비활성
+          </span>
+        )}
       </Td>
-      <Td className="text-sm max-w-[150px]">
-        <div className="line-clamp-2">{stack.facilityType || "-"}</div>
-      </Td>
-      <Td className="text-center whitespace-nowrap">{stack.height ?? "-"}</Td>
-      <Td className="text-center whitespace-nowrap">{stack.diameter ?? "-"}</Td>
-      <Td className="text-center whitespace-nowrap">{stack.category || "-"}</Td>
-      <Td className="max-w-[150px]">
-        <div className="line-clamp-2">
-          <span className="font-medium">{stack.customer.name}</span>
-          {stack.customer.code && (
-            <span className="text-xs text-gray-500"> ({stack.customer.code})</span>
-          )}
-          {!isCustomerActive && (
-            <span className="text-xs px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 ml-1">
-              비활성
-            </span>
-          )}
-        </div>
-      </Td>
-      <Td className="text-center text-sm whitespace-nowrap">
+      <Td className="text-center text-sm break-words">
         {new Date(stack.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '-').replace('.', '')}
       </Td>
       {(role === "SUPER_ADMIN" || role === "ORG_ADMIN") && (
@@ -343,6 +337,17 @@ export default function StacksPage() {
       
       if (res.ok && data.success) {
         fetchStacks();
+        
+        // 에러가 있으면 상세 메시지 표시
+        if (data.errors && data.errors.length > 0) {
+          const errorDetails = data.errors.join('\n');
+          return {
+            success: true,
+            message: `${data.message}\n\n실패 상세:\n${errorDetails}`,
+            count: data.count,
+          };
+        }
+        
         return {
           success: true,
           message: data.message || "업로드 성공",
@@ -452,9 +457,75 @@ export default function StacksPage() {
         </div>
       </div>
 
+      {/* 일괄 작업 버튼 (검색/필터 결과가 있을 때만 표시) */}
+      {(role === "SUPER_ADMIN" || role === "ORG_ADMIN") && filtered.length > 0 && (q || customerFilter !== "전체") && (
+        <div className="flex gap-2 items-center bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+          <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+            검색 결과 {filtered.length}건
+          </span>
+          <div className="flex gap-2 ml-auto">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={async () => {
+                if (!confirm(`검색된 ${filtered.length}개 굴뚝을 모두 비활성화하시겠습니까?`)) return;
+                
+                let successCount = 0;
+                for (const stack of filtered) {
+                  try {
+                    const res = await fetch(`/api/stacks/${stack.id}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ isActive: false }),
+                    });
+                    if (res.ok) successCount++;
+                  } catch (err) {
+                    console.error(`Failed to deactivate stack ${stack.id}:`, err);
+                  }
+                }
+                alert(`${successCount}개 굴뚝을 비활성화했습니다.`);
+                fetchStacks();
+              }}
+            >
+              전체 비활성화
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={async () => {
+                const hasAnyMeasurements = filtered.some(s => s._count?.measurements && s._count.measurements > 0);
+                if (hasAnyMeasurements) {
+                  alert("측정 기록이 있는 굴뚝이 포함되어 있어 삭제할 수 없습니다. 비활성화를 사용하세요.");
+                  return;
+                }
+                
+                if (!confirm(`검색된 ${filtered.length}개 굴뚝을 모두 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+                
+                let successCount = 0;
+                for (const stack of filtered) {
+                  try {
+                    const res = await fetch(`/api/stacks/${stack.id}`, {
+                      method: "DELETE",
+                    });
+                    if (res.ok) successCount++;
+                  } catch (err) {
+                    console.error(`Failed to delete stack ${stack.id}:`, err);
+                  }
+                }
+                alert(`${successCount}개 굴뚝을 삭제했습니다.`);
+                fetchStacks();
+              }}
+              className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+            >
+              전체 삭제
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Desktop Table */}
-      <div className="hidden md:block rounded-lg border overflow-x-auto max-h-[calc(100vh-180px)] overflow-y-auto">
-        <Table className="min-w-[1400px]">
+      <div className="hidden md:block rounded-lg border max-h-[calc(100vh-180px)] overflow-y-auto">
+        <Table className="w-full table-fixed">
           <Thead className="bg-gray-50 dark:bg-white/10 sticky top-0 z-10">
               <Tr>
                 <Th className="bg-gray-50 dark:bg-gray-800">상태</Th>

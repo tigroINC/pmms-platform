@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
 
 // 사용자 상세 조회
 export async function GET(
@@ -67,8 +68,8 @@ export async function PATCH(
     const body = await request.json();
     const { action, ...updateData } = body;
 
-    // 승인/거부는 관리자만 가능
-    if (action === "approve" || action === "reject") {
+    // 승인/거부/비밀번호 초기화는 관리자만 가능
+    if (action === "approve" || action === "reject" || action === "reset_password") {
       if (!["SUPER_ADMIN", "ADMIN"].includes(sessionUser.role)) {
         return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
       }
@@ -122,6 +123,34 @@ export async function PATCH(
         });
 
         return NextResponse.json({ message: "사용자가 거부되었습니다.", user });
+      } else if (action === "reset_password") {
+        // 비밀번호를 기본값(12345678)으로 초기화
+        const defaultPassword = "12345678";
+        const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+
+        const user = await prisma.user.update({
+          where: { id: params.id },
+          data: {
+            password: hashedPassword,
+            passwordResetRequired: true,
+          },
+        });
+
+        // 활동 로그
+        await prisma.activityLog.create({
+          data: {
+            userId: sessionUser.id,
+            action: "RESET_PASSWORD",
+            target: "User",
+            targetId: params.id,
+            details: JSON.stringify({ userId: params.id, email: user.email }),
+          },
+        });
+
+        return NextResponse.json({ 
+          message: "비밀번호가 초기화되었습니다. 기본 비밀번호: 12345678", 
+          user 
+        });
       }
     }
 

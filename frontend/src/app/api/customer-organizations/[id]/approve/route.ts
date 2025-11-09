@@ -89,17 +89,51 @@ export async function PATCH(
         },
       });
 
-      // 2. Customer 상태 업데이트 (DRAFT → CONNECTED)
-      await tx.customer.updateMany({
-        where: {
-          id: connection.customerId,
-          status: "DRAFT" as any,
-        },
-        data: {
-          status: "CONNECTED" as any,
-          isPublic: true,
-        },
+      // 2. Customer 정보 병합 및 상태 업데이트
+      const currentCustomer = await tx.customer.findUnique({
+        where: { id: connection.customerId },
       });
+
+      if (currentCustomer) {
+        const updateData: any = {};
+        
+        // proposedData가 있으면 빈 필드 채우기 (병합 연결)
+        if (connection.proposedData) {
+          const proposed = connection.proposedData as any;
+          
+          if (!currentCustomer.code && proposed.code) updateData.code = proposed.code;
+          if (!currentCustomer.corporateNumber && proposed.corporateNumber) updateData.corporateNumber = proposed.corporateNumber;
+          if (!currentCustomer.fullName && proposed.fullName) updateData.fullName = proposed.fullName;
+          if (!currentCustomer.representative && proposed.representative) updateData.representative = proposed.representative;
+          if (!currentCustomer.siteType && proposed.siteType) updateData.siteType = proposed.siteType;
+          if (!currentCustomer.address && proposed.address) updateData.address = proposed.address;
+          if (!currentCustomer.businessType && proposed.businessType) updateData.businessType = proposed.businessType;
+          if (!currentCustomer.industry && proposed.industry) updateData.industry = proposed.industry;
+          if (!currentCustomer.siteCategory && proposed.siteCategory) updateData.siteCategory = proposed.siteCategory;
+          
+          // 내부 고객사 ID가 있으면 병합 처리
+          if (proposed.internalCustomerId) {
+            await tx.customer.update({
+              where: { id: proposed.internalCustomerId },
+              data: {
+                mergedIntoId: connection.customerId,
+                mergedAt: new Date(),
+              },
+            });
+          }
+        }
+
+        // 상태 업데이트
+        if (currentCustomer.status === "DRAFT") {
+          updateData.status = "CONNECTED";
+        }
+        updateData.isPublic = true;
+
+        await tx.customer.update({
+          where: { id: connection.customerId },
+          data: updateData,
+        });
+      }
 
       // 3. DRAFT 굴뚝 찾기
       const draftStacks = await tx.stack.findMany({

@@ -23,7 +23,9 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { customerId, adminEmail, adminName, adminPhone, suggestedRole, roleNote, expiryDays = 7, forceCreate = false } = body;
+    const { customerId, adminEmail, adminName, adminPhone, suggestedRole, roleNote, siteType, expiryDays = 7, forceCreate = false } = body;
+
+    console.log("[API /api/customer-invitations] Request body:", { customerId, adminEmail, siteType });
 
     if (!customerId) {
       return NextResponse.json(
@@ -31,7 +33,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
+    
     // 고객사 존재 확인
     const customer = await prisma.customer.findUnique({
       where: { id: customerId },
@@ -42,6 +44,35 @@ export async function POST(request: NextRequest) {
         { error: "고객사를 찾을 수 없습니다." },
         { status: 404 }
       );
+    }
+
+    // 이메일이 이미 같은 사업자번호의 고객사에 가입되어 있는지 확인
+    let isExistingEmail = false;
+    if (adminEmail && customer.businessNumber) {
+      // 같은 사업자번호를 가진 모든 고객사 조회
+      const sameBusinessCustomers = await prisma.customer.findMany({
+        where: {
+          businessNumber: customer.businessNumber,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      const customerIds = sameBusinessCustomers.map(c => c.id);
+
+      // 해당 고객사들에 이미 가입된 이메일인지 확인
+      const existingUser = await prisma.user.findFirst({
+        where: {
+          email: adminEmail,
+          customerId: { in: customerIds },
+          role: { in: ["CUSTOMER_ADMIN", "CUSTOMER_USER"] },
+        },
+      });
+      isExistingEmail = !!existingUser;
+      console.log("[API /api/customer-invitations] businessNumber:", customer.businessNumber);
+      console.log("[API /api/customer-invitations] sameBusinessCustomers:", customerIds);
+      console.log("[API /api/customer-invitations] isExistingEmail:", isExistingEmail, "existingUser:", existingUser?.id);
     }
 
     // 이미 활성 초대가 있는지 확인
@@ -110,31 +141,87 @@ export async function POST(request: NextRequest) {
       });
 
       // 2. CustomerOrganization 생성 (PENDING 상태)
-      const existingConnection = await tx.customerOrganization.findUnique({
+      // 같은 사업장에 대한 연결이 이미 있는지 확인 (PENDING 또는 APPROVED)
+      const existingConnection = await tx.customerOrganization.findFirst({
         where: {
-          customerId_organizationId: {
-            customerId,
-            organizationId,
-          },
+          customerId,
+          organizationId,
+          OR: [
+            { status: "PENDING" },
+            { status: "APPROVED" }
+          ],
+          proposedData: siteType ? {
+            path: "siteType",
+            equals: siteType
+          } : undefined,
         },
       });
 
-      if (!existingConnection) {
-        await tx.customerOrganization.create({
-          data: {
-            customerId,
-            organizationId,
-            status: "PENDING",
-            requestedBy: "ORGANIZATION",
+      if (existingConnection) {
+        // 같은 사업장에 대한 연결이 이미 존재
+        return NextResponse.json(
+          { 
+            error: `이 사업장(${siteType || '미지정'})에 대한 ${existingConnection.status === 'APPROVED' ? '연결이 이미 승인되었습니다' : '초대가 이미 존재합니다'}.`,
           },
-        });
+          { status: 400 }
+        );
       }
 
-      // 3. 고객사를 공개로 변경 (연결 준비)
-      await tx.customer.update({
-        where: { id: customerId },
-        data: { isPublic: true },
+      // 새 연결 생성 - 고객사 전체 정보를 proposedData에 저장
+      const newConnection = await tx.customerOrganization.create({
+        data: {
+          customerId,
+          organizationId,
+          status: "PENDING",
+          requestedBy: "ORGANIZATION",
+          proposedData: {
+            siteType: siteType || customer.siteType,
+            name: customer.name,
+            businessNumber: customer.businessNumber,
+            corporateNumber: customer.corporateNumber,
+            fullName: customer.fullName,
+            representative: customer.representative,
+            address: customer.address,
+            businessType: customer.businessType,
+            industry: customer.industry,
+            siteCategory: customer.siteCategory,
+          },
+        },
       });
+      
+      // 같은 사업자번호의 모든 고객사 사용자들에게 알림 생성
+      if (isExistingEmail && customer.businessNumber) {
+        // 같은 사업자번호를 가진 모든 고객사 조회
+        const sameBusinessCustomers = await tx.customer.findMany({
+          where: {
+            businessNumber: customer.businessNumber,
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        const customerIds = sameBusinessCustomers.map(c => c.id);
+
+        const customerUsers = await tx.user.findMany({
+          where: { 
+            customerId: { in: customerIds }, 
+            role: { in: ["CUSTOMER_ADMIN", "CUSTOMER_USER"] } 
+          },
+        });
+        
+        for (const user of customerUsers) {
+          await tx.notification.create({
+            data: {
+              userId: user.id,
+              type: "CONNECTION_REQUEST",
+              title: "새 사업장 연결 요청",
+              message: `${customer.name}의 ${siteType || customer.siteType || '새 사업장'}에 대한 연결 요청이 있습니다.`,
+              customerId: customerId,
+            },
+          });
+        }
+      }
 
       return invitation;
     });
@@ -167,6 +254,10 @@ export async function POST(request: NextRequest) {
       message: "초대 링크가 생성되었습니다.",
       invitation,
       inviteUrl,
+      isExistingEmail,
+      autoConnectMessage: isExistingEmail 
+        ? `${adminEmail}은(는) 이미 연결된 계정입니다. 고객시스템에서 고객이 초대를 승인하면 해당 계정에 새 사업장 연결이 자동으로 추가됩니다.`
+        : null,
     });
   } catch (error: any) {
     console.error("Create invitation error:", error);

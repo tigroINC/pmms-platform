@@ -38,6 +38,7 @@ export default function UsersPermissionPage() {
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [search, setSearch] = useState("");
   const [showHelp, setShowHelp] = useState(false);
+  const [roleFilter, setRoleFilter] = useState("ALL");
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -168,12 +169,14 @@ export default function UsersPermissionPage() {
       <AdminHeader />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">사용자 권한 관리</h1>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            사용자별 역할 및 권한 설정
-          </p>
-          <div className="flex gap-2 mt-4">
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">사용자 권한 관리</h1>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              사용자별 역할 및 권한 설정
+            </p>
+          </div>
+          <div className="flex gap-2">
             <button
               onClick={() => setShowHelp(true)}
               className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors flex items-center gap-2"
@@ -189,21 +192,51 @@ export default function UsersPermissionPage() {
           </div>
         </div>
 
-        {/* 검색 필터 */}
-        <div className="mb-6">
-          <Input
-            type="text"
-            placeholder="사용자 이름 또는 이메일 검색..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-80"
-          />
+        {/* 필터 및 통계 */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
+          <div className="flex flex-wrap items-center gap-4">
+            {/* 통계 */}
+            <div className="flex gap-4">
+              <div className="text-sm">
+                <span className="text-gray-600 dark:text-gray-400">전체 </span>
+                <span className="font-bold text-gray-900 dark:text-white">{users.length}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-gray-600 dark:text-gray-400">활성 </span>
+                <span className="font-bold text-green-600">{users.filter((u) => u.isActive).length}</span>
+              </div>
+            </div>
+
+            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
+
+            {/* 검색 및 필터 */}
+            <Input
+              type="text"
+              placeholder="사용자 이름 또는 이메일 검색..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="flex-1 min-w-[200px]"
+            />
+
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+            >
+              <option value="ALL">전체 역할</option>
+              <option value="ORG_ADMIN">조직 관리자</option>
+              <option value="OPERATOR">실무자</option>
+              <option value="CUSTOMER_ADMIN">고객사 관리자</option>
+              <option value="CUSTOMER_USER">고객사 사용자</option>
+            </select>
+          </div>
         </div>
 
       {/* Desktop Table */}
       <div className="hidden md:block bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+        <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50 sticky top-0 z-10">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">이름</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">이메일</th>
@@ -213,14 +246,16 @@ export default function UsersPermissionPage() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">액션</th>
             </tr>
-          </thead>
-          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-            {users
-              .filter((user) =>
-                search === "" ||
-                user.name.toLowerCase().includes(search.toLowerCase()) ||
-                user.email.toLowerCase().includes(search.toLowerCase())
-              )
+            </thead>
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              {users
+                .filter((user) => {
+                  const matchesSearch = search === "" ||
+                    user.name.toLowerCase().includes(search.toLowerCase()) ||
+                    user.email.toLowerCase().includes(search.toLowerCase());
+                  const matchesRole = roleFilter === "ALL" || user.role === roleFilter;
+                  return matchesSearch && matchesRole;
+                })
               .map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                   <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
@@ -300,18 +335,21 @@ export default function UsersPermissionPage() {
                   </td>
                 </tr>
               ))}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Mobile Card View */}
       <div className="md:hidden space-y-3">
         {users
-          .filter((user) =>
-            search === "" ||
-            user.name.toLowerCase().includes(search.toLowerCase()) ||
-            user.email.toLowerCase().includes(search.toLowerCase())
-          )
+          .filter((user) => {
+            const matchesSearch = search === "" ||
+              user.name.toLowerCase().includes(search.toLowerCase()) ||
+              user.email.toLowerCase().includes(search.toLowerCase());
+            const matchesRole = roleFilter === "ALL" || user.role === roleFilter;
+            return matchesSearch && matchesRole;
+          })
           .map((user) => (
             <div key={user.id} className="rounded-lg border bg-white/50 dark:bg-white/5 p-4 space-y-2">
               <div className="flex items-center justify-between mb-2">

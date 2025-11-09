@@ -20,6 +20,7 @@ export default function ItemFormModal({ isOpen, onClose, onSuccess, item }: Item
     limit: "",
     category: "",
     classification: "",
+    analysisMethod: "",
     hasLimit: true,
     inputType: "number",
     options: "",
@@ -38,6 +39,7 @@ export default function ItemFormModal({ isOpen, onClose, onSuccess, item }: Item
         limit: item.limit?.toString() || "",
         category: item.category || "",
         classification: item.classification || "",
+        analysisMethod: item.analysisMethod || "",
         hasLimit: item.hasLimit !== false,
         inputType: item.inputType || "number",
         options: item.options || "",
@@ -52,6 +54,7 @@ export default function ItemFormModal({ isOpen, onClose, onSuccess, item }: Item
         limit: "",
         category: "",
         classification: "",
+        analysisMethod: "",
         hasLimit: true,
         inputType: "number",
         options: "",
@@ -81,14 +84,6 @@ export default function ItemFormModal({ isOpen, onClose, onSuccess, item }: Item
       setError("항목명(한글)은 필수입니다.");
       return;
     }
-    if (!formData.unit) {
-      setError("기본단위는 필수입니다.");
-      return;
-    }
-    if (!formData.limit) {
-      setError("허용기준값은 필수입니다.");
-      return;
-    }
 
     setLoading(true);
     try {
@@ -96,7 +91,7 @@ export default function ItemFormModal({ isOpen, onClose, onSuccess, item }: Item
         key: formData.key.trim(),
         name: formData.name.trim(),
         unit: formData.unit.trim(),
-        limit: parseFloat(formData.limit),
+        limit: formData.limit ? parseFloat(formData.limit) : null,
         hasLimit: formData.hasLimit,
         inputType: formData.inputType,
       };
@@ -104,6 +99,7 @@ export default function ItemFormModal({ isOpen, onClose, onSuccess, item }: Item
       if (formData.englishName) payload.englishName = formData.englishName.trim();
       if (formData.category) payload.category = formData.category;
       if (formData.classification) payload.classification = formData.classification.trim();
+      if (formData.analysisMethod) payload.analysisMethod = formData.analysisMethod.trim();
       if (formData.options) payload.options = formData.options.trim();
 
       const url = isEditMode ? `/api/items/${item.id}` : "/api/items";
@@ -129,6 +125,7 @@ export default function ItemFormModal({ isOpen, onClose, onSuccess, item }: Item
         limit: "",
         category: "",
         classification: "",
+        analysisMethod: "",
         hasLimit: true,
         inputType: "number",
         options: "",
@@ -145,10 +142,9 @@ export default function ItemFormModal({ isOpen, onClose, onSuccess, item }: Item
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div
         className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b px-6 py-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold">{isEditMode ? "측정항목 수정" : "신규 측정항목 추가"}</h2>
@@ -239,19 +235,18 @@ export default function ItemFormModal({ isOpen, onClose, onSuccess, item }: Item
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="text-sm font-medium">
-                기본단위 <span className="text-red-500">*</span>
+                기본단위 <span className="text-gray-400">(선택)</span>
               </label>
               <Input
                 value={formData.unit}
                 onChange={(e) => handleChange("unit", (e.target as HTMLInputElement).value)}
                 placeholder="예: ppm, mg/S㎥, 도"
-                required
               />
             </div>
 
             <div className="space-y-1">
               <label className="text-sm font-medium">
-                허용기준값 <span className="text-red-500">*</span>
+                허용기준값 <span className="text-gray-400">(선택)</span>
               </label>
               <Input
                 type="number"
@@ -259,9 +254,19 @@ export default function ItemFormModal({ isOpen, onClose, onSuccess, item }: Item
                 value={formData.limit}
                 onChange={(e) => handleChange("limit", (e.target as HTMLInputElement).value)}
                 placeholder="예: 50"
-                required
               />
             </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium">
+              측정분석방법 <span className="text-gray-400">(선택)</span>
+            </label>
+            <Input
+              value={formData.analysisMethod}
+              onChange={(e) => handleChange("analysisMethod", (e.target as HTMLInputElement).value)}
+              placeholder="예: ES 01301.1b"
+            />
           </div>
 
           <div className="space-y-1">

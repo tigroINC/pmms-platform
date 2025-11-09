@@ -10,8 +10,10 @@ import CustomerFormModal from "@/components/modals/CustomerFormModal";
 import CreateInvitationModal from "@/components/modals/CreateInvitationModal";
 import BulkUploadModal from "@/components/modals/BulkUploadModal";
 import ContractManagementModal from "@/components/modals/ContractManagementModal";
+import SearchConnectionModal from "@/components/modals/SearchConnectionModal";
+import CustomerManagementHelpModal from "@/components/modals/CustomerManagementHelpModal";
 
-type TabType = "all" | "internal" | "connected" | "search";
+type TabType = "all" | "internal" | "connected";
 
 // 고객사 행 컴포넌트
 function CustomerRow({ 
@@ -21,6 +23,7 @@ function CustomerRow({
   onEdit,
   activeTab,
   onCreateInvitation,
+  onRequestConnection,
   isGrouped = false,
   isFirstInGroup = false,
   isLastInGroup = false,
@@ -33,6 +36,7 @@ function CustomerRow({
   onEdit: (customer: any) => void;
   activeTab?: string;
   onCreateInvitation?: (customer: any) => void;
+  onRequestConnection?: (customer: any) => void;
   isGrouped?: boolean;
   isFirstInGroup?: boolean;
   isLastInGroup?: boolean;
@@ -115,18 +119,22 @@ function CustomerRow({
           </span>
         )}
       </Td>
-      <Td className="font-mono text-xs">
+      <Td className="font-mono text-xs break-words">
         {customer.code || "-"}
         {isGrouped && isFirstInGroup && (
           <span className="ml-2 text-xs text-blue-600">({groupSize}개 사업장)</span>
         )}
       </Td>
-      <Td className="font-medium">{customer.fullName || customer.name}</Td>
-      <Td>{customer.name}</Td>
-      <Td>{customer.siteType || "-"}</Td>
-      <Td className="text-sm">{customer.address || "-"}</Td>
-      <Td className="text-sm">{customer.industry || "-"}</Td>
-      <Td>{customer.siteCategory || "-"}</Td>
+      <Td className="break-words">{customer.name}</Td>
+      <Td className="font-mono text-xs break-words">{customer.businessNumber || "-"}</Td>
+      <Td className="break-words">{customer.fullName || customer.name}</Td>
+      <Td className="break-words">{customer.representative || "-"}</Td>
+      <Td className="break-words">{customer._siteType || customer.siteType || "-"}</Td>
+      <Td className="break-words">{customer.address || "-"}</Td>
+      <Td className="break-words">{customer.businessType || "-"}</Td>
+      <Td className="break-words">{customer.industry || "-"}</Td>
+      <Td className="break-words">{customer.siteCategory || "-"}</Td>
+      <Td className="font-mono text-xs break-words">{customer.corporateNumber || "-"}</Td>
       <Td className="text-center">{customer._count?.stacks ?? 0}</Td>
       {!isReadOnly && (
         <Td>
@@ -164,6 +172,31 @@ function CustomerRow({
                 초대 링크
               </button>
             )}
+            {activeTab === "connected" && customer.organizations?.[0] && (
+              <button
+                onClick={async () => {
+                  if (!confirm("연결을 해제하시겠습니까?")) return;
+                  try {
+                    const res = await fetch(`/api/customer-organizations/${customer.organizations[0].id}`, {
+                      method: "DELETE",
+                    });
+                    if (res.ok) {
+                      alert("연결이 해제되었습니다.");
+                      onRefetch();
+                    } else {
+                      const data = await res.json();
+                      alert(data.error || "연결 해제 실패");
+                    }
+                  } catch (error) {
+                    alert("연결 해제 중 오류가 발생했습니다.");
+                  }
+                }}
+                disabled={loading}
+                className="text-xs text-orange-600 hover:underline disabled:opacity-50"
+              >
+                연결 해제
+              </button>
+            )}
           </div>
         </Td>
       )}
@@ -188,12 +221,15 @@ export default function CustomersPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
   const [showContractModal, setShowContractModal] = useState(false);
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
 
   useEffect(() => {
     if (selectedOrg) {
       fetchCustomers();
     }
   }, [activeTab, selectedOrg]);
+
 
   const fetchCustomers = async () => {
     if (!selectedOrg) return;
@@ -227,8 +263,53 @@ export default function CustomersPage() {
     setShowInvitationModal(true);
   };
 
+  const handleRequestConnection = async (customer: any) => {
+    if (!confirm(`"${customer.name}" 고객사에 연결 요청을 보내시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/customer-organizations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          customerId: customer.id,
+        }),
+      });
+
+      const data = await res.json();
+      
+      if (res.ok) {
+        alert(data.message || "연결 요청을 보냈습니다.");
+        fetchCustomers();
+      } else {
+        alert(data.error || "연결 요청 실패");
+      }
+    } catch (error) {
+      console.error("Connection request error:", error);
+      alert("연결 요청 중 오류가 발생했습니다.");
+    }
+  };
+
   const filtered = useMemo(() => {
-    return customers
+    // 연결 탭과 전체 탭일 때는 각 연결을 별도 행으로 확장
+    let expandedCustomers = customers;
+    if (activeTab === "connected" || activeTab === "all") {
+      expandedCustomers = customers.flatMap((c: any) => {
+        if (c.organizations && c.organizations.length > 1) {
+          // 여러 연결이 있으면 각각을 별도 행으로
+          return c.organizations.map((org: any) => ({
+            ...c,
+            organizations: [org],
+            _connectionId: org.id,
+            _siteType: org.proposedData?.siteType,
+          }));
+        }
+        return [c];
+      });
+    }
+    
+    return expandedCustomers
       .filter((c: any) => {
         if (!q) {
           const matchesActive = showInactive ? true : c.isActive !== false;
@@ -239,11 +320,15 @@ export default function CustomersPage() {
         const matchesSearch = 
           (c.code && c.code.toLowerCase().includes(searchLower)) ||
           (c.name && c.name.toLowerCase().includes(searchLower)) ||
+          (c.businessNumber && c.businessNumber.toLowerCase().includes(searchLower)) ||
           (c.fullName && c.fullName.toLowerCase().includes(searchLower)) ||
+          (c.representative && c.representative.toLowerCase().includes(searchLower)) ||
           (c.siteType && c.siteType.toLowerCase().includes(searchLower)) ||
           (c.address && c.address.toLowerCase().includes(searchLower)) ||
+          (c.businessType && c.businessType.toLowerCase().includes(searchLower)) ||
           (c.industry && c.industry.toLowerCase().includes(searchLower)) ||
-          (c.siteCategory && c.siteCategory.toLowerCase().includes(searchLower));
+          (c.siteCategory && c.siteCategory.toLowerCase().includes(searchLower)) ||
+          (c.corporateNumber && c.corporateNumber.toLowerCase().includes(searchLower));
         
         const matchesActive = showInactive ? true : c.isActive !== false;
         return matchesSearch && matchesActive;
@@ -253,7 +338,7 @@ export default function CustomersPage() {
         if (b.code === 'CUST999') return -1;
         return (a.code || a.name).localeCompare(b.code || b.name);
       });
-  }, [customers, q, showInactive]);
+  }, [customers, q, showInactive, activeTab]);
 
   // 같은 코드를 가진 고객사 그룹핑
   const grouped = useMemo(() => {
@@ -306,15 +391,19 @@ export default function CustomersPage() {
   };
 
   const onExport = () => {
-    const header = ["고객사코드", "고객사명(정식)", "고객사명(약칭)", "사업장구분", "주소", "업종", "사업장종별", "굴뚝수"];
+    const header = ["\uace0\uac1d\uc0ac\ucf54\ub4dc", "\uace0\uac1d\uc0ac\uba85(\uc57d\uce6d)", "\uc0ac\uc5c5\uc790\ubc88\ud638", "\uace0\uac1d\uc0ac\uba85(\uc815\uc2dd)", "\ub300\ud45c\uc790", "\uc0ac\uc5c5\uc7a5\uad6c\ubd84", "\uc8fc\uc18c", "\uc5c5\ud0dc", "\uc5c5\uc885", "\uc0ac\uc5c5\uc7a5\uc885\ubcc4", "\ubc95\uc778\ub4f1\ub85d\ubc88\ud638", "\uad74\ub69d\uc218"];
     const body = filtered.map((c: any) => [
       c.code || "",
-      c.fullName || c.name,
       c.name,
+      c.businessNumber || "-",
+      c.fullName || c.name,
+      c.representative || "-",
       c.siteType || "-",
       c.address || "-",
+      c.businessType || "-",
       c.industry || "-",
       c.siteCategory || "-",
+      c.corporateNumber || "-",
       c._count?.stacks ?? 0
     ]);
     const csv = [header, ...body].map((cols) => cols.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -392,18 +481,6 @@ export default function CustomersPage() {
                 🤝 연결
               </button>
             )}
-            {hasPermission('customer.tab.search') && (
-              <button
-                onClick={() => setActiveTab("search")}
-                className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                  activeTab === "search"
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
-              >
-                🔍 검색
-              </button>
-            )}
           </div>
           
           {/* 검색 필터 - 권한 체크 */}
@@ -414,7 +491,7 @@ export default function CustomersPage() {
                 className="text-sm h-8"
                 value={q} 
                 onChange={(e) => setQ((e.target as HTMLInputElement).value)} 
-                placeholder="코드, 고객사명, 주소, 업종 등" 
+                placeholder="코드, 고객사명, 대표자, 주소, 업태, 업종 등" 
               />
             </div>
           )}
@@ -432,6 +509,7 @@ export default function CustomersPage() {
           )}
           
           <div className="flex gap-1.5 ml-auto mb-1.5">
+            <Button size="sm" variant="secondary" onClick={() => setShowHelpModal(true)}>❓ 도움말</Button>
             {!isReadOnly && (
               <>
                 {hasPermission('customer.export') && (
@@ -443,7 +521,10 @@ export default function CustomersPage() {
                 {selectedOrg?.hasContractManagement && hasPermission('contract.view') && (
                   <Button size="sm" variant="secondary" onClick={() => setShowContractModal(true)}>계약관리</Button>
                 )}
-                {hasPermission('customer.create') && (
+                {activeTab === "connected" && hasPermission('customer.create') && (
+                  <Button size="sm" onClick={() => setShowSearchModal(true)}>🔍 신규검색연결</Button>
+                )}
+                {activeTab !== "connected" && hasPermission('customer.create') && (
                   <Button size="sm" onClick={() => setIsModalOpen(true)}>+ 신규 추가</Button>
                 )}
               </>
@@ -454,31 +535,35 @@ export default function CustomersPage() {
 
       {/* Desktop Table */}
       <div className="hidden md:block rounded-lg border overflow-x-auto max-h-[calc(100vh-180px)] overflow-y-auto">
-        <Table className="min-w-[1200px]">
+        <Table className="w-full table-fixed">
           <Thead className="bg-gray-50 dark:bg-white/10 sticky top-0 z-10">
               <Tr>
-                <Th className="bg-gray-50 dark:bg-gray-800">상태</Th>
-                <Th className="bg-gray-50 dark:bg-gray-800">고객사코드</Th>
-                <Th className="bg-gray-50 dark:bg-gray-800">고객사명(정식)</Th>
-                <Th className="bg-gray-50 dark:bg-gray-800">고객사명(약칭)</Th>
-                <Th className="bg-gray-50 dark:bg-gray-800">사업장구분</Th>
-                <Th className="bg-gray-50 dark:bg-gray-800">주소</Th>
-                <Th className="bg-gray-50 dark:bg-gray-800">업종</Th>
-                <Th className="bg-gray-50 dark:bg-gray-800">사업장종별</Th>
-                <Th className="bg-gray-50 dark:bg-gray-800">굴뚝수</Th>
-                {!isReadOnly && <Th className="bg-gray-50 dark:bg-gray-800">액션</Th>}
+                <Th className="bg-gray-50 dark:bg-gray-800 w-[3%]">상태</Th>
+                <Th className="bg-gray-50 dark:bg-gray-800 w-[6%]">고객사코드</Th>
+                <Th className="bg-gray-50 dark:bg-gray-800 w-[7%]">고객사명(약칭)</Th>
+                <Th className="bg-gray-50 dark:bg-gray-800 w-[5%]">사업자번호</Th>
+                <Th className="bg-gray-50 dark:bg-gray-800 w-[8%]">고객사명(정식)</Th>
+                <Th className="bg-gray-50 dark:bg-gray-800 w-[4%]">대표자</Th>
+                <Th className="bg-gray-50 dark:bg-gray-800 w-[5%]">사업장구분</Th>
+                <Th className="bg-gray-50 dark:bg-gray-800 w-[9%]">주소</Th>
+                <Th className="bg-gray-50 dark:bg-gray-800 w-[4%]">업태</Th>
+                <Th className="bg-gray-50 dark:bg-gray-800 w-[7%]">업종</Th>
+                <Th className="bg-gray-50 dark:bg-gray-800 w-[4%]">사업장종별</Th>
+                <Th className="bg-gray-50 dark:bg-gray-800 w-[6%]">법인등록번호</Th>
+                <Th className="bg-gray-50 dark:bg-gray-800 w-[3%]">굴뚝수</Th>
+                {!isReadOnly && <Th className="bg-gray-50 dark:bg-gray-800 w-[10%]">액션</Th>}
               </Tr>
             </Thead>
             <Tbody>
               {loading ? (
                 <Tr>
-                  <Td colSpan={10} className="text-center text-gray-500 py-8">
+                  <Td colSpan={14} className="text-center text-gray-500 py-8">
                     로딩 중...
                   </Td>
                 </Tr>
               ) : filtered.length === 0 ? (
                 <Tr>
-                  <Td colSpan={10} className="text-center text-gray-500 py-8">
+                  <Td colSpan={14} className="text-center text-gray-500 py-8">
                     {activeTab === "all" && "등록된 고객사가 없습니다"}
                     {activeTab === "internal" && "내부 관리 고객사가 없습니다"}
                     {activeTab === "connected" && "연결된 고객사가 없습니다"}
@@ -497,6 +582,7 @@ export default function CustomersPage() {
                         onEdit={handleEdit}
                         activeTab={activeTab}
                         onCreateInvitation={handleCreateInvitation}
+                        onRequestConnection={handleRequestConnection}
                         isGrouped={customers.length > 1}
                         isFirstInGroup={idx === 0}
                         isLastInGroup={idx === customers.length - 1}
@@ -580,12 +666,16 @@ export default function CustomersPage() {
                       {isGrouped && isFirstInGroup && (
                         <div className="text-blue-600"><span className="text-gray-500">🏢 사업장:</span> {customers.length}개</div>
                       )}
+                      <div className="col-span-2"><span className="text-gray-500">📍 약칭:</span> {c.name}</div>
+                      <div className="col-span-2"><span className="text-gray-500">🔢 사업자번호:</span> {c.businessNumber || "-"}</div>
                       <div className="col-span-2"><span className="text-gray-500">🏭 정식명:</span> {c.fullName || c.name}</div>
-                      <div><span className="text-gray-500">📍 약칭:</span> {c.name}</div>
+                      <div><span className="text-gray-500">👤 대표자:</span> {c.representative || "-"}</div>
                       <div><span className="text-gray-500">🏗️ 구분:</span> {c.siteType || "-"}</div>
                       <div className="col-span-2"><span className="text-gray-500">📍 주소:</span> {c.address || "-"}</div>
+                      <div><span className="text-gray-500">💼 업태:</span> {c.businessType || "-"}</div>
                       <div><span className="text-gray-500">🏢 업종:</span> {c.industry || "-"}</div>
                       <div><span className="text-gray-500">⚙️ 종별:</span> {c.siteCategory || "-"}</div>
+                      <div className="col-span-2"><span className="text-gray-500">🏛️ 법인등록번호:</span> {c.corporateNumber || "-"}</div>
                       <div><span className="text-gray-500">🏭 굴뚝:</span> {c._count?.stacks ?? 0}개</div>
                     </div>
                   </div>
@@ -618,8 +708,8 @@ export default function CustomersPage() {
         isOpen={showBulkUploadModal}
         onClose={() => setShowBulkUploadModal(false)}
         title="고객사 일괄업로드"
-        templateHeaders={["고객사코드", "고객사명(약칭)", "고객사명(정식)", "사업장구분", "주소", "업종", "사업장종별"]}
-        exampleRow={["CUST001", "고려아연", "고려아연 주식회사", "본사", "서울시 강남구", "제조업", "1종"]}
+        templateHeaders={["고객사코드", "고객사명(약칭)", "사업자번호", "고객사명(정식)", "대표자", "사업장구분", "주소", "업태", "업종", "사업장종별", "법인등록번호"]}
+        exampleRow={["CUST001", "AA제조", "123-45-67890", "주식회사 AA제조", "홍길동", "본사", "서울시 강남구", "제조", "제조업", "1종", "123456-1234567"]}
         templateFileName="고객사_일괄업로드_양식.csv"
         onUpload={handleBulkUpload}
         parseInstructions="고객사명(약칭)은 필수 항목입니다. 나머지 항목은 선택사항입니다."
@@ -628,6 +718,18 @@ export default function CustomersPage() {
       <ContractManagementModal
         isOpen={showContractModal}
         onClose={() => setShowContractModal(false)}
+      />
+
+      <SearchConnectionModal
+        isOpen={showSearchModal}
+        onClose={() => setShowSearchModal(false)}
+        organizationId={selectedOrg?.id || ""}
+        onSuccess={fetchCustomers}
+      />
+
+      <CustomerManagementHelpModal
+        isOpen={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
       />
     </section>
   );

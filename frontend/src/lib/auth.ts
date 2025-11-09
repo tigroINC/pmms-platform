@@ -76,6 +76,7 @@ export const authOptions: NextAuthOptions = {
           customerId: user.customerId,
           customerName: user.customer?.name || null,
           status: user.status,
+          passwordResetRequired: user.passwordResetRequired,
         };
       }
     })
@@ -89,6 +90,7 @@ export const authOptions: NextAuthOptions = {
         token.customerId = (user as any).customerId;
         token.customerName = (user as any).customerName;
         token.status = (user as any).status;
+        token.passwordResetRequired = (user as any).passwordResetRequired;
       }
       return token;
     },
@@ -100,6 +102,7 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).customerId = token.customerId as string | null;
         (session.user as any).customerName = token.customerName as string | null;
         (session.user as any).status = token.status as string;
+        (session.user as any).passwordResetRequired = token.passwordResetRequired as boolean;
       }
       return session;
     }

@@ -35,6 +35,9 @@ export async function POST(request: NextRequest) {
     // 트랜잭션으로 처리
     const communication = await prisma.$transaction(async (tx) => {
       // 1. Communication 생성
+      // 상태 설정 (내부전용도 PENDING으로 시작)
+      const finalStatus = data.status || "PENDING";
+      
       const comm = await tx.communication.create({
         data: {
           customerId: data.customerId,
@@ -45,7 +48,7 @@ export async function POST(request: NextRequest) {
           direction: data.direction,
           subject: data.subject || null,
           content: data.content,
-          status: data.status || "PENDING",
+          status: finalStatus,
           priority: data.priority || "NORMAL",
           createdById: user.id,
           assignedToId: data.assignedToId || null,
@@ -218,6 +221,7 @@ export async function GET(request: NextRequest) {
           priority: true,
           contactOrg: true,
           contactPerson: true,
+          isShared: true,
           customer: { select: { id: true, name: true } },
           createdBy: { select: { id: true, name: true, role: true } },
           assignedTo: { select: { id: true, name: true } },
@@ -259,6 +263,12 @@ async function createCommunicationNotifications(
   createdBy: any
 ) {
   const notifications: any[] = [];
+  const isInternalOnly = communication.isShared === false;
+  
+  // 내부전용은 알림 생성 안 함 (기록용)
+  if (isInternalOnly) {
+    return;
+  }
 
   // 1. 담당자 배정됨
   if (communication.assignedToId && communication.assignedToId !== createdBy.id) {
@@ -288,7 +298,7 @@ async function createCommunicationNotifications(
     }
   }
 
-  // 3. 고객사가 등록한 경우
+  // 3. 고객사가 등록한 경우 → 환경측정기업에 알림
   if (createdBy.role === "CUSTOMER_ADMIN" || createdBy.role === "CUSTOMER_USER") {
     const managers = await getCustomerManagers(tx, communication.customerId);
     
@@ -302,6 +312,30 @@ async function createCommunicationNotifications(
         metadata: JSON.stringify({ communicationId: communication.id }),
       });
     });
+  }
+  
+  // 4. 환경측정기업이 고객사 공유로 등록한 경우 → 고객사에 알림
+  if ((createdBy.role === "ORG_ADMIN" || createdBy.role === "OPERATOR") && communication.isShared === true) {
+    const customerUsers = await tx.user.findMany({
+      where: {
+        customerId: communication.customerId,
+        role: { in: ["CUSTOMER_ADMIN", "CUSTOMER_USER"] }
+      },
+      select: { id: true }
+    });
+    
+    if (customerUsers.length > 0) {
+      customerUsers.forEach(customerUser => {
+        notifications.push({
+          userId: customerUser.id,
+          type: "COMMUNICATION_STATUS_CHANGED",
+          title: "새로운 소통 내역이 등록되었습니다",
+          message: `${communication.subject || communication.content.substring(0, 50)}`,
+          customerId: communication.customerId,
+          metadata: JSON.stringify({ communicationId: communication.id }),
+        });
+      });
+    }
   }
 
   // 일괄 생성

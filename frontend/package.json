@@ -25,6 +25,7 @@
     "next": "14.2.33",
     "next-auth": "^4.24.12",
     "nodemailer": "^7.0.10",
+    "puppeteer": "^24.29.1",
     "react": "^18",
     "react-dom": "^18",
     "xlsx": "^0.18.5"

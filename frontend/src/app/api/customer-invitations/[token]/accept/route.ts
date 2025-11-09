@@ -58,16 +58,97 @@ export async function POST(
       );
     }
 
-    // 이메일 중복 체크
+    // 초대 이메일 검증
+    if (invitation.adminEmail && invitation.adminEmail !== email) {
+      return NextResponse.json(
+        { error: `이 초대 링크는 ${invitation.adminEmail}로만 가입 가능합니다.` },
+        { status: 403 }
+      );
+    }
+
+    // 이메일 중복 체크 - 기존 계정이 있으면 연결만 처리
     const existingUser = await prisma.user.findUnique({
       where: { email },
+      include: {
+        customer: true,
+      },
     });
 
     if (existingUser) {
-      return NextResponse.json(
-        { error: "이미 사용 중인 이메일입니다." },
-        { status: 400 }
-      );
+      // 기존 계정이 있으면 연결만 처리
+      if (existingUser.role !== "CUSTOMER_ADMIN" && existingUser.role !== "CUSTOMER_USER") {
+        return NextResponse.json(
+          { error: "고객사 계정이 아닙니다." },
+          { status: 400 }
+        );
+      }
+
+      if (!existingUser.customerId) {
+        return NextResponse.json(
+          { error: "고객사 정보가 없습니다." },
+          { status: 400 }
+        );
+      }
+
+      // 연결 처리
+      await prisma.$transaction(async (tx) => {
+        // 초대 상태 업데이트
+        await tx.customerInvitation.update({
+          where: { id: invitation.id },
+          data: { status: "USED", usedAt: new Date() },
+        });
+
+        // 연결 생성 또는 업데이트
+        const existingConnection = await tx.customerOrganization.findFirst({
+          where: {
+            customerId: existingUser.customerId,
+            organizationId: invitation.organizationId,
+          },
+        });
+
+        if (existingConnection) {
+          // 기존 연결이 있으면 상태만 업데이트
+          if (existingConnection.status === "DISCONNECTED") {
+            await tx.customerOrganization.update({
+              where: { id: existingConnection.id },
+              data: {
+                status: "APPROVED",
+                isActive: true,
+              },
+            });
+          }
+        } else {
+          // 새 연결 생성
+          await tx.customerOrganization.create({
+            data: {
+              customerId: existingUser.customerId,
+              organizationId: invitation.organizationId,
+              status: "APPROVED",
+              requestedBy: "ORGANIZATION",
+              proposedData: invitation.customer.siteType ? {
+                siteType: invitation.customer.siteType,
+              } : null,
+            },
+          });
+        }
+
+        // 내부 고객사 병합 처리
+        if (invitation.customer.id !== existingUser.customerId) {
+          await tx.customer.update({
+            where: { id: invitation.customerId },
+            data: {
+              mergedIntoId: existingUser.customerId,
+              mergedAt: new Date(),
+            },
+          });
+        }
+      });
+
+      return NextResponse.json({
+        ok: true,
+        message: "기존 계정으로 연결되었습니다.",
+        userId: existingUser.id,
+      });
     }
 
     // 트랜잭션으로 처리
@@ -113,12 +194,11 @@ export async function POST(
       }
 
       // 3. CustomerOrganization 승인 (이미 존재하면 APPROVED로 변경, 없으면 생성)
-      const existingConnection = await tx.customerOrganization.findUnique({
+      const existingConnection = await tx.customerOrganization.findFirst({
         where: {
-          customerId_organizationId: {
-            customerId: invitation.customerId,
-            organizationId: invitation.organizationId,
-          },
+          customerId: invitation.customerId,
+          organizationId: invitation.organizationId,
+          status: "PENDING",
         },
       });
 

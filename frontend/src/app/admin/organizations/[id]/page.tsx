@@ -23,6 +23,8 @@ interface Organization {
   subscriptionPlan: string;
   subscriptionStatus: string;
   isActive: boolean;
+  hasContractManagement: boolean;
+  hideSubscriptionInfo: boolean;
   createdAt: string;
   updatedAt: string;
   users: Array<{
@@ -38,6 +40,9 @@ interface Organization {
     createdAt: string;
   }>;
   customers: Array<{
+    id: string;
+    status: string;
+    proposedData?: any;
     customer: {
       id: string;
       name: string;
@@ -62,6 +67,12 @@ export default function OrganizationDetailPage() {
   const [selectedNewAdmin, setSelectedNewAdmin] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<Organization>>({});
+  const [isEditingSubscription, setIsEditingSubscription] = useState(false);
+  const [subscriptionData, setSubscriptionData] = useState({
+    subscriptionPlan: "",
+    subscriptionStatus: "",
+    isActive: true
+  });
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -178,6 +189,92 @@ export default function OrganizationDetailPage() {
     setEditData({});
   };
 
+  const handleEditSubscription = () => {
+    setSubscriptionData({
+      subscriptionPlan: organization?.subscriptionPlan || "",
+      subscriptionStatus: organization?.subscriptionStatus || "",
+      isActive: organization?.isActive || true
+    });
+    setIsEditingSubscription(true);
+  };
+
+  const handleSaveSubscription = async () => {
+    if (!confirm("구독 정보를 수정하시겠습니까?")) return;
+
+    try {
+      const response = await fetch(`/api/organizations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(subscriptionData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(data.message);
+        setIsEditingSubscription(false);
+        fetchOrganization();
+      } else {
+        alert(data.error || "구독 정보 수정에 실패했습니다.");
+      }
+    } catch (error) {
+      console.error("Update subscription error:", error);
+      alert("구독 정보 수정 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleCancelSubscription = () => {
+    setIsEditingSubscription(false);
+  };
+
+  const handleToggleContractManagement = async () => {
+    if (!confirm(`계약 관리 기능을 ${organization?.hasContractManagement ? "비활성화" : "활성화"}하시겠습니까?`)) return;
+
+    try {
+      const response = await fetch(`/api/organizations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hasContractManagement: !organization?.hasContractManagement }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(data.message || "설정이 변경되었습니다.");
+        fetchOrganization();
+      } else {
+        alert(data.error || "설정 변경에 실패했습니다.");
+      }
+    } catch (error) {
+      console.error("Toggle contract management error:", error);
+      alert("설정 변경 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleToggleHideSubscription = async () => {
+    if (!confirm(`구독 정보 숨김을 ${organization?.hideSubscriptionInfo ? "해제" : "설정"}하시겠습니까?`)) return;
+
+    try {
+      const response = await fetch(`/api/organizations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hideSubscriptionInfo: !organization?.hideSubscriptionInfo }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(data.message || "설정이 변경되었습니다.");
+        fetchOrganization();
+      } else {
+        alert(data.error || "설정 변경에 실패했습니다.");
+      }
+    } catch (error) {
+      console.error("Toggle hide subscription error:", error);
+      alert("설정 변경 중 오류가 발생했습니다.");
+    }
+  };
+
   if (loading || !organization) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -275,22 +372,114 @@ export default function OrganizationDetailPage() {
 
             {/* 구독 정보 */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                구독 정보
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <InfoItem label="플랜" value={organization.subscriptionPlan} />
-                <InfoItem label="상태" value={organization.subscriptionStatus} />
-                <InfoItem 
-                  label="승인 상태" 
-                  value={organization.isActive ? "활성" : "승인 대기"}
-                  valueClassName={organization.isActive ? "text-green-600" : "text-yellow-600"}
-                />
-                <InfoItem 
-                  label="등록일" 
-                  value={new Date(organization.createdAt).toLocaleString()} 
-                />
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  구독 정보
+                </h2>
+                {!isEditingSubscription ? (
+                  <Button onClick={handleEditSubscription} className="text-sm px-3 py-1">
+                    수정
+                  </Button>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button onClick={handleSaveSubscription} className="text-sm px-3 py-1 bg-green-600 hover:bg-green-700 text-white">
+                      저장
+                    </Button>
+                    <Button onClick={handleCancelSubscription} className="text-sm px-3 py-1 bg-gray-300 hover:bg-gray-400 text-gray-800">
+                      취소
+                    </Button>
+                  </div>
+                )}
               </div>
+              
+              {!isEditingSubscription ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <InfoItem label="구독플랜" value={organization.subscriptionPlan} />
+                  <InfoItem label="구독상태" value={organization.subscriptionStatus} />
+                  <InfoItem 
+                    label="활성상태" 
+                    value={organization.isActive ? "활성" : "비활성"}
+                    valueClassName={organization.isActive ? "text-green-600" : "text-red-600"}
+                  />
+                  <InfoItem 
+                    label="계약관리 기능" 
+                    value={organization.hasContractManagement ? "활성화" : "비활성화"}
+                    valueClassName={organization.hasContractManagement ? "text-green-600" : "text-gray-600"}
+                  />
+                  <InfoItem 
+                    label="구독정보 숨김" 
+                    value={organization.hideSubscriptionInfo ? "숨김" : "표시"}
+                    valueClassName={organization.hideSubscriptionInfo ? "text-orange-600" : "text-gray-600"}
+                  />
+                  <InfoItem 
+                    label="등록일" 
+                    value={new Date(organization.createdAt).toLocaleString()} 
+                  />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      구독플랜
+                    </label>
+                    <select
+                      value={subscriptionData.subscriptionPlan}
+                      onChange={(e) => setSubscriptionData({...subscriptionData, subscriptionPlan: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white"
+                    >
+                      <option value="FREE">FREE</option>
+                      <option value="BASIC">BASIC</option>
+                      <option value="PLUS">PLUS</option>
+                      <option value="MASTER">MASTER</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      구독상태
+                    </label>
+                    <select
+                      value={subscriptionData.subscriptionStatus}
+                      onChange={(e) => setSubscriptionData({...subscriptionData, subscriptionStatus: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white"
+                    >
+                      <option value="ACTIVE">ACTIVE</option>
+                      <option value="TRIAL">TRIAL</option>
+                      <option value="EXPIRED">EXPIRED</option>
+                      <option value="SUSPENDED">SUSPENDED</option>
+                      <option value="CANCELLED">CANCELLED</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      활성상태
+                    </label>
+                    <select
+                      value={subscriptionData.isActive ? "true" : "false"}
+                      onChange={(e) => setSubscriptionData({...subscriptionData, isActive: e.target.value === "true"})}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white"
+                    >
+                      <option value="true">활성</option>
+                      <option value="false">비활성</option>
+                    </select>
+                  </div>
+                  <div className="flex items-end">
+                    <Button 
+                      onClick={handleToggleContractManagement}
+                      className={`w-full ${organization.hasContractManagement ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-700'} text-white`}
+                    >
+                      계약관리 {organization.hasContractManagement ? 'ON' : 'OFF'}
+                    </Button>
+                  </div>
+                  <div className="flex items-end">
+                    <Button 
+                      onClick={handleToggleHideSubscription}
+                      className={`w-full ${organization.hideSubscriptionInfo ? 'bg-orange-600 hover:bg-orange-700' : 'bg-gray-600 hover:bg-gray-700'} text-white`}
+                    >
+                      구독정보 {organization.hideSubscriptionInfo ? '숨김' : '표시'}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* 관리자 정보 */}
@@ -438,21 +627,56 @@ export default function OrganizationDetailPage() {
               </h2>
               {organization.customers.length > 0 ? (
                 <div className="space-y-2">
-                  {organization.customers.map((co) => (
-                    <div
-                      key={co.customer.id}
-                      className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
-                    >
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {co.customer.name}
-                      </div>
-                      {co.customer.businessNumber && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {co.customer.businessNumber}
+                  {(() => {
+                    // 고객사별로 그룹화
+                    const grouped = organization.customers.reduce((acc: any, co) => {
+                      const customerId = co.customer.id;
+                      if (!acc[customerId]) {
+                        acc[customerId] = {
+                          customer: co.customer,
+                          connections: []
+                        };
+                      }
+                      acc[customerId].connections.push(co);
+                      return acc;
+                    }, {});
+
+                    return Object.values(grouped).map((group: any) => (
+                      <div
+                        key={group.customer.id}
+                        className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">
+                              {group.customer.name}
+                              {group.connections.length > 1 && (
+                                <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">
+                                  ({group.connections.length}개 사업장)
+                                </span>
+                              )}
+                            </div>
+                            {group.customer.businessNumber && (
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                {group.customer.businessNumber}
+                              </div>
+                            )}
+                            {group.connections.some((c: any) => c.proposedData?.siteType) && (
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {group.connections.map((c: any, idx: number) => (
+                                  c.proposedData?.siteType && (
+                                    <span key={idx} className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded">
+                                      {c.proposedData.siteType}
+                                    </span>
+                                  )
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  ))}
+                      </div>
+                    ));
+                  })()}
                 </div>
               ) : (
                 <p className="text-sm text-gray-500 dark:text-gray-400">

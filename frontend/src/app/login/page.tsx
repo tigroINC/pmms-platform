@@ -36,6 +36,12 @@ export default function LoginPage() {
         const response = await fetch("/api/auth/session");
         const session = await response.json();
         
+        // 비밀번호 변경이 필요한 경우
+        if (session?.user?.passwordResetRequired) {
+          router.push("/change-password");
+          return;
+        }
+        
         if (session?.user?.role === "SUPER_ADMIN") {
           router.push("/admin/dashboard");
         } else {

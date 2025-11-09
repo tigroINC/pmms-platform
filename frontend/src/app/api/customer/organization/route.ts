@@ -71,7 +71,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, businessNumber, address, industry, siteType, siteCategory } = body;
+    const { name, businessNumber, corporateNumber, representative, address, businessType, industry, siteType, siteCategory } = body;
 
     // 기존 데이터 조회 (변경 사항 추적용)
     const currentCustomer = await prisma.customer.findUnique({
@@ -86,13 +86,25 @@ export async function PATCH(request: NextRequest) {
       updateData.name = name;
       changes.push(`회사명: ${currentCustomer?.name} → ${name}`);
     }
-    if (businessNumber !== undefined && businessNumber !== currentCustomer?.businessNumber) {
-      updateData.businessNumber = businessNumber;
-      changes.push(`사업자번호: ${currentCustomer?.businessNumber || '없음'} → ${businessNumber}`);
+    if (body.businessNumber !== undefined && body.businessNumber !== currentCustomer?.businessNumber) {
+      updateData.businessNumber = body.businessNumber;
+      changes.push(`사업자번호: ${currentCustomer?.businessNumber || '없음'} → ${body.businessNumber}`);
+    }
+    if (body.corporateNumber !== undefined && body.corporateNumber !== currentCustomer?.corporateNumber) {
+      updateData.corporateNumber = body.corporateNumber;
+      changes.push(`법인등록번호: ${currentCustomer?.corporateNumber || '없음'} → ${body.corporateNumber}`);
+    }
+    if (body.representative !== undefined && body.representative !== currentCustomer?.representative) {
+      updateData.representative = body.representative;
+      changes.push(`대표자: ${currentCustomer?.representative || '없음'} → ${body.representative}`);
     }
     if (address !== undefined && address !== currentCustomer?.address) {
       updateData.address = address;
       changes.push(`주소: ${currentCustomer?.address || '없음'} → ${address}`);
+    }
+    if (businessType !== undefined && businessType !== currentCustomer?.businessType) {
+      updateData.businessType = businessType;
+      changes.push(`업태: ${currentCustomer?.businessType || '없음'} → ${businessType}`);
     }
     if (industry !== undefined && industry !== currentCustomer?.industry) {
       updateData.industry = industry;

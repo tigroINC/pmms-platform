@@ -39,10 +39,11 @@ export async function POST(req: NextRequest) {
     const unitIdx = header.indexOf("기본단위");
     const categoryIdx = header.indexOf("구분");
     const classificationIdx = header.indexOf("항목분류");
-    const limitIdx = header.indexOf("허용기준값(기본)");
+    const limitIdx = header.indexOf("허용기준값") >= 0 ? header.indexOf("허용기준값") : header.indexOf("허용기준값(기본)");
+    const analysisMethodIdx = header.indexOf("측정분석방법");
 
     if (keyIdx === -1 || nameIdx === -1 || unitIdx === -1 || limitIdx === -1) {
-      return NextResponse.json({ error: "필수 컬럼 '항목코드', '항목명(한글)', '기본단위', '허용기준값(기본)'이 필요합니다." }, { status: 400 });
+      return NextResponse.json({ error: "필수 컬럼 '항목코드', '항목명(한글)', '기본단위', '허용기준값'이 필요합니다." }, { status: 400 });
     }
 
 
@@ -58,10 +59,11 @@ export async function POST(req: NextRequest) {
       const unit = cols[unitIdx]?.trim();
       const category = categoryIdx >= 0 ? cols[categoryIdx]?.trim() : null;
       const classification = classificationIdx >= 0 ? cols[classificationIdx]?.trim() : null;
+      const analysisMethod = analysisMethodIdx >= 0 ? cols[analysisMethodIdx]?.trim() : null;
       const limit = cols[limitIdx] ? parseFloat(cols[limitIdx]) : 0;
 
       if (!key || !name || !unit || limit === undefined) {
-        errors.push(`${i + 1}행: 항목코드, 항목명(한글), 기본단위, 허용기준값(기본)이 필요합니다.`);
+        errors.push(`${i + 1}행: 항목코드, 항목명(한글), 기본단위, 허용기준값이 필요합니다.`);
         continue;
       }
 
@@ -76,6 +78,7 @@ export async function POST(req: NextRequest) {
             limit,
             category,
             classification,
+            analysisMethod,
             hasLimit: true,
             isActive: true,
             order: 0,
@@ -87,6 +90,7 @@ export async function POST(req: NextRequest) {
             limit,
             category,
             classification,
+            analysisMethod,
           },
         });
         successCount++;

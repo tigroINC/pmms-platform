@@ -17,15 +17,18 @@ enum CustomerStatus {
 }
 
 model Customer {
-  id             String  @id @default(cuid())
-  name           String // 고객사명(약칭) + 사업장구분 (예: "한국보팍터미날 제1사업장")
-  code           String? // 고객사 코드 (여러 사업장이 같은 코드 공유 가능)
-  businessNumber String? @unique // 사업자등록번호 (중복 방지)
-  fullName       String? // 고객사명(정식)
-  siteType       String? // 사업장 구분
-  address        String? // 주소
-  industry       String? // 업종
-  siteCategory   String? // 사업장 종별
+  id              String  @id @default(cuid())
+  name            String // 고객사명(약칭) + 사업장구분 (예: "한국보팍터미날 제1사업장")
+  code            String? // 고객사 코드 (여러 사업장이 같은 코드 공유 가능)
+  businessNumber  String? // 사업자등록번호 (환경측정기업별 내부 저장 허용)
+  corporateNumber String? // 법인등록번호
+  fullName        String? // 고객사명(정식)
+  representative  String? // 대표자
+  siteType        String? // 사업장 구분
+  address         String? // 주소
+  businessType    String? // 업태
+  industry        String? // 업종
+  siteCategory    String? // 사업장 종별
 
   // 계약 정보
   contractStartDate DateTime? // 계약 시작일
@@ -38,6 +41,10 @@ model Customer {
   // 등록자 추적
   createdBy String? // 등록한 환경측정업체 사용자 ID
   isPublic  Boolean @default(false) // 공개 여부 (연결 시 true)
+  
+  // 병합 추적
+  mergedIntoId String? // 병합된 대상 고객사 ID (가입 고객사)
+  mergedAt     DateTime? // 병합 일시
 
   // 상태 관리 (DRAFT 시스템)
   status         CustomerStatus @default(CONNECTED)
@@ -48,6 +55,11 @@ model Customer {
   isVerified      Boolean @default(true) // 고객사 확인 여부
   lastModifiedBy  String? // "ORG" | "CUSTOMER"
   lastModifiedAt  DateTime?
+
+  // 구독 정보
+  subscriptionPlan   SubscriptionPlan   @default(FREE)
+  subscriptionStatus SubscriptionStatus @default(TRIAL)
+  hideSubscriptionInfo Boolean @default(false) // 구독 정보 숨김
 
   isActive          Boolean                @default(true) // 활성 상태
   stacks            Stack[]
@@ -63,6 +75,9 @@ model Customer {
   contracts         Contract[] // 계약 관리
   communications    Communication[] // CS 커뮤니케이션
   internalNotes     CommunicationNote[] @relation("CustomerInternalNotes") // 내부메모
+  reports           Report[] // 보고서
+  reportTemplate    ReportTemplate? // 보고서 템플릿
+  insightReports    InsightReport[] // 인사이트 보고서
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
 
@@ -122,6 +137,7 @@ model Stack {
   notifications Notification[] // 알림
   measurementItems StackMeasurementItem[] // 굴뚝별 측정항목 설정
   communications Communication[] // CS 커뮤니케이션
+  reports       Report[] // 보고서
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -137,10 +153,11 @@ model Item {
   key            String             @id
   name           String
   englishName    String?
-  unit           String
-  limit          Float
+  unit           String?
+  limit          Float?
   category       String? // 구분: 오염물질/보조항목
   classification String? // 항목분류: 금속화합물, 무기물질, 휘발성유기화합물 등
+  analysisMethod String? // 측정분석방법
   hasLimit       Boolean? // 허용기준여부(Y/N)
   isActive       Boolean            @default(true) // 활성화 상태
   order          Int                @default(0) // 기본 표시 순서
@@ -241,6 +258,96 @@ model EmissionLimit {
   @@index([stackId])
 }
 
+// 보고서 (대기측정기록부)
+model Report {
+  id                String   @id @default(cuid())
+  version           Int      @default(1)
+  parentId          String?  // 이전 버전 ID
+  
+  customerId        String
+  customer          Customer @relation(fields: [customerId], references: [id])
+  stackId           String
+  stack             Stack    @relation(fields: [stackId], references: [id])
+  measuredAt        DateTime // 측정일자
+  
+  // 의뢰인 정보 (자동 채움, 수정 가능)
+  companyName       String   // 상호
+  address           String?  // 주소 (시군구 단위)
+  representative    String?  // 대표자
+  environmentalTech String?  // 환경기술인 (직접입력)
+  
+  // 일반현황 (자동 채움, 수정 가능)
+  industry          String?  // 업종
+  facilityType      String?  // 시설종류
+  siteCategory      String?  // 사업장종별
+  
+  // 의뢰내용 (자동 채움, 수정 가능)
+  purpose           String?  // 측정용도 (직접입력)
+  stackName         String   // 굴뚝명칭
+  stackHeight       Float?   // 높이
+  stackDiameter     Float?   // 안지름
+  stackType         String?  // 굴뚝종별
+  requestedItems    String?  // 의뢰항목 (직접입력)
+  
+  // 시료채취 (자동 채움, 수정 가능)
+  weather           String?
+  temp              Float?
+  humidity          Float?
+  pressure          Float?
+  windDir           String?
+  wind              Float?
+  o2Standard        Float?
+  o2Measured        Float?
+  flow              Float?
+  flowCorrected     Float?  // 산소보정 후 유량
+  moisture          Float?
+  gasTemp           Float?
+  gasVel            Float?
+  gasNote           String?  // 배출가스 기타 (직접입력)
+  
+  samplingDate      DateTime // 채취일
+  samplingStart     String?  // 채취시간 시작 (HH:mm, 수정 가능)
+  samplingEnd       String?  // 채취시간 종료 (HH:mm, 수정 가능)
+  sampler           String?  // 시료채취자1 (직접입력)
+  sampler2          String?  // 시료채취자2 (직접입력)
+  
+  // 측정분석결과 (JSON 배열)
+  // [{item, limit, value, unit, method, startTime, endTime, note}]
+  measurements      String   // JSON string
+  
+  analysisStart     String?  // 분석기간 시작 (YYYY-MM-DD)
+  analysisEnd       String?  // 분석기간 종료 (YYYY-MM-DD)
+  analyst           String?  // 분석기술인 (직접입력)
+  chiefTech         String?  // 책임기술인 (직접입력)
+  
+  // 종합의견
+  opinion           String?  // 종합의견 (직접입력)
+  
+  // 메타정보
+  status            String   @default("DRAFT") // DRAFT, CONFIRMED, SHARED
+  createdBy         String
+  createdByUser     User     @relation(fields: [createdBy], references: [id])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([customerId, stackId, measuredAt])
+  @@index([status])
+  @@index([createdBy])
+}
+
+// 보고서 템플릿 (고객사별 기본값)
+model ReportTemplate {
+  id                String   @id @default(cuid())
+  customerId        String   @unique
+  customer          Customer @relation(fields: [customerId], references: [id])
+  environmentalTech String?  // 기본 환경기술인
+  chiefTech         String?  // 기본 책임기술인
+  analyst           String?  // 기본 분석기술인
+  sampler           String?  // 기본 시료채취자
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
 // 스테이징(원본 보존)
 model StagingMeasurementRaw {
   id         String   @id @default(cuid())
@@ -288,6 +395,7 @@ model Organization {
 
   // 기능 플래그
   hasContractManagement Boolean @default(false) // 계약 관리 기능 활성화
+  hideSubscriptionInfo  Boolean @default(false) // 구독 정보 숨김 (환경측정기업용)
 
   // 관계
   users               User[]
@@ -316,6 +424,8 @@ model Organization {
 enum SubscriptionPlan {
   FREE
   BASIC
+  PLUS
+  MASTER
   STANDARD
   PREMIUM
   ENTERPRISE
@@ -428,6 +538,7 @@ model User {
   // 비밀번호 재설정
   resetToken       String?
   resetTokenExpiry DateTime?
+  passwordResetRequired Boolean @default(false) // 관리자가 초기화한 경우 true
 
   // 직원 초대
   inviteToken       String?
@@ -457,6 +568,13 @@ model User {
   createdNotes             CommunicationNote[] @relation("NoteCreator")
   mentionedInNotes         CommunicationNote[] @relation("MentionedUser")
   createdTemplates         CommunicationTemplate[] @relation("TemplateCreator")
+  
+  // 보고서
+  createdReports           Report[]
+  
+  // 인사이트 보고서
+  createdInsightReports    InsightReport[] @relation("InsightReportCreator")
+  sharedInsightReports     InsightReport[] @relation("InsightReportSharer")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -558,6 +676,9 @@ model CustomerOrganization {
   customCode String? // 세컨 코드
   nickname   String? // 별명
 
+  // 연결 요청 시 제안된 고객사 정보 (JSON)
+  proposedData Json? // 환경측정기업이 입력한 고객사 정보
+
   // 계약 만료 알림 관리
   notified30Days Boolean @default(false)
   notified21Days Boolean @default(false)
@@ -574,7 +695,7 @@ model CustomerOrganization {
   customer     Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@unique([customerId, organizationId])
+  @@index([customerId, organizationId])
   @@index([status])
   @@index([contractEndDate])
 }
@@ -924,6 +1045,7 @@ enum NotificationType {
   STACK_INTERNAL_CODE_NEEDED     // 내부코드 지정 필요
   CUSTOMER_INFO_UPDATED_BY_ORG   // 환경측정기업이 고객사 정보 수정
   CUSTOMER_INFO_UPDATED_BY_CUSTOMER // 고객사가 자신의 정보 수정
+  CONNECTION_REQUEST             // 새 사업장 연결 요청
   CONTRACT_EXPIRY_30             // 계약 만료 30일 전
   CONTRACT_EXPIRY_21             // 계약 만료 21일 전
   CONTRACT_EXPIRY_14             // 계약 만료 14일 전
@@ -1243,4 +1365,29 @@ model CommunicationTemplate {
   @@index([usageCount(sort: Desc)]) // 인기 템플릿
   
   @@map("communication_templates")
+}
+
+// 인사이트 보고서 (AutoML 예측 분석)
+model InsightReport {
+  id            String    @id @default(cuid())
+  customerId    String
+  itemKey       String
+  itemName      String
+  periods       Int       // 예측 기간 (일)
+  reportData    String    // JSON 분석 데이터
+  chartImage    String?   // Base64 차트 이미지
+  pdfBase64     String    // PDF 파일
+  sharedAt      DateTime? // 고객사 공유 시점
+  sharedBy      String?   // 공유한 사용자 ID
+  viewedAt      DateTime? // 고객사 확인 시점
+  createdAt     DateTime  @default(now())
+  createdBy     String
+  
+  customer      Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdByUser User      @relation("InsightReportCreator", fields: [createdBy], references: [id])
+  sharedByUser  User?     @relation("InsightReportSharer", fields: [sharedBy], references: [id])
+  
+  @@index([customerId, itemKey, createdAt])
+  @@index([customerId, sharedAt])
+  @@map("insight_reports")
 }

@@ -59,7 +59,11 @@ export async function GET(
         },
       },
       customers: {
-        include: {
+        where: { status: "APPROVED" },
+        select: {
+          id: true,
+          status: true,
+          proposedData: true,
           customer: {
             select: {
               id: true,
@@ -257,6 +261,11 @@ export async function PATCH(
     }
 
     // 일반 정보 수정
+    // isActive가 문자열로 올 수 있으므로 boolean으로 변환
+    if (updateData.isActive !== undefined) {
+      updateData.isActive = updateData.isActive === true || updateData.isActive === "true";
+    }
+    
     const organization = await prisma.organization.update({
       where: { id: params.id },
       data: updateData,

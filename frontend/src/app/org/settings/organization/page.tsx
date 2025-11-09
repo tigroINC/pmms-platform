@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
+import Navbar from "@/components/layout/Navbar";
 
 interface OrganizationInfo {
   id: string;
@@ -20,6 +21,22 @@ interface OrganizationInfo {
   website: string | null;
   fax: string | null;
   establishedDate: string | null;
+  subscriptionPlan: string;
+  subscriptionStatus: string;
+  subscriptionStartAt: string | null;
+  subscriptionEndAt: string | null;
+  maxUsers: number;
+  maxStacks: number;
+  maxDataRetention: number;
+  billingEmail: string | null;
+  billingContact: string | null;
+  lastPaymentAt: string | null;
+  nextBillingAt: string | null;
+  hasContractManagement: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  hideSubscriptionInfo: boolean;
 }
 
 export default function OrganizationSettingsPage() {
@@ -58,6 +75,9 @@ export default function OrganizationSettingsPage() {
       const data = await response.json();
 
       if (response.ok) {
+        console.log("Organization data:", data.organization);
+        console.log("hideSubscriptionInfo:", data.organization.hideSubscriptionInfo);
+        console.log("Should show subscription:", !data.organization.hideSubscriptionInfo);
         setOrganization(data.organization);
         setFormData(data.organization);
       } else {
@@ -138,191 +158,419 @@ export default function OrganizationSettingsPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">조직 정보</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">조직의 기본 정보를 관리합니다</p>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <Navbar />
+      <div className="max-w-7xl mx-auto p-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">조직 정보</h1>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            조직의 기본 정보를 확인하고 수정할 수 있습니다.
+          </p>
         </div>
-        {editing ? (
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                setEditing(false);
-                setFormData(organization);
-                setError("");
-                setSuccess("");
-              }}
-            >
-              취소
-            </Button>
-            <Button type="submit" form="org-form">
-              저장
-            </Button>
+
+        {error && (
+          <div className="mb-4 rounded-md bg-red-50 dark:bg-red-900/20 p-4">
+            <div className="text-sm font-medium text-red-800 dark:text-red-200">{error}</div>
           </div>
-        ) : (
-          <Button type="button" size="sm" onClick={() => setEditing(true)}>
-            수정
-          </Button>
         )}
+
+        {success && (
+          <div className="mb-4 rounded-md bg-green-50 dark:bg-green-900/20 p-4">
+            <div className="text-sm font-medium text-green-800 dark:text-green-200">{success}</div>
+          </div>
+        )}
+
+        {/* Desktop Table */}
+        <div className="hidden md:block bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden mb-6">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">조직 정보</h2>
+              {!editing && (
+                <Button
+                  onClick={() => setEditing(true)}
+                  className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                >
+                  정보 수정
+                </Button>
+              )}
+            </div>
+          </div>
+          <div>
+            <table className="w-full table-fixed divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">기업명</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">사업자번호</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">법인번호</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">대표자</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">업종</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">설립일</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">전화</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">이메일</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">팩스</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">웹사이트</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">주소</th>
+                  {!organization.hideSubscriptionInfo && (
+                    <>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">구독플랜</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">구독상태</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">활성상태</th>
+                    </>
+                  )}
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">가입일</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                <tr>
+                  <td className="px-2 py-3 text-xs text-gray-900 dark:text-gray-100">
+                    <div className="break-words">{organization.name}</div>
+                  </td>
+                  <td className="px-2 py-3 text-xs text-gray-900 dark:text-gray-100">
+                    <div className="break-words">{organization.businessNumber || "-"}</div>
+                  </td>
+                  <td className="px-2 py-3 text-xs text-gray-900 dark:text-gray-100">
+                    <div className="break-words">{organization.corporateNumber || "-"}</div>
+                  </td>
+                  <td className="px-2 py-3 text-xs text-gray-900 dark:text-gray-100">
+                    {editing ? (
+                      <Input
+                        name="representative"
+                        type="text"
+                        value={formData.representative || ""}
+                        onChange={handleChange}
+                        className="w-full text-xs"
+                      />
+                    ) : (
+                      <div className="break-words">{organization.representative || "-"}</div>
+                    )}
+                  </td>
+                  <td className="px-2 py-3 text-xs text-gray-900 dark:text-gray-100">
+                    {editing ? (
+                      <Input
+                        name="businessType"
+                        type="text"
+                        value={formData.businessType || ""}
+                        onChange={handleChange}
+                        className="w-full text-xs"
+                      />
+                    ) : (
+                      <div className="break-words">{organization.businessType || "-"}</div>
+                    )}
+                  </td>
+                  <td className="px-2 py-3 text-xs text-gray-900 dark:text-gray-100">
+                    {editing ? (
+                      <Input
+                        name="establishedDate"
+                        type="date"
+                        value={formData.establishedDate ? formData.establishedDate.split('T')[0] : ""}
+                        onChange={handleChange}
+                        className="w-full text-xs"
+                      />
+                    ) : (
+                      <div className="break-words">{organization.establishedDate ? new Date(organization.establishedDate).toLocaleDateString() : "-"}</div>
+                    )}
+                  </td>
+                  <td className="px-2 py-3 text-xs text-gray-900 dark:text-gray-100">
+                    {editing ? (
+                      <Input
+                        name="phone"
+                        type="tel"
+                        value={formData.phone || ""}
+                        onChange={handleChange}
+                        className="w-full text-xs"
+                      />
+                    ) : (
+                      <div className="break-words">{organization.phone || "-"}</div>
+                    )}
+                  </td>
+                  <td className="px-2 py-3 text-xs text-gray-900 dark:text-gray-100">
+                    {editing ? (
+                      <Input
+                        name="email"
+                        type="email"
+                        value={formData.email || ""}
+                        onChange={handleChange}
+                        className="w-full text-xs"
+                      />
+                    ) : (
+                      <div className="break-all">{organization.email || "-"}</div>
+                    )}
+                  </td>
+                  <td className="px-2 py-3 text-xs text-gray-900 dark:text-gray-100">
+                    {editing ? (
+                      <Input
+                        name="fax"
+                        type="tel"
+                        value={formData.fax || ""}
+                        onChange={handleChange}
+                        className="w-full text-xs"
+                      />
+                    ) : (
+                      <div className="break-words">{organization.fax || "-"}</div>
+                    )}
+                  </td>
+                  <td className="px-2 py-3 text-xs text-gray-900 dark:text-gray-100">
+                    {editing ? (
+                      <Input
+                        name="website"
+                        type="url"
+                        value={formData.website || ""}
+                        onChange={handleChange}
+                        className="w-full text-xs"
+                      />
+                    ) : (
+                      <div className="break-all">{organization.website || "-"}</div>
+                    )}
+                  </td>
+                  <td className="px-2 py-3 text-xs text-gray-900 dark:text-gray-100">
+                    {editing ? (
+                      <Input
+                        name="address"
+                        type="text"
+                        value={formData.address || ""}
+                        onChange={handleChange}
+                        className="w-full text-xs"
+                      />
+                    ) : (
+                      <div className="break-words">{organization.address || "-"}</div>
+                    )}
+                  </td>
+                  {!organization.hideSubscriptionInfo && (
+                    <>
+                      <td className="px-2 py-3">
+                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 inline-block">
+                          {organization.subscriptionPlan}
+                        </span>
+                      </td>
+                      <td className="px-2 py-3">
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full inline-block ${
+                          organization.subscriptionStatus === 'ACTIVE' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                          organization.subscriptionStatus === 'TRIAL' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                          'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                        }`}>
+                          {organization.subscriptionStatus}
+                        </span>
+                      </td>
+                      <td className="px-2 py-3">
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full inline-block ${
+                          organization.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                          'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                        }`}>
+                          {organization.isActive ? '활성' : '비활성'}
+                        </span>
+                      </td>
+                    </>
+                  )}
+                  <td className="px-2 py-3 text-xs text-gray-500 dark:text-gray-400">
+                    <div className="break-words">{new Date(organization.createdAt).toLocaleDateString()}</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          {editing && (
+            <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600">
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleSubmit}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                >
+                  저장
+                </Button>
+                <Button
+                  onClick={() => {
+                    setEditing(false);
+                    setFormData(organization);
+                  }}
+                  className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-md"
+                >
+                  취소
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="md:hidden space-y-3">
+          <div className="rounded-lg border bg-white/50 dark:bg-white/5 p-4 space-y-3">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">조직 정보</h2>
+              {!editing && (
+                <Button
+                  onClick={() => setEditing(true)}
+                  className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                >
+                  수정
+                </Button>
+              )}
+            </div>
+            <div className="grid grid-cols-1 gap-2 text-sm">
+              <div><span className="text-gray-500">🏢 기업명:</span> {organization.name}</div>
+              <div><span className="text-gray-500">📋 사업자번호:</span> {organization.businessNumber || "-"}</div>
+              <div><span className="text-gray-500">🆔 법인번호:</span> {organization.corporateNumber || "-"}</div>
+              <div>
+                <span className="text-gray-500">👤 대표자:</span>
+                {editing ? (
+                  <Input
+                    name="representative"
+                    type="text"
+                    value={formData.representative || ""}
+                    onChange={handleChange}
+                    className="w-full mt-1"
+                  />
+                ) : (
+                  ` ${organization.representative || "-"}`
+                )}
+              </div>
+              <div>
+                <span className="text-gray-500">💼 업종:</span>
+                {editing ? (
+                  <Input
+                    name="businessType"
+                    type="text"
+                    value={formData.businessType || ""}
+                    onChange={handleChange}
+                    className="w-full mt-1"
+                  />
+                ) : (
+                  ` ${organization.businessType || "-"}`
+                )}
+              </div>
+              <div>
+                <span className="text-gray-500">🏗️ 설립일:</span>
+                {editing ? (
+                  <Input
+                    name="establishedDate"
+                    type="date"
+                    value={formData.establishedDate ? formData.establishedDate.split('T')[0] : ""}
+                    onChange={handleChange}
+                    className="w-full mt-1"
+                  />
+                ) : (
+                  ` ${organization.establishedDate ? new Date(organization.establishedDate).toLocaleDateString() : "-"}`
+                )}
+              </div>
+              <div>
+                <span className="text-gray-500">📞 전화:</span>
+                {editing ? (
+                  <Input
+                    name="phone"
+                    type="tel"
+                    value={formData.phone || ""}
+                    onChange={handleChange}
+                    className="w-full mt-1"
+                  />
+                ) : (
+                  ` ${organization.phone || "-"}`
+                )}
+              </div>
+              <div>
+                <span className="text-gray-500">📧 이메일:</span>
+                {editing ? (
+                  <Input
+                    name="email"
+                    type="email"
+                    value={formData.email || ""}
+                    onChange={handleChange}
+                    className="w-full mt-1"
+                  />
+                ) : (
+                  ` ${organization.email || "-"}`
+                )}
+              </div>
+              <div>
+                <span className="text-gray-500">📠 팩스:</span>
+                {editing ? (
+                  <Input
+                    name="fax"
+                    type="tel"
+                    value={formData.fax || ""}
+                    onChange={handleChange}
+                    className="w-full mt-1"
+                  />
+                ) : (
+                  ` ${organization.fax || "-"}`
+                )}
+              </div>
+              <div>
+                <span className="text-gray-500">🌐 웹사이트:</span>
+                {editing ? (
+                  <Input
+                    name="website"
+                    type="url"
+                    value={formData.website || ""}
+                    onChange={handleChange}
+                    className="w-full mt-1"
+                  />
+                ) : (
+                  ` ${organization.website || "-"}`
+                )}
+              </div>
+              <div>
+                <span className="text-gray-500">📍 주소:</span>
+                {editing ? (
+                  <Input
+                    name="address"
+                    type="text"
+                    value={formData.address || ""}
+                    onChange={handleChange}
+                    className="w-full mt-1"
+                  />
+                ) : (
+                  ` ${organization.address || "-"}`
+                )}
+              </div>
+              {!organization.hideSubscriptionInfo && (
+                <>
+                  <div>
+                    <span className="text-gray-500">💳 구독플랜:</span>
+                    <span className="ml-2 px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                      {organization.subscriptionPlan}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">📊 구독상태:</span>
+                    <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${
+                      organization.subscriptionStatus === 'ACTIVE' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                      organization.subscriptionStatus === 'TRIAL' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                      'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                    }`}>
+                      {organization.subscriptionStatus}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">✅ 활성상태:</span>
+                    <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${
+                      organization.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                      'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                    }`}>
+                      {organization.isActive ? '활성' : '비활성'}
+                    </span>
+                  </div>
+                </>
+              )}
+              <div><span className="text-gray-500">📅 가입일:</span> {new Date(organization.createdAt).toLocaleDateString()}</div>
+            </div>
+            {editing && (
+              <div className="flex flex-col gap-2 pt-2">
+                <button onClick={handleSubmit} className="w-full px-3 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded text-sm">
+                  저장
+                </button>
+                <button
+                  onClick={() => {
+                    setEditing(false);
+                    setFormData(organization);
+                  }}
+                  className="w-full px-3 py-2 bg-gray-500 text-white hover:bg-gray-600 rounded text-sm"
+                >
+                  취소
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-
-      {error && (
-        <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800">{error}</p>
-        </div>
-      )}
-
-      {success && (
-        <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-4">
-          <p className="text-green-800">{success}</p>
-        </div>
-      )}
-
-      <form id="org-form" onSubmit={handleSubmit}>
-        {/* 기본 정보 */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 border-b pb-2">기본 정보</h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                기업명 (수정 불가)
-              </label>
-              <Input
-                name="name"
-                value={formData.name || ""}
-                onChange={handleChange}
-                disabled={true}
-                className="bg-gray-100"
-                placeholder="기업명을 입력하세요"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                사업자등록번호 (수정 불가)
-              </label>
-              <Input
-                name="businessNumber"
-                value={formData.businessNumber || ""}
-                onChange={handleChange}
-                disabled={true}
-                className="bg-gray-100"
-                placeholder="000-00-00000"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                대표자명
-              </label>
-              <Input
-                name="representative"
-                value={formData.representative || ""}
-                onChange={handleChange}
-                disabled={!editing}
-                placeholder="대표자 성명을 입력하세요"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                업종/업태
-              </label>
-              <Input
-                name="businessType"
-                value={formData.businessType || ""}
-                onChange={handleChange}
-                disabled={!editing}
-                placeholder="예: 환경측정업"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                설립일
-              </label>
-              <Input
-                name="establishedDate"
-                type="date"
-                value={formData.establishedDate ? formData.establishedDate.split('T')[0] : ""}
-                onChange={handleChange}
-                disabled={!editing}
-                placeholder="YYYY-MM-DD"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* 연락처 정보 */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 border-b pb-2">연락처 정보</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                대표 전화번호
-              </label>
-              <Input
-                name="phone"
-                value={formData.phone || ""}
-                onChange={handleChange}
-                disabled={!editing}
-                placeholder="02-1234-5678 또는 010-1234-5678"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                대표 이메일
-              </label>
-              <Input
-                name="email"
-                type="email"
-                value={formData.email || ""}
-                onChange={handleChange}
-                disabled={!editing}
-                placeholder="company@example.com"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                팩스번호
-              </label>
-              <Input
-                name="fax"
-                value={formData.fax || ""}
-                onChange={handleChange}
-                disabled={!editing}
-                placeholder="02-1234-5679"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                회사 웹사이트
-              </label>
-              <Input
-                name="website"
-                value={formData.website || ""}
-                onChange={handleChange}
-                disabled={!editing}
-                placeholder="https://www.example.com"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                회사 주소
-              </label>
-              <Input
-                name="address"
-                value={formData.address || ""}
-                onChange={handleChange}
-                disabled={!editing}
-                placeholder="서울특별시 강남구 ..."
-                className="w-full"
-              />
-            </div>
-          </div>
-        </div>
-
-      </form>
     </div>
   );
 }

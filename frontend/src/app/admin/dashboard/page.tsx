@@ -273,7 +273,7 @@ export default function AdminDashboardPage() {
               </div>
             </div>
             <Link
-              href="/org/settings/roles"
+              href="/admin/roles"
               className="mt-4 block w-full text-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors"
             >
               역할 관리
@@ -314,7 +314,7 @@ export default function AdminDashboardPage() {
               </div>
             </div>
             <Link
-              href="/org/settings/users"
+              href="/admin/permissions"
               className="mt-4 block w-full text-center px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors"
             >
               권한 관리

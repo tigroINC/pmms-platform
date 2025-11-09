@@ -372,7 +372,7 @@ export default function ItemsPage() {
   };
 
   const onExport = () => {
-    const header = ["항목코드", "항목명(한글)", "항목명(영문)", "기본단위", "구분", "항목분류", "허용기준값(기본)"];
+    const header = ["항목코드", "항목명(한글)", "항목명(영문)", "기본단위", "구분", "항목분류", "허용기준값", "측정분석방법"];
     const body = filtered.map((item: any) => [
       item.key || "",
       item.name || "",
@@ -380,7 +380,8 @@ export default function ItemsPage() {
       item.unit || "",
       item.category || "",
       item.classification || "",
-      item.limit || ""
+      item.limit || "",
+      item.analysisMethod || ""
     ]);
     const csv = [header, ...body].map((cols) => cols.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
@@ -495,13 +496,12 @@ export default function ItemsPage() {
     <section className="space-y-3">
       {/* Compact Header - 반응형 필터 */}
       <div className="rounded-lg border bg-white/50 dark:bg-white/5 p-2.5">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div className="flex flex-wrap items-end gap-2">
-            <h1 className="text-lg font-semibold whitespace-nowrap mb-1.5">측정항목 관리</h1>
-            <span className="text-gray-300 dark:text-gray-600 mb-1.5">|</span>
-            
-            {/* 탭 */}
-            <div className="flex gap-2 mb-1.5">
+        <div className="flex flex-wrap items-end gap-2">
+          <h1 className="text-lg font-semibold whitespace-nowrap mb-1.5">측정항목 관리</h1>
+          <span className="text-gray-300 dark:text-gray-600 mb-1.5">|</span>
+          
+          {/* 탭 */}
+          <div className="flex gap-2 mb-1.5">
             <button
               onClick={() => setActiveTab("items")}
               className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
@@ -523,19 +523,10 @@ export default function ItemsPage() {
               🏭 굴뚝별 측정 대상 설정
             </button>
           </div>
-          </div>
           
-          {/* 도움말 버튼 */}
-          <button
-            onClick={() => setShowHelpModal(true)}
-            className="px-3 py-1.5 text-xs bg-blue-100 hover:bg-blue-200 dark:bg-blue-900 dark:hover:bg-blue-800 text-blue-700 dark:text-blue-300 rounded mb-1.5"
-          >
-            ❓ 도움말
-          </button>
-        </div>
-        
-        <div className="flex flex-wrap items-end gap-2">
           <span className="text-gray-300 dark:text-gray-600 mb-1.5">|</span>
+          
+          {/* 검색 및 필터 */}
           <div className="flex flex-col">
             <label className="text-xs text-gray-600 dark:text-gray-400 mb-0.5">검색</label>
             <Input
@@ -546,7 +537,7 @@ export default function ItemsPage() {
               placeholder="항목코드, 항목명, 영문명, 단위 등"
             />
           </div>
-          <div className="flex flex-col" style={{ width: '176px', minWidth: '176px' }}>
+          <div className="flex flex-col" style={{ width: '70px', minWidth: '70px' }}>
             <label className="text-xs text-gray-600 dark:text-gray-400 mb-0.5">항목 분류</label>
             <select
               className="text-sm h-8 w-full border rounded px-2 bg-white dark:bg-gray-800"
@@ -572,7 +563,16 @@ export default function ItemsPage() {
               비활성 표시
             </label>
           )}
+          
+          {/* 기능 버튼 */}
           <div className="flex gap-1.5 ml-auto mb-1.5">
+            {/* 도움말 버튼 */}
+            <button
+              onClick={() => setShowHelpModal(true)}
+              className="px-3 py-1.5 text-xs bg-blue-100 hover:bg-blue-200 dark:bg-blue-900 dark:hover:bg-blue-800 text-blue-700 dark:text-blue-300 rounded"
+            >
+              ❓ 도움말
+            </button>
             {(role === "SUPER_ADMIN" || role === "ORG_ADMIN") && activeTab === "items" && (
               <>
                 <Button size="sm" variant="secondary" onClick={onExport}>Excel</Button>
@@ -589,27 +589,28 @@ export default function ItemsPage() {
         <>
         {/* Desktop Table */}
         <div className="hidden md:block rounded-lg border overflow-x-auto max-h-[calc(100vh-180px)] overflow-y-auto">
-        <Table className="min-w-[1200px]">
+        <Table className="min-w-[1200px] table-fixed">
           <Thead className="bg-gray-50 dark:bg-white/10 sticky top-0 z-10">
             <Tr>
-              <Th className="bg-gray-50 dark:bg-gray-800">상태</Th>
-              <Th className="bg-gray-50 dark:bg-gray-800">순서</Th>
-              <Th className="bg-gray-50 dark:bg-gray-800">구분</Th>
-              <Th className="bg-gray-50 dark:bg-gray-800">항목코드</Th>
-              <Th className="bg-gray-50 dark:bg-gray-800">항목명(한글)</Th>
-              <Th className="bg-gray-50 dark:bg-gray-800">항목명(영문)</Th>
-              <Th className="bg-gray-50 dark:bg-gray-800">기본단위</Th>
-              <Th className="bg-gray-50 dark:bg-gray-800">항목분류</Th>
-              <Th className="bg-gray-50 dark:bg-gray-800">허용기준값(기본)</Th>
-              <Th className="bg-gray-50 dark:bg-gray-800">입력타입</Th>
-              <Th className="bg-gray-50 dark:bg-gray-800">선택옵션</Th>
+              <Th className="bg-gray-50 dark:bg-gray-800 w-[5%]">상태</Th>
+              <Th className="bg-gray-50 dark:bg-gray-800 w-[5%]">순서</Th>
+              <Th className="bg-gray-50 dark:bg-gray-800 w-[6%]">구분</Th>
+              <Th className="bg-gray-50 dark:bg-gray-800 w-[8%]">항목코드</Th>
+              <Th className="bg-gray-50 dark:bg-gray-800 w-[10%]">항목명(한글)</Th>
+              <Th className="bg-gray-50 dark:bg-gray-800 w-[10%]">항목명(영문)</Th>
+              <Th className="bg-gray-50 dark:bg-gray-800 w-[6%]">기본단위</Th>
+              <Th className="bg-gray-50 dark:bg-gray-800 w-[8%]">항목분류</Th>
+              <Th className="bg-gray-50 dark:bg-gray-800 w-[6%]">허용기준값</Th>
+              <Th className="bg-gray-50 dark:bg-gray-800 w-[10%]">측정분석방법</Th>
+              <Th className="bg-gray-50 dark:bg-gray-800 w-[7%]">입력타입</Th>
+              <Th className="bg-gray-50 dark:bg-gray-800 w-[8%]">선택옵션</Th>
               {(role === "SUPER_ADMIN" || role === "ORG_ADMIN") && <Th className="w-40 bg-gray-50 dark:bg-gray-800">액션</Th>}
             </Tr>
           </Thead>
           <Tbody>
             {filtered.length === 0 ? (
               <Tr>
-                <Td colSpan={(role === "SUPER_ADMIN" || role === "ORG_ADMIN") ? 12 : 11} className="text-center text-gray-500 py-8">
+                <Td colSpan={(role === "SUPER_ADMIN" || role === "ORG_ADMIN") ? 13 : 12} className="text-center text-gray-500 py-8">
                   등록된 측정항목이 없습니다
                 </Td>
               </Tr>
@@ -655,8 +656,8 @@ export default function ItemsPage() {
                         item.category || "-"
                       )}
                     </Td>
-                    <Td className="font-mono text-xs">{item.key}</Td>
-                    <Td className="font-medium">
+                    <Td className="font-mono text-xs break-words">{item.key}</Td>
+                    <Td className="font-medium break-words">
                       {isEditing ? (
                         <input
                           type="text"
@@ -668,7 +669,7 @@ export default function ItemsPage() {
                         item.name
                       )}
                     </Td>
-                    <Td className="text-sm">
+                    <Td className="text-sm break-words">
                       {isEditing ? (
                         <input
                           type="text"
@@ -680,7 +681,7 @@ export default function ItemsPage() {
                         item.englishName || "-"
                       )}
                     </Td>
-                    <Td className="text-center">
+                    <Td className="text-center break-words">
                       {isEditing ? (
                         <input
                           type="text"
@@ -692,7 +693,7 @@ export default function ItemsPage() {
                         item.unit
                       )}
                     </Td>
-                    <Td className="text-sm">
+                    <Td className="text-sm break-words">
                       {isEditing ? (
                         <input
                           type="text"
@@ -705,7 +706,7 @@ export default function ItemsPage() {
                         item.classification || "-"
                       )}
                     </Td>
-                    <Td className="text-center">
+                    <Td className="text-center break-words">
                       {isEditing ? (
                           <input
                             type="number"
@@ -716,6 +717,19 @@ export default function ItemsPage() {
                           />
                         ) : (
                           item.limit
+                        )}
+                      </Td>
+                      <Td className="text-sm break-words">
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={(editingData as any).analysisMethod || ""}
+                            onChange={(e) => setEditingData({ ...editingData, analysisMethod: e.target.value } as any)}
+                            className="w-full px-2 py-1 border rounded text-sm"
+                            placeholder="분석방법"
+                          />
+                        ) : (
+                          item.analysisMethod || "-"
                         )}
                       </Td>
                       <Td>
@@ -891,11 +905,14 @@ export default function ItemsPage() {
                       <div><span className="text-gray-500">📋 코드:</span> {item.key}</div>
                       <div><span className="text-gray-500">🔢 순서:</span> {item.order || 0}</div>
                       <div><span className="text-gray-500">🏷️ 구분:</span> {item.category || "-"}</div>
-                      <div><span className="text-gray-500">📊 분류:</span> {item.type || "-"}</div>
+                      <div><span className="text-gray-500">📊 항목분류:</span> {item.classification || "-"}</div>
                       <div className="col-span-2"><span className="text-gray-500">📝 한글명:</span> {item.name}</div>
                       <div className="col-span-2"><span className="text-gray-500">🔤 영문명:</span> {item.englishName || "-"}</div>
                       <div><span className="text-gray-500">📏 단위:</span> {item.unit || "-"}</div>
-                      <div><span className="text-gray-500">⚠️ 기준:</span> {item.defaultLimit ?? "-"}</div>
+                      <div><span className="text-gray-500">⚠️ 허용기준값:</span> {item.limit ?? "-"}</div>
+                      <div className="col-span-2"><span className="text-gray-500">🔬 측정분석방법:</span> {item.analysisMethod || "-"}</div>
+                      <div><span className="text-gray-500">⌨️ 입력타입:</span> {item.inputType === "select" ? "선택" : item.inputType === "text" ? "텍스트" : "숫자"}</div>
+                      <div><span className="text-gray-500">📋 선택옵션:</span> {item.options || "-"}</div>
                     </div>
                   )}
                 </div>
@@ -1156,8 +1173,8 @@ export default function ItemsPage() {
         isOpen={showBulkUploadModal}
         onClose={() => setShowBulkUploadModal(false)}
         title="측정항목 일괄업로드"
-        templateHeaders={["항목코드", "항목명(한글)", "항목명(영문)", "기본단위", "구분", "항목분류", "허용기준값(기본)"]}
-        exampleRow={["EA-I-0001", "먼지", "Dust", "mg/Sm³", "오염물질", "무기물질", "30"]}
+        templateHeaders={["항목코드", "항목명(한글)", "항목명(영문)", "기본단위", "구분", "항목분류", "허용기준값", "측정분석방법"]}
+        exampleRow={["EA-I-0001", "먼지", "Dust", "mg/Sm³", "오염물질", "무기물질", "30", "ES 01301.1b"]}
         templateFileName="측정항목_일괄업로드_양식.csv"
         onUpload={handleBulkUpload}
         parseInstructions="항목코드, 항목명(한글), 기본단위, 허용기준값(기본)은 필수 항목입니다. 구분은 '오염물질' 또는 '채취환경'을 입력하세요."

@@ -180,6 +180,39 @@ export default function TempDataManagement() {
     }
   };
 
+  // 확정 처리
+  const handleConfirm = async () => {
+    if (selectedIds.size === 0) {
+      alert("확정할 항목을 선택해주세요.");
+      return;
+    }
+
+    if (!confirm(`선택한 ${selectedIds.size}건을 확정하시겠습니까?\n\n확정된 데이터는 측정 이력 및 대시보드에 반영됩니다.`)) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/measurements-temp/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selectedIds) }),
+      });
+
+      const json = await res.json();
+
+      if (res.ok) {
+        alert(json.message || "확정되었습니다.");
+        setSelectedIds(new Set());
+        fetchData();
+      } else {
+        alert(json.error || "확정 실패");
+      }
+    } catch (error: any) {
+      alert(error.message || "확정 중 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Excel 다운로드
   const handleDownload = async () => {
     if (selectedIds.size === 0) {
@@ -265,6 +298,9 @@ export default function TempDataManagement() {
           </div>
           <div className="flex gap-1.5 ml-auto mb-1.5">
             <Button size="sm" variant="secondary" onClick={()=>{ setQ(""); setFc("전체"); setFs("전체"); setStart(defaultDates.start); setEnd(defaultDates.end); setPage(1); fetchData(); }}>초기화</Button>
+            <Button size="sm" onClick={handleConfirm} className="bg-blue-600 hover:bg-blue-700" disabled={loading}>
+              {loading ? "처리중..." : "확정"}
+            </Button>
             <Button size="sm" onClick={handleDownload} className="bg-green-600 hover:bg-green-700">Excel</Button>
             <Button size="sm" variant="secondary" onClick={handleBatchDelete} className="bg-red-600 hover:bg-red-700 text-white">삭제</Button>
           </div>

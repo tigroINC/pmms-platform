@@ -24,6 +24,7 @@ interface Connection {
   daysRemaining: number | null;
   createdAt: string;
   organization: Organization;
+  siteType: string | null;
 }
 
 export default function CustomerOrganizationsPage() {
@@ -61,6 +62,9 @@ export default function CustomerOrganizationsPage() {
       
       if (res.ok) {
         console.log("[Frontend] Received connections:", data.connections?.length);
+        console.log("[Frontend] First connection siteType:", data.connections?.[0]?.siteType);
+        console.log("[Frontend] First connection proposedData:", data.connections?.[0]?.proposedData);
+        console.log("[Frontend] Full first connection:", data.connections?.[0]);
         setConnections(data.connections || []);
       } else {
         console.error("Failed to fetch connections:", data.error);
@@ -239,13 +243,14 @@ export default function CustomerOrganizationsPage() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">연락처</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">계약기간</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">잔여일</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">사업장</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">액션</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {filteredConnections.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-6 py-4 text-center text-gray-500">
+                <td colSpan={9} className="px-6 py-4 text-center text-gray-500">
                   연결된 환경측정기업이 없습니다.
                 </td>
               </tr>
@@ -284,6 +289,9 @@ export default function CustomerOrganizationsPage() {
                         {conn.daysRemaining < 0 ? `만료 ${Math.abs(conn.daysRemaining)}일` : `${conn.daysRemaining}일`}
                       </span>
                     ) : "-"}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {conn.siteType || "-"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     {conn.status === "PENDING" && conn.requestedBy === "ORGANIZATION" && isAdmin && (

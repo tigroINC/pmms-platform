@@ -56,6 +56,14 @@ const PRIORITY_LABELS: Record<string, { label: string; icon: string }> = {
   LOW: { label: "낮음", icon: "🔵" },
 };
 
+// 상태 레이블 가져오기 함수
+const getStatusLabel = (status: string, isShared: boolean) => {
+  if (status === "PENDING" && !isShared) {
+    return { label: "완료전", color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300" };
+  }
+  return STATUS_LABELS[status];
+};
+
 export default function CommunicationDetailPage() {
   const { data: session } = useSession();
   const router = useRouter();
@@ -307,8 +315,8 @@ export default function CommunicationDetailPage() {
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-2">
-            <span className={`px-3 py-1 text-sm rounded ${STATUS_LABELS[communication.status].color}`}>
-              {STATUS_LABELS[communication.status].label}
+            <span className={`px-3 py-1 text-sm rounded ${getStatusLabel(communication.status, communication.isShared).color}`}>
+              {getStatusLabel(communication.status, communication.isShared).label}
             </span>
             <span className="text-2xl">
               {PRIORITY_LABELS[communication.priority].icon}
@@ -518,7 +526,7 @@ export default function CommunicationDetailPage() {
           </div>
 
           {/* 답변 입력 */}
-          {!isCompleted && (
+          {!isCompleted && communication.isShared && (
             <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
               <textarea
                 value={replyText}
@@ -532,6 +540,18 @@ export default function CommunicationDetailPage() {
                   <Send className="w-4 h-4 mr-2" />
                   {addingReply ? "전송 중..." : "답변 전송"}
                 </Button>
+              </div>
+            </div>
+          )}
+          {!isCompleted && !communication.isShared && (
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+              <div className="bg-gray-50 dark:bg-gray-900/20 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  내부 전용 커뮤니케이션은 거래처 공유 답변을 전송할 수 없습니다.
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                  공유 범위를 '고객사 공유'로 변경하면 답변을 전송할 수 있습니다.
+                </p>
               </div>
             </div>
           )}

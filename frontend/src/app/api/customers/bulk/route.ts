@@ -39,13 +39,17 @@ export async function POST(req: NextRequest) {
     
     const codeIdx = header.indexOf("고객사코드");
     const nameIdx = header.indexOf("고객사명(약칭)");
+    const businessNumberIdx = header.indexOf("사업자번호");
     const fullNameIdx = header.indexOf("고객사명(정식)");
+    const representativeIdx = header.indexOf("대표자");
     const siteTypeIdx = header.indexOf("사업장구분");
     const addressIdx = header.indexOf("주소");
+    const businessTypeIdx = header.indexOf("업태");
     const industryIdx = header.indexOf("업종");
     const siteCategoryIdx = header.indexOf("사업장종별");
+    const corporateNumberIdx = header.indexOf("법인등록번호");
     
-    console.log("[고객사 일괄업로드 API] 컬럼 인덱스:", { codeIdx, nameIdx, fullNameIdx, siteTypeIdx, addressIdx, industryIdx, siteCategoryIdx });
+    console.log("[고객사 일괄업로드 API] 컬럼 인덱스:", { codeIdx, nameIdx, businessNumberIdx, fullNameIdx, representativeIdx, siteTypeIdx, addressIdx, businessTypeIdx, industryIdx, siteCategoryIdx, corporateNumberIdx });
 
     if (nameIdx === -1) {
       return NextResponse.json({ error: "필수 컬럼 '고객사명(약칭)'이 없습니다." }, { status: 400 });
@@ -65,11 +69,15 @@ export async function POST(req: NextRequest) {
       
       const code = codeIdx >= 0 ? cols[codeIdx] : undefined;
       const name = cols[nameIdx];
+      const businessNumber = businessNumberIdx >= 0 ? cols[businessNumberIdx] : undefined;
       const fullName = fullNameIdx >= 0 ? cols[fullNameIdx] : undefined;
+      const representative = representativeIdx >= 0 ? cols[representativeIdx] : undefined;
       const siteType = siteTypeIdx >= 0 ? cols[siteTypeIdx] : undefined;
       const address = addressIdx >= 0 ? cols[addressIdx] : undefined;
+      const businessType = businessTypeIdx >= 0 ? cols[businessTypeIdx] : undefined;
       const industry = industryIdx >= 0 ? cols[industryIdx] : undefined;
       const siteCategory = siteCategoryIdx >= 0 ? cols[siteCategoryIdx] : undefined;
+      const corporateNumber = corporateNumberIdx >= 0 ? cols[corporateNumberIdx] : undefined;
 
       if (!name) {
         errors.push(`${i + 1}행: 고객사명(약칭)이 필요합니다.`);
@@ -111,11 +119,15 @@ export async function POST(req: NextRequest) {
           data: {
             code: code || undefined,
             name,
+            businessNumber: businessNumber || undefined,
             fullName: fullName || undefined,
+            representative: representative || undefined,
             siteType: siteType || undefined,
             address: address || undefined,
+            businessType: businessType || undefined,
             industry: industry || undefined,
             siteCategory: siteCategory || undefined,
+            corporateNumber: corporateNumber || undefined,
             isActive: true,
             createdBy: user.id, // 등록자 추적
             isPublic: false, // 내부 관리용

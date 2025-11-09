@@ -24,9 +24,32 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // 같은 사업자번호를 가진 모든 고객사 조회
+    const customer = await prisma.customer.findUnique({
+      where: { id: customerId },
+      select: { businessNumber: true },
+    });
+
+    if (!customer) {
+      return NextResponse.json(
+        { error: "고객사를 찾을 수 없습니다." },
+        { status: 404 }
+      );
+    }
+
+    let customerIds = [customerId];
+    if (customer.businessNumber) {
+      const sameBusinessCustomers = await prisma.customer.findMany({
+        where: { businessNumber: customer.businessNumber },
+        select: { id: true },
+      });
+      customerIds = sameBusinessCustomers.map(c => c.id);
+      console.log("[API /api/connections/by-customer] sameBusinessCustomers:", customerIds);
+    }
+
     const connections = await prisma.customerOrganization.findMany({
       where: {
-        customerId: customerId,
+        customerId: { in: customerIds },
       },
       include: {
         organization: {
@@ -94,6 +117,8 @@ export async function GET(request: NextRequest) {
         contractStartDate: contract?.startDate || null,
         contractEndDate: contract?.endDate || null,
         daysRemaining,
+        siteType: (conn.proposedData as any)?.siteType || null,
+        proposedData: conn.proposedData,
       };
     });
 

@@ -17,16 +17,14 @@ export default function CustomerFormModal({ isOpen, onClose, onSuccess, customer
     code: customer?.code || "",
     name: customer?.name || "",
     businessNumber: customer?.businessNumber || "",
+    corporateNumber: customer?.corporateNumber || "",
     fullName: customer?.fullName || "",
+    representative: customer?.representative || "",
     siteType: customer?.siteType || "",
     address: customer?.address || "",
+    businessType: customer?.businessType || "",
     industry: customer?.industry || "",
     siteCategory: customer?.siteCategory || "",
-    // 고객사 관리자 정보 (신규 등록 시에만)
-    adminEmail: "",
-    adminPassword: "",
-    adminName: "",
-    adminPhone: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -38,37 +36,44 @@ export default function CustomerFormModal({ isOpen, onClose, onSuccess, customer
         code: customer.code || "",
         name: customer.name || "",
         businessNumber: customer.businessNumber || "",
+        corporateNumber: customer.corporateNumber || "",
         fullName: customer.fullName || "",
+        representative: customer.representative || "",
         siteType: customer.siteType || "",
         address: customer.address || "",
+        businessType: customer.businessType || "",
         industry: customer.industry || "",
         siteCategory: customer.siteCategory || "",
-        adminEmail: "",
-        adminPassword: "",
-        adminName: "",
-        adminPhone: "",
       });
     } else {
       setFormData({
         code: "",
         name: "",
         businessNumber: "",
+        corporateNumber: "",
         fullName: "",
+        representative: "",
         siteType: "",
         address: "",
+        businessType: "",
         industry: "",
         siteCategory: "",
-        adminEmail: "",
-        adminPassword: "",
-        adminName: "",
-        adminPhone: "",
       });
     }
     setError("");
   }, [customer, isOpen]);
 
   const handleChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      const updated = { ...prev, [field]: value };
+      
+      // 신규 추가 시 사업자번호 입력하면 고객사코드에 자동 복사
+      if (!isEditMode && field === "businessNumber" && value) {
+        updated.code = value;
+      }
+      
+      return updated;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -83,17 +88,6 @@ export default function CustomerFormModal({ isOpen, onClose, onSuccess, customer
     if (!isEditMode && !formData.businessNumber) {
       setError("사업자등록번호는 필수입니다.");
       return;
-    }
-
-    if (!isEditMode) {
-      if (!formData.adminEmail || !formData.adminPassword || !formData.adminName || !formData.adminPhone) {
-        setError("고객사 관리자 정보(이메일, 비밀번호, 이름, 전화번호)는 필수입니다.");
-        return;
-      }
-      if (formData.adminPassword.length < 8) {
-        setError("비밀번호는 8자 이상이어야 합니다.");
-        return;
-      }
     }
 
     setLoading(true);
@@ -118,15 +112,14 @@ export default function CustomerFormModal({ isOpen, onClose, onSuccess, customer
           code: "",
           name: "",
           businessNumber: "",
+          corporateNumber: "",
           fullName: "",
+          representative: "",
           siteType: "",
           address: "",
+          businessType: "",
           industry: "",
           siteCategory: "",
-          adminEmail: "",
-          adminPassword: "",
-          adminName: "",
-          adminPhone: "",
         });
       }
       onSuccess();
@@ -143,7 +136,7 @@ export default function CustomerFormModal({ isOpen, onClose, onSuccess, customer
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b px-6 py-4 flex items-center justify-between">
@@ -173,7 +166,6 @@ export default function CustomerFormModal({ isOpen, onClose, onSuccess, customer
               <Input
                 value={formData.name}
                 onChange={(e) => handleChange("name", (e.target as HTMLInputElement).value)}
-                placeholder="예: 고려아연"
                 required
               />
             </div>
@@ -190,133 +182,108 @@ export default function CustomerFormModal({ isOpen, onClose, onSuccess, customer
                 disabled={isEditMode}
               />
             </div>
-          </div>
 
-          <div className="space-y-1">
-            <label className="text-sm font-medium">
-              고객사 코드 <span className="text-gray-400">(선택)</span>
-            </label>
-            <Input
-              value={formData.code}
-              onChange={(e) => handleChange("code", (e.target as HTMLInputElement).value)}
-              placeholder="예: CUST001"
-            />
-          </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">
+                고객사 코드 <span className="text-gray-400">(선택)</span>
+              </label>
+              <Input
+                value={formData.code}
+                onChange={(e) => handleChange("code", (e.target as HTMLInputElement).value)}
+              />
+            </div>
 
-          <div className="space-y-1">
-            <label className="text-sm font-medium">
-              고객사명(정식) <span className="text-gray-400">(선택)</span>
-            </label>
-            <Input
-              value={formData.fullName}
-              onChange={(e) => handleChange("fullName", (e.target as HTMLInputElement).value)}
-              placeholder="예: 고려아연㈜온산제련소"
-            />
-          </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">
+                고객사명(정식) <span className="text-gray-400">(선택)</span>
+              </label>
+              <Input
+                value={formData.fullName}
+                onChange={(e) => handleChange("fullName", (e.target as HTMLInputElement).value)}
+              />
+            </div>
 
-          <div className="space-y-1">
-            <label className="text-sm font-medium">
-              사업장 구분 <span className="text-gray-400">(선택)</span>
-            </label>
-            <Input
-              value={formData.siteType}
-              onChange={(e) => handleChange("siteType", (e.target as HTMLInputElement).value)}
-              placeholder="예: -"
-            />
-          </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">
+                대표자 <span className="text-gray-400">(선택)</span>
+              </label>
+              <Input
+                value={formData.representative}
+                onChange={(e) => handleChange("representative", (e.target as HTMLInputElement).value)}
+              />
+            </div>
 
-          <div className="space-y-1">
-            <label className="text-sm font-medium">
-              주소 <span className="text-gray-400">(선택)</span>
-            </label>
-            <Input
-              value={formData.address}
-              onChange={(e) => handleChange("address", (e.target as HTMLInputElement).value)}
-              placeholder="예: 울산광역시 울주군 온산읍 이진로 139"
-            />
-          </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">
+                사업장 구분 <span className="text-gray-400">(선택)</span>
+              </label>
+              <Input
+                value={formData.siteType}
+                onChange={(e) => handleChange("siteType", (e.target as HTMLInputElement).value)}
+              />
+            </div>
 
-          <div className="space-y-1">
-            <label className="text-sm font-medium">
-              업종 <span className="text-gray-400">(선택)</span>
-            </label>
-            <Input
-              value={formData.industry}
-              onChange={(e) => handleChange("industry", (e.target as HTMLInputElement).value)}
-              placeholder="예: 연 및 아연 제련, 정련 및 합금 제조업"
-            />
-          </div>
+            <div className="col-span-2 space-y-1">
+              <label className="text-sm font-medium">
+                주소 <span className="text-gray-400">(선택)</span>
+              </label>
+              <Input
+                value={formData.address}
+                onChange={(e) => handleChange("address", (e.target as HTMLInputElement).value)}
+                className="w-full"
+              />
+            </div>
 
-          <div className="space-y-1">
-            <label className="text-sm font-medium">
-              사업장 종별 <span className="text-gray-400">(선택)</span>
-            </label>
-            <Input
-              value={formData.siteCategory}
-              onChange={(e) => handleChange("siteCategory", (e.target as HTMLInputElement).value)}
-              placeholder="예: 1종"
-            />
+            <div className="space-y-1">
+              <label className="text-sm font-medium">
+                업태 <span className="text-gray-400">(선택)</span>
+              </label>
+              <Input
+                value={formData.businessType}
+                onChange={(e) => handleChange("businessType", (e.target as HTMLInputElement).value)}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium">
+                업종 <span className="text-gray-400">(선택)</span>
+              </label>
+              <textarea
+                value={formData.industry}
+                onChange={(e) => handleChange("industry", e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                rows={2}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium">
+                사업장 종별 <span className="text-gray-400">(선택)</span>
+              </label>
+              <Input
+                value={formData.siteCategory}
+                onChange={(e) => handleChange("siteCategory", (e.target as HTMLInputElement).value)}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium">
+                법인등록번호 <span className="text-gray-400">(선택)</span>
+              </label>
+              <Input
+                value={formData.corporateNumber}
+                onChange={(e) => handleChange("corporateNumber", (e.target as HTMLInputElement).value)}
+                placeholder="123456-1234567"
+              />
+            </div>
           </div>
 
           {!isEditMode && (
-            <>
-              <div className="border-t pt-4 mt-6">
-                <h3 className="text-lg font-semibold mb-4">고객사 관리자 계정</h3>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">
-                    이메일 <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    type="email"
-                    value={formData.adminEmail}
-                    onChange={(e) => handleChange("adminEmail", (e.target as HTMLInputElement).value)}
-                    placeholder="admin@customer.com"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">
-                    이름 <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    value={formData.adminName}
-                    onChange={(e) => handleChange("adminName", (e.target as HTMLInputElement).value)}
-                    placeholder="홍길동"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">
-                    비밀번호 <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    type="password"
-                    value={formData.adminPassword}
-                    onChange={(e) => handleChange("adminPassword", (e.target as HTMLInputElement).value)}
-                    placeholder="8자 이상"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">
-                    전화번호 <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    type="tel"
-                    value={formData.adminPhone}
-                    onChange={(e) => handleChange("adminPhone", (e.target as HTMLInputElement).value)}
-                    placeholder="010-1234-5678"
-                    required
-                  />
-                </div>
-              </div>
-            </>
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                💡 고객사 정보만 저장됩니다. 저장 후 <strong>초대 링크</strong>를 생성하여 고객사 관리자를 초대하세요.
+              </p>
+            </div>
           )}
 
           <div className="flex gap-3 pt-4">

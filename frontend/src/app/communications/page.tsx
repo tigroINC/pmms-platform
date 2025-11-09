@@ -25,6 +25,7 @@ type Communication = {
   createdAt: string;
   contactPerson: string | null;
   contactOrg: string | null;
+  isShared: boolean;
 };
 
 const CHANNEL_LABELS: Record<string, string> = {
@@ -49,6 +50,14 @@ const PRIORITY_LABELS: Record<string, { label: string; icon: string }> = {
   HIGH: { label: "높음", icon: "🟠" },
   NORMAL: { label: "보통", icon: "⚪" },
   LOW: { label: "낮음", icon: "🔵" },
+};
+
+// 상태 레이블 가져오기 함수
+const getStatusLabel = (status: string, isShared: boolean) => {
+  if (status === "PENDING" && !isShared) {
+    return { label: "완료전", color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300" };
+  }
+  return STATUS_LABELS[status];
 };
 
 export default function CommunicationsPage() {
@@ -318,6 +327,9 @@ export default function CommunicationsPage() {
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">채널</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">내용</th>
+              {!isCustomer && (
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">공유범위</th>
+              )}
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">우선순위</th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">상태</th>
             </tr>
@@ -366,6 +378,17 @@ export default function CommunicationsPage() {
                     </div>
                   )}
                 </td>
+                {!isCustomer && (
+                  <td className="px-4 py-3 text-center">
+                    <span className={`px-2 py-1 text-xs rounded font-medium ${
+                      comm.isShared 
+                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" 
+                        : "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300"
+                    }`}>
+                      {comm.isShared ? "고객사 공유" : "내부전용"}
+                    </span>
+                  </td>
+                )}
                 <td className="px-4 py-3 text-center">
                   <span className={`px-2 py-1 text-xs rounded font-medium ${
                     comm.priority === "URGENT" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" :
@@ -377,8 +400,8 @@ export default function CommunicationsPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-center">
-                  <span className={`px-2 py-1 text-xs rounded ${STATUS_LABELS[comm.status].color}`}>
-                    {STATUS_LABELS[comm.status].label}
+                  <span className={`px-2 py-1 text-xs rounded ${getStatusLabel(comm.status, comm.isShared).color}`}>
+                    {getStatusLabel(comm.status, comm.isShared).label}
                   </span>
                 </td>
               </tr>
@@ -403,8 +426,8 @@ export default function CommunicationsPage() {
           >
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2">
-                <span className={`px-2 py-1 text-xs rounded ${STATUS_LABELS[comm.status].color}`}>
-                  {STATUS_LABELS[comm.status].label}
+                <span className={`px-2 py-1 text-xs rounded ${getStatusLabel(comm.status, comm.isShared).color}`}>
+                  {getStatusLabel(comm.status, comm.isShared).label}
                 </span>
                 <span className="text-lg">
                   {PRIORITY_LABELS[comm.priority].icon}
@@ -432,6 +455,17 @@ export default function CommunicationsPage() {
             <div className="grid grid-cols-2 gap-2 text-sm text-gray-600 dark:text-gray-400">
               <div>🏢 {comm.customer.name}</div>
               <div>{CHANNEL_LABELS[comm.channel]}</div>
+              {!isCustomer && (
+                <div>
+                  <span className={`px-2 py-1 text-xs rounded font-medium ${
+                    comm.isShared 
+                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" 
+                      : "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300"
+                  }`}>
+                    {comm.isShared ? "고객사 공유" : "내부전용"}
+                  </span>
+                </div>
+              )}
               {comm.assignedTo && <div>👤 {comm.assignedTo.name}</div>}
               {(comm._count.notes > 0 || comm._count.attachments > 0) && (
                 <div>

@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     }
 
     // 고객사명 중복 체크
-    const existingName = await prisma.customer.findUnique({ where: { name } });
+    const existingName = await prisma.customer.findFirst({ where: { name } });
     if (existingName) {
       return NextResponse.json({ error: "이미 존재하는 고객사명입니다" }, { status: 400 });
     }
@@ -47,11 +47,15 @@ export async function POST(request: Request) {
         name,
         businessNumber,
         isActive: false, // 승인 대기 상태
+        isPublic: true, // 직접 가입한 고객사
       };
       if (body.code) customerData.code = body.code.trim();
+      if (body.corporateNumber) customerData.corporateNumber = body.corporateNumber.trim();
       if (body.fullName) customerData.fullName = body.fullName.trim();
+      if (body.representative) customerData.representative = body.representative.trim();
       if (body.siteType) customerData.siteType = body.siteType.trim();
       if (body.address) customerData.address = body.address.trim();
+      if (body.businessType) customerData.businessType = body.businessType.trim();
       if (body.industry) customerData.industry = body.industry.trim();
       if (body.siteCategory) customerData.siteCategory = body.siteCategory.trim();
 

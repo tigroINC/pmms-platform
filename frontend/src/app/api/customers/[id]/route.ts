@@ -133,9 +133,21 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       updateData.businessNumber = body.businessNumber;
       changes.push(`사업자번호: ${currentCustomer?.businessNumber || '없음'} → ${body.businessNumber}`);
     }
+    if (body.corporateNumber !== undefined && body.corporateNumber !== currentCustomer?.corporateNumber) {
+      updateData.corporateNumber = body.corporateNumber;
+      changes.push(`법인등록번호: ${currentCustomer?.corporateNumber || '없음'} → ${body.corporateNumber}`);
+    }
     if (body.address !== undefined && body.address !== currentCustomer?.address) {
       updateData.address = body.address;
       changes.push(`주소: ${currentCustomer?.address || '없음'} → ${body.address}`);
+    }
+    if (body.representative !== undefined && body.representative !== currentCustomer?.representative) {
+      updateData.representative = body.representative;
+      changes.push(`대표자: ${currentCustomer?.representative || '없음'} → ${body.representative}`);
+    }
+    if (body.businessType !== undefined && body.businessType !== currentCustomer?.businessType) {
+      updateData.businessType = body.businessType;
+      changes.push(`업태: ${currentCustomer?.businessType || '없음'} → ${body.businessType}`);
     }
     if (body.industry !== undefined && body.industry !== currentCustomer?.industry) {
       updateData.industry = body.industry;
@@ -164,6 +176,10 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     if (body.contactPhone !== undefined && body.contactPhone !== currentCustomer?.contactPhone) {
       updateData.contactPhone = body.contactPhone;
       changes.push(`담당자연락처: ${currentCustomer?.contactPhone || '없음'} → ${body.contactPhone}`);
+    }
+    if (body.isActive !== undefined && body.isActive !== currentCustomer?.isActive) {
+      updateData.isActive = body.isActive;
+      changes.push(`활성상태: ${currentCustomer?.isActive ? '활성' : '비활성'} → ${body.isActive ? '활성' : '비활성'}`);
     }
 
     // 환경측정기업이 수정하는 경우 확인 필요 상태로 설정

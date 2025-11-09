@@ -18,8 +18,8 @@ export async function DELETE(
     const userRole = (session.user as any).role;
     const userId = (session.user as any).id;
 
-    // 권한 체크: 고객사 관리자 또는 시스템 관리자만
-    if (userRole !== "CUSTOMER_ADMIN" && userRole !== "SUPER_ADMIN") {
+    // 권한 체크: 고객사 관리자, 환경측정기업 관리자, 시스템 관리자
+    if (userRole !== "CUSTOMER_ADMIN" && userRole !== "ORG_ADMIN" && userRole !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     }
 

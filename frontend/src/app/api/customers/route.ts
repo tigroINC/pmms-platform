@@ -17,6 +17,7 @@ export async function GET(request: Request) {
     const internal = searchParams.get("internal");
     const createdBy = searchParams.get("createdBy");
     const isPublic = searchParams.get("isPublic");
+    const searchQuery = searchParams.get("q")?.trim() || ""; // 검색어
     const userRole = (session.user as any).role;
     const userOrgId = (session.user as any).organizationId;
     const userId = (session.user as any).id;
@@ -32,16 +33,14 @@ export async function GET(request: Request) {
     // 탭별 필터링
     if (tab === "all") {
       // 전체: 조직의 모든 고객사 (내부 관리 + 연결됨)
-      // 내부 관리: createdBy가 조직의 사용자
-      // 연결됨: organizations에 연결
       const orgUsers = await prisma.user.findMany({
         where: { organizationId: effectiveOrgId },
         select: { id: true }
       });
-      const orgUserIds = orgUsers.map(u => u.id);
+      const userIds = orgUsers.map(u => u.id);
       
       where.OR = [
-        { createdBy: { in: orgUserIds } }, // 조직 사용자가 등록한 고객사
+        { createdBy: { in: userIds }, mergedIntoId: null },
         {
           organizations: {
             some: {
@@ -52,22 +51,16 @@ export async function GET(request: Request) {
         }
       ];
     } else if (tab === "internal") {
-      // 내부 관리: 조직 사용자가 등록했지만 미연결
+      // 내부: 내가 생성한 고객사만 (병합된 것 제외, 미연결만)
       const orgUsers = await prisma.user.findMany({
         where: { organizationId: effectiveOrgId },
         select: { id: true }
       });
-      const orgUserIds = orgUsers.map(u => u.id);
+      const userIds = orgUsers.map(u => u.id);
       
-      where.createdBy = { in: orgUserIds };
-      where.NOT = {
-        organizations: {
-          some: {
-            organizationId: effectiveOrgId,
-            status: "APPROVED"
-          }
-        }
-      };
+      where.createdBy = { in: userIds };
+      where.mergedIntoId = null;
+      where.isPublic = false; // 가입하지 않은 내부 고객만
     } else if (tab === "connected") {
       // 연결된 고객사: APPROVED 상태
       where.organizations = {
@@ -77,15 +70,63 @@ export async function GET(request: Request) {
         }
       };
     } else if (tab === "search") {
-      // 고객사 검색: 공개된 것 중 미연결
-      where.isPublic = true;
-      where.NOT = {
-        organizations: {
-          some: {
-            organizationId: effectiveOrgId
+      // 고객사 검색: 가입 고객(항상) + 내 미연결 내부 고객
+      // 가입 고객은 다른 사업장과 연결되어도 검색에 표시 (중복 연결 허용)
+      
+      console.log("[SEARCH DEBUG] searchQuery:", searchQuery);
+      console.log("[SEARCH DEBUG] effectiveOrgId:", effectiveOrgId);
+      
+      // 검색어가 있을 때만 결과 표시
+      if (searchQuery) {
+        // 하이픈 제거한 버전
+        const normalizedQuery = searchQuery.replace(/-/g, "");
+        
+        // 조건: (가입 고객 AND 검색어 일치) OR (내부 고객 AND 미연결 AND 검색어 일치)
+        where.OR = [
+          // 가입 고객 (isPublic=true) - 연결 여부 무관
+          {
+            AND: [
+              { isPublic: true },
+              { mergedIntoId: null }, // 병합되지 않은 것만
+              {
+                OR: [
+                  { name: { contains: searchQuery } },
+                  { fullName: { contains: searchQuery } },
+                  { businessNumber: { contains: searchQuery } },
+                  { businessNumber: { contains: normalizedQuery } },
+                ]
+              }
+            ]
+          },
+          // 내부 고객 (isPublic=false) - 미연결만
+          {
+            AND: [
+              { isPublic: false },
+              { mergedIntoId: null }, // 병합되지 않은 것만
+              {
+                NOT: {
+                  organizations: {
+                    some: { organizationId: effectiveOrgId }
+                  }
+                }
+              },
+              {
+                OR: [
+                  { name: { contains: searchQuery } },
+                  { fullName: { contains: searchQuery } },
+                  { businessNumber: { contains: searchQuery } },
+                  { businessNumber: { contains: normalizedQuery } },
+                ]
+              }
+            ]
           }
-        }
-      };
+        ];
+      } else {
+        // 검색어 없으면 빈 결과 (검색 유도)
+        where.id = "impossible-search-id";
+      }
+      
+      console.log("[SEARCH DEBUG] Final where:", JSON.stringify(where, null, 2));
     }
     // 레거시 파라미터 지원
     else if (internal === "true") {
@@ -115,9 +156,26 @@ export async function GET(request: Request) {
       }
     }
 
+    console.log("[SEARCH DEBUG] About to query with where:", JSON.stringify(where, null, 2));
+    
     const customers = await prisma.customer.findMany({
       where,
-      include: { 
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        fullName: true,
+        businessNumber: true,
+        representative: true,
+        address: true,
+        businessType: true,
+        industry: true,
+        siteType: true,
+        siteCategory: true,
+        corporateNumber: true,
+        isActive: true,
+        isPublic: true,
+        createdAt: true,
         _count: { select: { stacks: true, measurements: true, users: true } },
         users: {
           where: { role: "CUSTOMER_ADMIN" },
@@ -130,18 +188,24 @@ export async function GET(request: Request) {
           }
         },
         organizations: {
-          where: organizationId ? { organizationId } : (userOrgId ? { organizationId: userOrgId } : undefined),
+          where: tab === "connected" 
+            ? { organizationId: effectiveOrgId, status: "APPROVED" }
+            : (organizationId ? { organizationId } : (userOrgId ? { organizationId: userOrgId } : undefined)),
           select: {
+            id: true,
             organizationId: true,
             status: true,
             customCode: true,
+            proposedData: true,
           }
         }
       },
       orderBy: { name: "asc" },
     });
     
-    console.log("[API /api/customers] Query result count:", customers.length);
+    console.log("[SEARCH DEBUG] Found customers:", customers.length);
+    console.log("[SEARCH DEBUG] Customer details:", customers.map(c => ({ id: c.id, name: c.name, isPublic: c.isPublic, isActive: c.isActive })));
+    
     return NextResponse.json({ customers });
   } catch (error: any) {
     console.error("[API /api/customers] ERROR:", error);
@@ -172,29 +236,6 @@ export async function POST(request: Request) {
     if (!businessNumber) {
       return NextResponse.json({ error: "사업자등록번호는 필수입니다" }, { status: 400 });
     }
-    
-    // 고객사명 중복 체크
-    const existingName = await prisma.customer.findUnique({ where: { name } });
-    if (existingName) {
-      return NextResponse.json({ error: "이미 존재하는 고객사명입니다" }, { status: 400 });
-    }
-
-    // 사업자등록번호 중복 체크
-    const existingBusiness = await prisma.customer.findUnique({ where: { businessNumber } });
-    if (existingBusiness) {
-      return NextResponse.json({ error: "이미 등록된 사업자등록번호입니다" }, { status: 400 });
-    }
-
-    // 관리자 정보 검증
-    if (!body.adminEmail || !body.adminPassword || !body.adminName || !body.adminPhone) {
-      return NextResponse.json({ error: "고객사 관리자 정보는 필수입니다" }, { status: 400 });
-    }
-
-    // 이메일 중복 체크
-    const existingUser = await prisma.user.findUnique({ where: { email: body.adminEmail } });
-    if (existingUser) {
-      return NextResponse.json({ error: "이미 사용 중인 이메일입니다" }, { status: 400 });
-    }
 
     // 현재 사용자의 조직 ID 가져오기
     const currentUser = await prisma.user.findUnique({
@@ -206,6 +247,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "조직 정보를 찾을 수 없습니다." }, { status: 400 });
     }
 
+    // 관리자 계정은 초대링크를 통해 생성됨
+
     // 트랜잭션으로 고객사 + 관리자 계정 생성 (연결은 별도로)
     const result = await prisma.$transaction(async (tx) => {
       // 고객사 생성
@@ -216,9 +259,12 @@ export async function POST(request: Request) {
         isPublic: false,  // 기본: 비공개 (내부 관리용)
       };
       if (body.code) customerData.code = body.code.trim();
+      if (body.corporateNumber) customerData.corporateNumber = body.corporateNumber.trim();
       if (body.fullName) customerData.fullName = body.fullName.trim();
+      if (body.representative) customerData.representative = body.representative.trim();
       if (body.siteType) customerData.siteType = body.siteType.trim();
       if (body.address) customerData.address = body.address.trim();
+      if (body.businessType) customerData.businessType = body.businessType.trim();
       if (body.industry) customerData.industry = body.industry.trim();
       if (body.siteCategory) customerData.siteCategory = body.siteCategory.trim();
       if (body.groupId) customerData.groupId = body.groupId;
@@ -226,27 +272,7 @@ export async function POST(request: Request) {
       const customer = await tx.customer.create({ data: customerData });
 
       // 고객사-조직 연결은 생성하지 않음 (나중에 연결 요청으로)
-      // 등록만 하고 연결은 별도 프로세스
-
-      // 고객사 관리자 계정 생성 (선택적)
-      let admin = null;
-      if (body.createAdminAccount && body.adminEmail && body.adminPassword && body.adminName && body.adminPhone) {
-        const hashedPassword = await bcrypt.hash(body.adminPassword, 10);
-        admin = await tx.user.create({
-          data: {
-            email: body.adminEmail,
-            password: hashedPassword,
-            name: body.adminName,
-            phone: body.adminPhone,
-            role: "CUSTOMER_SITE_ADMIN",  // 사업장 관리자
-            customerId: customer.id,
-            companyName: name,
-            status: "APPROVED",
-            isActive: true,
-            emailVerified: true,
-          },
-        });
-      }
+      // 관리자 계정은 초대링크를 통해 생성됨
 
       // 활동 로그
       await tx.activityLog.create({
@@ -258,19 +284,19 @@ export async function POST(request: Request) {
           details: JSON.stringify({
             customerName: name,
             businessNumber,
-            adminEmail: body.adminEmail || null,
-            createAdminAccount: !!admin,
           }),
         },
       });
 
-      return { customer, admin };
+      return { customer };
     });
+
+    console.log("Created customer:", result.customer);
 
     return NextResponse.json({ 
       ok: true, 
       data: result.customer,
-      message: "고객사 및 관리자 계정이 생성되었습니다.",
+      message: "고객사가 생성되었습니다. 초대 링크를 생성하여 관리자를 초대하세요.",
     }, { status: 201 });
   } catch (error: any) {
     console.error("Create customer error:", error);

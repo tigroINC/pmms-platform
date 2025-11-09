@@ -6,6 +6,7 @@ interface Customer {
   id: string;
   name: string;
   businessNumber: string;
+  siteType?: string;
 }
 
 interface CreateInvitationModalProps {
@@ -29,6 +30,8 @@ export default function CreateInvitationModal({
   const [expiryDays, setExpiryDays] = useState(7);
   const [loading, setLoading] = useState(false);
   const [inviteUrl, setInviteUrl] = useState("");
+  
+  const siteType = customer?.siteType || "-";
 
   if (!isOpen || !customer) return null;
 
@@ -47,6 +50,7 @@ export default function CreateInvitationModal({
           adminPhone,
           suggestedRole,
           roleNote,
+          siteType: customer?.siteType,
           expiryDays,
         }),
       });
@@ -54,6 +58,12 @@ export default function CreateInvitationModal({
       const data = await res.json();
 
       if (res.ok) {
+        // 기존 이메일인 경우 안내 메시지만 표시하고 링크는 보여주지 않음
+        if (data.isExistingEmail) {
+          alert(data.autoConnectMessage);
+          handleClose();
+          return;
+        }
         setInviteUrl(data.inviteUrl);
         onSuccess();
       } else if (res.status === 400 && data.inviteUrl) {
@@ -89,6 +99,7 @@ export default function CreateInvitationModal({
           adminPhone,
           suggestedRole,
           roleNote,
+          siteType: customer?.siteType,
           expiryDays,
           forceCreate: true, // 강제 생성 플래그
         }),
@@ -97,6 +108,12 @@ export default function CreateInvitationModal({
       const data = await res.json();
 
       if (res.ok) {
+        // 기존 이메일인 경우 안내 메시지만 표시하고 링크는 보여주지 않음
+        if (data.isExistingEmail) {
+          alert(data.autoConnectMessage);
+          handleClose();
+          return;
+        }
         setInviteUrl(data.inviteUrl);
         onSuccess();
       } else {
@@ -145,7 +162,7 @@ export default function CreateInvitationModal({
 
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                담당자 이메일 (선택)
+                담당자 이메일 <span className="text-red-500">*</span>
               </label>
               <input
                 type="email"
@@ -153,9 +170,10 @@ export default function CreateInvitationModal({
                 onChange={(e) => setAdminEmail(e.target.value)}
                 className="w-full border rounded px-3 py-2"
                 placeholder="example@company.com"
+                required
               />
               <p className="text-xs text-gray-500 mt-1">
-                담당자 이메일을 미리 입력하면 초대 시 자동으로 채워집니다.
+                해당 이메일로만 가입이 가능합니다.
               </p>
             </div>
 
@@ -215,6 +233,18 @@ export default function CreateInvitationModal({
               />
               <p className="text-xs text-gray-500 mt-1">
                 담당자의 직급이나 역할을 메모할 수 있습니다.
+              </p>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                사업장구분
+              </label>
+              <div className="p-3 bg-gray-50 rounded border text-gray-700">
+                {siteType}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                고객사 정보의 사업장구분이 자동으로 표시됩니다.
               </p>
             </div>
 

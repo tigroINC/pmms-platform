@@ -163,9 +163,14 @@ export default function DashboardPage() {
   }, [customers, customer]);
   // 조회 적용된 고객사 ID
   const selectedCustomerId = useMemo(() => {
+    // 고객사 사용자는 자신의 고객사 ID를 사용
+    if (isCustomerUser) {
+      return viewAsCustomerId || userCustomerId;
+    }
+    // 환경측정기업 사용자는 선택된 고객사 ID 사용
     if (applied.customer === "전체") return undefined;
     return customers.find((c) => c.name === applied.customer)?.id;
-  }, [customers, applied.customer]);
+  }, [customers, applied.customer, isCustomerUser, viewAsCustomerId, userCustomerId]);
   const selectedItem = useMemo(() => items.find((it) => it.name === applied.item), [items, applied.item]);
   // 스택 목록은 현재 선택된 고객사에 종속
   const { list: stackList } = useStacks(currentCustomerId);
@@ -620,7 +625,7 @@ export default function DashboardPage() {
                   >
                     <option value="전체">전체</option>
                     {customers.map((c)=> (
-                      <option key={c.id} value={c.name}>{c.name}</option>
+                      <option key={c.id} value={c.name}>{c.name} ({c.code})</option>
                     ))}
                   </Select>
                 </>
@@ -844,6 +849,16 @@ export default function DashboardPage() {
                   setShowInsightModal(true);
                   
                   try {
+                    // 차트 이미지 캡처
+                    let chartImage: string | null = null;
+                    if (chartCanvasRef.current) {
+                      try {
+                        chartImage = chartCanvasRef.current.toDataURL('image/png').split(',')[1]; // Base64만 추출
+                      } catch (err) {
+                        console.warn('차트 이미지 캡처 실패:', err);
+                      }
+                    }
+                    
                     const res = await fetch('http://localhost:8000/api/predict/insight', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
@@ -851,7 +866,10 @@ export default function DashboardPage() {
                         customer_id: selectedCustomerId,
                         stack: stackList[0]?.name || 'dummy',
                         item_key: selectedItem.key,
-                        periods: 30
+                        item_name: selectedItem.name,
+                        periods: 30,
+                        chart_image: chartImage,
+                        user_id: session?.user?.id
                       })
                     });
                     

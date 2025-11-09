@@ -53,6 +53,12 @@ export default function UsersManagementPage() {
     }
   }, [status, session, router]);
 
+  useEffect(() => {
+    if (status === "authenticated") {
+      fetchUsers();
+    }
+  }, [search, statusFilter, roleFilter]);
+
   const fetchUsers = async () => {
     try {
       setLoading(true);
@@ -198,6 +204,30 @@ export default function UsersManagementPage() {
     }
   };
 
+  const handleResetPassword = async (userId: string) => {
+    if (!confirm("이 사용자의 비밀번호를 초기화하시겠습니까?\n초기화 후 기본 비밀번호는 12345678입니다.")) return;
+
+    try {
+      const response = await fetch(`/api/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reset_password" }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(data.message);
+        fetchUsers();
+      } else {
+        alert(data.error || "비밀번호 초기화에 실패했습니다.");
+      }
+    } catch (error) {
+      console.error("Reset password error:", error);
+      alert("비밀번호 초기화 중 오류가 발생했습니다.");
+    }
+  };
+
   const getRoleOptions = (currentRole: string) => {
     // 환경측정기업 역할군
     const orgRoles = [
@@ -266,6 +296,9 @@ export default function UsersManagementPage() {
   };
 
   const filtered = users.filter((user) => {
+    // PENDING 상태의 사용자는 항상 표시 (승인 대기 중이므로)
+    if (user.status === "PENDING") return true;
+    // 그 외의 경우 비활성 표시 옵션에 따라 필터링
     if (!showInactive && !user.isActive) return false;
     return true;
   });
@@ -283,12 +316,14 @@ export default function UsersManagementPage() {
       <AdminHeader />
       
       <div className="max-w-7xl mx-auto p-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">사용자 관리</h1>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            회원 가입 승인 및 사용자 정보를 관리합니다.
-          </p>
-          <div className="flex gap-2 mt-4">
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">사용자 관리</h1>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              회원 가입 승인 및 사용자 정보를 관리합니다.
+            </p>
+          </div>
+          <div className="flex gap-2">
             <button
               onClick={() => setShowHelp(true)}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
@@ -304,55 +339,68 @@ export default function UsersManagementPage() {
           </div>
         </div>
 
-      {/* 필터 */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Input
-          type="text"
-          placeholder="검색 (이메일, 이름, 회사명)"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-80"
-        />
+      {/* 필터 및 통계 */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
+        <div className="flex flex-wrap items-center gap-4">
+          {/* 통계 */}
+          <div className="flex gap-4">
+            <div className="text-sm">
+              <span className="text-gray-600 dark:text-gray-400">전체 </span>
+              <span className="font-bold text-gray-900 dark:text-white">{users.length}</span>
+            </div>
+            <div className="text-sm">
+              <span className="text-gray-600 dark:text-gray-400">승인대기 </span>
+              <span className="font-bold text-yellow-600">{users.filter((u) => u.status === "PENDING").length}</span>
+            </div>
+          </div>
 
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
-        >
-          <option value="ALL">전체 상태</option>
-          <option value="PENDING">승인 대기</option>
-          <option value="APPROVED">승인됨</option>
-          <option value="REJECTED">거부됨</option>
-          <option value="SUSPENDED">정지됨</option>
-          <option value="WITHDRAWN">탈퇴</option>
-        </select>
+          <div className="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
 
-        <select
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
-        >
-          <option value="ALL">전체 역할</option>
-          <option value="SUPER_ADMIN">시스템 관리자</option>
-          <option value="ORG_ADMIN">공급회사 관리자</option>
-          <option value="OPERATOR">공급회사 임직원</option>
-          <option value="CUSTOMER_ADMIN">고객사 관리자</option>
-          <option value="CUSTOMER_USER">고객사 사용자</option>
-        </select>
-
-        <Button onClick={fetchUsers} className="px-4 py-2">
-          검색
-        </Button>
-
-        <label className="flex items-center gap-2 ml-auto">
-          <input
-            type="checkbox"
-            checked={showInactive}
-            onChange={(e) => setShowInactive(e.target.checked)}
-            className="rounded"
+          {/* 검색 및 필터 */}
+          <Input
+            type="text"
+            placeholder="검색 (이메일, 이름, 회사명)"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 min-w-[200px]"
           />
-          <span className="text-sm text-gray-700 dark:text-gray-300">비활성 표시</span>
-        </label>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+          >
+            <option value="ALL">전체 상태</option>
+            <option value="PENDING">승인 대기</option>
+            <option value="APPROVED">승인됨</option>
+            <option value="REJECTED">거부됨</option>
+            <option value="SUSPENDED">정지됨</option>
+            <option value="WITHDRAWN">탈퇴</option>
+          </select>
+
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white"
+          >
+            <option value="ALL">전체 역할</option>
+            <option value="SUPER_ADMIN">시스템 관리자</option>
+            <option value="ORG_ADMIN">공급회사 관리자</option>
+            <option value="OPERATOR">공급회사 임직원</option>
+            <option value="CUSTOMER_ADMIN">고객사 관리자</option>
+            <option value="CUSTOMER_USER">고객사 사용자</option>
+          </select>
+
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={showInactive}
+              onChange={(e) => setShowInactive(e.target.checked)}
+              className="rounded"
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-300">비활성 표시</span>
+          </label>
+        </div>
       </div>
 
       {/* Desktop Table */}
@@ -471,6 +519,12 @@ export default function UsersManagementPage() {
                         >
                           {user.isActive ? "비활성화" : "활성화"}
                         </button>
+                        <button
+                          onClick={() => handleResetPassword(user.id)}
+                          className="px-3 py-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 dark:bg-yellow-900 dark:text-yellow-200 dark:hover:bg-yellow-800 rounded text-left"
+                        >
+                          비밀번호 초기화
+                        </button>
                         {!user.isActive && (
                           <button
                             onClick={() => handleDelete(user.id)}
@@ -534,6 +588,9 @@ export default function UsersManagementPage() {
                     <>
                       <button onClick={() => handleToggleActive(user.id, user.isActive)} className="w-full px-3 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded text-sm">
                         {user.isActive ? "비활성화" : "활성화"}
+                      </button>
+                      <button onClick={() => handleResetPassword(user.id)} className="w-full px-3 py-2 bg-yellow-500 text-white hover:bg-yellow-600 rounded text-sm">
+                        비밀번호 초기화
                       </button>
                       {!user.isActive && (
                         <button onClick={() => handleDelete(user.id)} className="w-full px-3 py-2 bg-gray-500 text-white hover:bg-gray-600 rounded text-sm">

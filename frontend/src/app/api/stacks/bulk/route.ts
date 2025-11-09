@@ -75,20 +75,55 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        // 고객사 찾기 (조직별 격리)
+        // 고객사 찾기 (내부등록 포함, 조직 연결 불필요)
         console.log(`[굴뚝 일괄업로드] ${i + 1}행: 고객사코드 '${customerCode}' 검색 중... (organizationId: ${organizationId})`);
+        
+        // 디버깅: 해당 조직의 모든 고객사 확인 (처음 1회만)
+        if (i === 1) {
+          // 조직 사용자 ID 조회
+          const orgUsers = await prisma.user.findMany({
+            where: { organizationId },
+            select: { id: true }
+          });
+          const userIds = orgUsers.map(u => u.id);
+          
+          const allCustomers = await prisma.customer.findMany({
+            where: {
+              OR: [
+                { createdBy: { in: userIds }, mergedIntoId: null },
+                { organizations: { some: { organizationId } } },
+              ],
+            },
+            select: { id: true, code: true, name: true, createdBy: true, draftCreatedBy: true },
+            take: 10,
+          });
+          console.log(`[굴뚝 일괄업로드] 조직의 고객사 샘플 (최대 10개):`, JSON.stringify(allCustomers, null, 2));
+        }
+        
+        // 조직 사용자 ID 조회
+        const orgUsers = await prisma.user.findMany({
+          where: { organizationId },
+          select: { id: true }
+        });
+        const userIds = orgUsers.map(u => u.id);
         
         const customer = await prisma.customer.findFirst({
           where: {
             code: customerCode,
             ...(organizationId
               ? {
-                  organizations: {
-                    some: {
-                      organizationId,
-                      status: "APPROVED",
+                  OR: [
+                    // 내부 등록된 고객사 (createdBy 사용)
+                    { createdBy: { in: userIds }, mergedIntoId: null },
+                    // 연결된 고객사 (승인 여부 무관)
+                    {
+                      organizations: {
+                        some: {
+                          organizationId,
+                        },
+                      },
                     },
-                  },
+                  ],
                 }
               : {}),
           },
@@ -99,7 +134,7 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        console.log(`[굴뚝 일괄업로드] ${i + 1}행: 고객사 검색 결과:`, customer ? `찾음 (ID: ${customer.id}, 연결: ${customer.organizations.length}개)` : '없음');
+        console.log(`[굴뚝 일괄업로드] ${i + 1}행: 고객사 검색 결과:`, customer ? `찾음 (ID: ${customer.id}, 내부등록: ${userIds.includes(customer.createdBy || '')}, 연결: ${customer.organizations.length}개)` : '없음');
 
         if (!customer) {
           errors.push(`${i + 1}행: 고객사코드 '${customerCode}'를 찾을 수 없습니다.`);

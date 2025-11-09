@@ -1,0 +1,13 @@
+﻿항목코드,항목명(한글),항목명(영문),기본단위,구분,항목분류,허용기준값(기본),측정분석방법
+MENV0001,기상,Weather Condition,N/A (상태),채취환경,,,
+MENV0002,기온,Air Temperature,℃,채취환경,,,
+MENV0003,습도,Relative Humidity,％,채취환경,,,
+MENV0004,기압,Atmospheric Pressure,mmHg,채취환경,,,
+MENV0005,풍향,Wind Direction,,채취환경,,,
+MENV0006,풍속,Wind Speed,m/sec,채취환경,,,
+MENV0007,가스속도,Gas Velocity,m/s,채취환경,,,
+MENV0008,가스온도,Gas Temperature,℃,채취환경,,,
+MENV0009,수분함량,Moisture Content,％,채취환경,,,
+MENV0010,실측산소농도,Actual Oxygen Concentration,％,채취환경,,,
+MENV0011,표준산소농도,Standard Oxygen Concentration,％,채취환경,,,
+MENV0012,배출가스유량,Emission Gas Flow Rate,S㎥/min,채취환경,,,

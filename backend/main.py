@@ -68,8 +68,12 @@ class PredictionRequest(BaseModel):
     customer_id: str
     stack: str
     item_key: str
+    item_name: str = None  # 항목명 (인사이트 보고서용)
     periods: int = 30  # 예측 기간 (일)
     include_history: bool = True
+    chart_image: str = None  # Base64 차트 이미지 (인사이트 보고서용)
+    user_id: str = None  # 생성한 사용자 ID (인사이트 보고서용)
+    value: float = None  # 검증할 측정값 (이상치 검증용)
 
 class PredictionResponse(BaseModel):
     predictions: List[Dict]
@@ -248,7 +252,8 @@ async def generate_insight_report(request: PredictionRequest):
             accuracy_metrics=result.get('metrics', {}),
             customer_name=customer_name,
             item_name=item_name,
-            limit_value=limit_value
+            limit_value=limit_value,
+            chart_image=request.chart_image
         )
         
         # PDF 생성 (Playwright 사용) - 필수 기능
@@ -323,6 +328,31 @@ async def generate_insight_report(request: PredictionRequest):
                 detail=f"PDF 생성 실패: {str(pdf_error)}. Playwright가 올바르게 설치되었는지 확인하세요."
             )
         
+        # DB에 인사이트 보고서 저장 (24시간 캐싱용)
+        try:
+            import json
+            async with aiosqlite.connect(DB_PATH) as db:
+                await db.execute("""
+                    INSERT INTO insight_reports 
+                    (id, customerId, itemKey, itemName, periods, reportData, chartImage, pdfBase64, createdBy, createdAt)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                """, (
+                    base64.b64encode(os.urandom(12)).decode('utf-8'),  # 간단한 ID 생성
+                    request.customer_id,
+                    request.item_key,
+                    request.item_name or item_name,
+                    request.periods,
+                    json.dumps(report),
+                    request.chart_image,
+                    pdf_base64,
+                    request.user_id or 'system'
+                ))
+                await db.commit()
+                logger.info("Insight report saved to database")
+        except Exception as save_error:
+            logger.warning(f"Failed to save insight report to DB: {save_error}")
+            # 저장 실패해도 응답은 반환
+        
         # NaN 값을 None으로 변환하여 JSON 직렬화 가능하게 만듦
         def sanitize_for_json(obj):
             """NaN, Infinity 값을 JSON 호환 값으로 변환"""
@@ -359,6 +389,108 @@ async def generate_insight_report(request: PredictionRequest):
             status_code=500, 
             detail=f"Error: {str(e)}"
         )
+
+@app.post("/api/validate-measurement")
+async def validate_measurement(request: PredictionRequest):
+    """
+    측정 데이터 이상치 검증
+    Prophet 예측값과 비교하여 신뢰구간 벗어나면 워닝
+    """
+    try:
+        from automl_engine import AutoMLPredictor
+        import pandas as pd
+        from datetime import datetime, timedelta
+        
+        # DB 경로
+        DB_PATH = Path(__file__).parent.parent / "frontend" / "prisma" / "dev.db"
+        
+        # 고객사 전체 굴뚝 데이터 조회 (학습용)
+        async with aiosqlite.connect(DB_PATH) as db:
+            cursor = await db.execute("""
+                SELECT m.measuredAt, m.value
+                FROM measurements m
+                JOIN stacks s ON m.stackId = s.id
+                WHERE s.customerId = ? AND m.itemKey = ?
+                ORDER BY m.measuredAt ASC
+            """, (request.customer_id, request.item_key))
+            
+            rows = await cursor.fetchall()
+        
+        if len(rows) < 10:
+            # 데이터 부족 시 검증 스킵
+            return {
+                "anomaly_detected": False,
+                "skip_reason": "insufficient_data",
+                "message": "데이터가 부족하여 검증을 건너뜁니다."
+            }
+        
+        # Prophet 학습 및 예측
+        predictor = AutoMLPredictor()
+        result = await predictor.predict(
+            data=rows,
+            periods=30,
+            include_history=True
+        )
+        
+        # 오늘 날짜의 예측값 찾기
+        today = datetime.now().date()
+        prediction_for_today = None
+        
+        for pred in result['predictions']:
+            pred_date = datetime.fromisoformat(pred['date'].replace('Z', '+00:00')).date()
+            if pred_date == today:
+                prediction_for_today = pred
+                break
+        
+        if not prediction_for_today:
+            return {
+                "anomaly_detected": False,
+                "skip_reason": "no_prediction",
+                "message": "예측값을 찾을 수 없습니다."
+            }
+        
+        # 신뢰구간 비교
+        lower = prediction_for_today['yhat_lower']
+        upper = prediction_for_today['yhat_upper']
+        predicted = prediction_for_today['yhat']
+        
+        # 입력값이 request에 없으므로 별도 필드 추가 필요
+        # 임시로 value 필드 사용
+        input_value = getattr(request, 'value', None)
+        
+        if input_value is None:
+            return {
+                "anomaly_detected": False,
+                "skip_reason": "no_value",
+                "message": "검증할 값이 없습니다."
+            }
+        
+        if input_value < lower or input_value > upper:
+            return {
+                "anomaly_detected": True,
+                "severity": "warning",
+                "message": f"입력하신 값({input_value:.2f})이 예상 범위({lower:.2f}~{upper:.2f})를 벗어났습니다.",
+                "details": {
+                    "input_value": input_value,
+                    "predicted_value": predicted,
+                    "lower_bound": lower,
+                    "upper_bound": upper
+                }
+            }
+        
+        return {
+            "anomaly_detected": False,
+            "message": "정상 범위입니다."
+        }
+        
+    except Exception as e:
+        logger.error(f"Validation error: {e}")
+        # 검증 실패 시에도 저장은 허용
+        return {
+            "anomaly_detected": False,
+            "skip_reason": "validation_error",
+            "message": f"검증 중 오류 발생: {str(e)}"
+        }
 
 @app.get("/api/models")
 async def list_models():

@@ -173,23 +173,20 @@ export default function BulkUploadModal({
 
           {/* 메시지 */}
           {message && (
-            <div className={`text-sm p-3 rounded ${
+            <div className={`text-sm p-4 rounded border-2 ${
               message.startsWith("✅")
-                ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
-                : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300"
+                ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-500"
+                : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-500"
             }`}>
-              <div className="flex items-center justify-between">
-                <span>{message}</span>
+              <div className="flex flex-col gap-3">
+                <pre className="whitespace-pre-wrap font-sans">{message}</pre>
                 <Button
                   size="sm"
-                  variant="secondary"
                   onClick={() => {
                     setMessage("");
-                    if (message.startsWith("✅")) {
-                      handleClose();
-                    }
+                    handleClose();
                   }}
-                  className="ml-4"
+                  className="self-end"
                 >
                   확인
                 </Button>
