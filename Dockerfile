@@ -30,7 +30,8 @@ COPY --from=deps /usr/bin/pip3 /usr/bin/pip3
 # 소스 코드 복사
 COPY frontend/ .
 
-# Prisma 생성
+# Prisma 생성 (빌드용 임시 DATABASE_URL)
+ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
 RUN npx prisma generate
 
 # Next.js 빌드
