@@ -7,11 +7,11 @@ RUN apk add --no-cache python3 py3-pip python3-dev build-base
 WORKDIR /app
 
 # Node.js 의존성 설치
-COPY package.json package-lock.json ./
+COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 
 # Python 의존성 설치
-COPY backend/requirements.txt ./backend/
+COPY frontend/backend/requirements.txt ./backend/
 RUN pip3 install --no-cache-dir -r backend/requirements.txt
 
 # Builder stage
@@ -28,7 +28,7 @@ COPY --from=deps /usr/bin/python3 /usr/bin/python3
 COPY --from=deps /usr/bin/pip3 /usr/bin/pip3
 
 # 소스 코드 복사
-COPY . .
+COPY frontend/ .
 
 # Prisma 생성
 RUN npx prisma generate
