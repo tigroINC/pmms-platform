@@ -1,17 +1,17 @@
 -- AlterTable
-ALTER TABLE "Customer" ADD COLUMN "contractEndDate" DATETIME;
-ALTER TABLE "Customer" ADD COLUMN "contractStartDate" DATETIME;
+ALTER TABLE "Customer" ADD COLUMN "contractEndDate" TIMESTAMP;
+ALTER TABLE "Customer" ADD COLUMN "contractStartDate" TIMESTAMP;
 
 -- AlterTable
-ALTER TABLE "UserPermission" ADD COLUMN "expiresAt" DATETIME;
+ALTER TABLE "UserPermission" ADD COLUMN "expiresAt" TIMESTAMP;
 
 -- CreateTable
 CREATE TABLE "StackAssignment" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "userId" TEXT NOT NULL,
     "stackId" TEXT NOT NULL,
     "isPrimary" BOOLEAN NOT NULL DEFAULT false,
-    "assignedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "assignedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "assignedBy" TEXT NOT NULL,
     CONSTRAINT "StackAssignment_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "StackAssignment_stackId_fkey" FOREIGN KEY ("stackId") REFERENCES "Stack" ("id") ON DELETE CASCADE ON UPDATE CASCADE
@@ -19,7 +19,7 @@ CREATE TABLE "StackAssignment" (
 
 -- CreateTable
 CREATE TABLE "PermissionChangeLog" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "changedBy" TEXT NOT NULL,
     "changerRole" TEXT NOT NULL,
     "changerName" TEXT NOT NULL,
@@ -30,7 +30,7 @@ CREATE TABLE "PermissionChangeLog" (
     "fromValue" TEXT,
     "toValue" TEXT NOT NULL,
     "reason" TEXT,
-    "changedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "changedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "ipAddress" TEXT,
     "userAgent" TEXT,
     "success" BOOLEAN NOT NULL,
@@ -41,16 +41,16 @@ CREATE TABLE "PermissionChangeLog" (
 PRAGMA defer_foreign_keys=ON;
 PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_CustomRole" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "organizationId" TEXT,
     "customerId" TEXT,
     "name" TEXT NOT NULL,
     "description" TEXT,
     "templateId" TEXT,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "createdBy" TEXT NOT NULL,
-    "updatedAt" DATETIME NOT NULL,
+    "updatedAt" TIMESTAMP NOT NULL,
     CONSTRAINT "CustomRole_templateId_fkey" FOREIGN KEY ("templateId") REFERENCES "RoleTemplate" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "CustomRole_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "CustomRole_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization" ("id") ON DELETE SET NULL ON UPDATE CASCADE
@@ -84,3 +84,4 @@ CREATE INDEX "PermissionChangeLog_changedAt_idx" ON "PermissionChangeLog"("chang
 
 -- CreateIndex
 CREATE INDEX "UserPermission_expiresAt_idx" ON "UserPermission"("expiresAt");
+

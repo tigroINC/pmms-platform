@@ -13,7 +13,7 @@
 PRAGMA defer_foreign_keys=ON;
 PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_Stack" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "customerId" TEXT NOT NULL,
     "siteCode" TEXT NOT NULL DEFAULT '',
     "siteName" TEXT NOT NULL DEFAULT '',
@@ -30,10 +30,10 @@ CREATE TABLE "new_Stack" (
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "isVerified" BOOLEAN NOT NULL DEFAULT false,
     "verifiedBy" TEXT,
-    "verifiedAt" DATETIME,
+    "verifiedAt" TIMESTAMP,
     "createdBy" TEXT NOT NULL DEFAULT 'SYSTEM',
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "Stack_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 INSERT INTO "new_Stack" ("category", "code", "coordinates", "createdAt", "customerId", "description", "diameter", "facilityType", "fullName", "height", "id", "isActive", "location", "name", "siteCode", "siteName", "updatedAt") SELECT "category", "code", "coordinates", "createdAt", "customerId", "description", "diameter", "facilityType", "fullName", "height", "id", "isActive", "location", "name", "siteCode", "siteName", "updatedAt" FROM "Stack";
@@ -46,3 +46,4 @@ CREATE UNIQUE INDEX "Stack_customerId_siteCode_key" ON "Stack"("customerId", "si
 CREATE UNIQUE INDEX "Stack_customerId_name_key" ON "Stack"("customerId", "name");
 PRAGMA foreign_keys=ON;
 PRAGMA defer_foreign_keys=OFF;
+

@@ -1,6 +1,6 @@
 -- CreateTable
 CREATE TABLE "Organization" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "name" TEXT NOT NULL,
     "businessNumber" TEXT,
     "businessType" TEXT,
@@ -9,54 +9,54 @@ CREATE TABLE "Organization" (
     "email" TEXT,
     "subscriptionPlan" TEXT NOT NULL DEFAULT 'FREE',
     "subscriptionStatus" TEXT NOT NULL DEFAULT 'TRIAL',
-    "subscriptionStartAt" DATETIME,
-    "subscriptionEndAt" DATETIME,
+    "subscriptionStartAt" TIMESTAMP,
+    "subscriptionEndAt" TIMESTAMP,
     "maxUsers" INTEGER NOT NULL DEFAULT 1,
     "maxStacks" INTEGER NOT NULL DEFAULT 5,
     "maxDataRetention" INTEGER NOT NULL DEFAULT 365,
     "billingEmail" TEXT,
     "billingContact" TEXT,
-    "lastPaymentAt" DATETIME,
-    "nextBillingAt" DATETIME,
+    "lastPaymentAt" TIMESTAMP,
+    "nextBillingAt" TIMESTAMP,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL
 );
 
 -- CreateTable
 CREATE TABLE "SubscriptionHistory" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "organizationId" TEXT NOT NULL,
     "plan" TEXT NOT NULL,
     "status" TEXT NOT NULL,
-    "startDate" DATETIME NOT NULL,
-    "endDate" DATETIME,
+    "startDate" TIMESTAMP NOT NULL,
+    "endDate" TIMESTAMP,
     "amount" REAL,
     "reason" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "SubscriptionHistory_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
 CREATE TABLE "Invoice" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "organizationId" TEXT NOT NULL,
     "invoiceNumber" TEXT NOT NULL,
     "amount" REAL NOT NULL,
     "currency" TEXT NOT NULL DEFAULT 'KRW',
     "status" TEXT NOT NULL DEFAULT 'PENDING',
-    "billingPeriodStart" DATETIME NOT NULL,
-    "billingPeriodEnd" DATETIME NOT NULL,
-    "issuedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "dueDate" DATETIME NOT NULL,
-    "paidAt" DATETIME,
+    "billingPeriodStart" TIMESTAMP NOT NULL,
+    "billingPeriodEnd" TIMESTAMP NOT NULL,
+    "issuedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "dueDate" TIMESTAMP NOT NULL,
+    "paidAt" TIMESTAMP,
     "paymentMethod" TEXT,
     CONSTRAINT "Invoice_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
 CREATE TABLE "User" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "email" TEXT NOT NULL,
     "password" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -72,35 +72,35 @@ CREATE TABLE "User" (
     "status" TEXT NOT NULL DEFAULT 'PENDING',
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "emailVerified" BOOLEAN NOT NULL DEFAULT false,
-    "emailVerifiedAt" DATETIME,
+    "emailVerifiedAt" TIMESTAMP,
     "approvedBy" TEXT,
-    "approvedAt" DATETIME,
+    "approvedAt" TIMESTAMP,
     "rejectedReason" TEXT,
-    "lastLoginAt" DATETIME,
+    "lastLoginAt" TIMESTAMP,
     "lastLoginIp" TEXT,
     "loginCount" INTEGER NOT NULL DEFAULT 0,
     "resetToken" TEXT,
-    "resetTokenExpiry" DATETIME,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "resetTokenExpiry" TIMESTAMP,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL,
     CONSTRAINT "User_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "User_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
 -- CreateTable
 CREATE TABLE "CustomerAssignment" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "userId" TEXT NOT NULL,
     "customerId" TEXT NOT NULL,
     "assignedBy" TEXT NOT NULL,
-    "assignedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "assignedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "CustomerAssignment_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "CustomerAssignment_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
 CREATE TABLE "ActivityLog" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "userId" TEXT NOT NULL,
     "action" TEXT NOT NULL,
     "target" TEXT,
@@ -108,7 +108,7 @@ CREATE TABLE "ActivityLog" (
     "details" TEXT,
     "ipAddress" TEXT,
     "userAgent" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "ActivityLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
@@ -116,7 +116,7 @@ CREATE TABLE "ActivityLog" (
 PRAGMA defer_foreign_keys=ON;
 PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_Customer" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "name" TEXT NOT NULL,
     "code" TEXT,
     "fullName" TEXT,
@@ -126,8 +126,8 @@ CREATE TABLE "new_Customer" (
     "siteCategory" TEXT,
     "organizationId" TEXT,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL,
     CONSTRAINT "Customer_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 INSERT INTO "new_Customer" ("address", "code", "createdAt", "fullName", "id", "industry", "isActive", "name", "siteCategory", "siteType", "updatedAt") SELECT "address", "code", "createdAt", "fullName", "id", "industry", "isActive", "name", "siteCategory", "siteType", "updatedAt" FROM "Customer";
@@ -195,3 +195,4 @@ CREATE INDEX "ActivityLog_action_idx" ON "ActivityLog"("action");
 
 -- CreateIndex
 CREATE INDEX "ActivityLog_createdAt_idx" ON "ActivityLog"("createdAt");
+

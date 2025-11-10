@@ -12,3 +12,4 @@ CREATE UNIQUE INDEX "Customer_businessNumber_key" ON "Customer"("businessNumber"
 
 -- CreateIndex
 CREATE INDEX "Customer_businessNumber_idx" ON "Customer"("businessNumber");
+

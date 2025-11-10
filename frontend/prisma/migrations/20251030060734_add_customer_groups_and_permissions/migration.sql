@@ -3,32 +3,32 @@ ALTER TABLE "CustomerOrganization" ADD COLUMN "nickname" TEXT;
 
 -- CreateTable
 CREATE TABLE "CustomerGroup" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "name" TEXT NOT NULL,
     "businessNumber" TEXT NOT NULL,
     "address" TEXT,
     "industry" TEXT,
     "representative" TEXT,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL
 );
 
 -- CreateTable
 CREATE TABLE "RoleTemplate" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "code" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
     "category" TEXT NOT NULL,
     "isSystem" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL
 );
 
 -- CreateTable
 CREATE TABLE "RoleTemplatePermission" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "templateId" TEXT NOT NULL,
     "permissionCode" TEXT NOT NULL,
     CONSTRAINT "RoleTemplatePermission_templateId_fkey" FOREIGN KEY ("templateId") REFERENCES "RoleTemplate" ("id") ON DELETE CASCADE ON UPDATE CASCADE
@@ -36,22 +36,22 @@ CREATE TABLE "RoleTemplatePermission" (
 
 -- CreateTable
 CREATE TABLE "CustomRole" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "organizationId" TEXT,
     "customerId" TEXT,
     "name" TEXT NOT NULL,
     "description" TEXT,
     "templateId" TEXT,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "createdBy" TEXT NOT NULL,
-    "updatedAt" DATETIME NOT NULL,
+    "updatedAt" TIMESTAMP NOT NULL,
     CONSTRAINT "CustomRole_templateId_fkey" FOREIGN KEY ("templateId") REFERENCES "RoleTemplate" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
 -- CreateTable
 CREATE TABLE "CustomRolePermission" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "roleId" TEXT NOT NULL,
     "permissionCode" TEXT NOT NULL,
     "granted" BOOLEAN NOT NULL DEFAULT true,
@@ -60,29 +60,29 @@ CREATE TABLE "CustomRolePermission" (
 
 -- CreateTable
 CREATE TABLE "UserPermission" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "userId" TEXT NOT NULL,
     "permissionCode" TEXT NOT NULL,
     "granted" BOOLEAN NOT NULL,
     "grantedBy" TEXT NOT NULL,
-    "grantedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "grantedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "reason" TEXT,
     CONSTRAINT "UserPermission_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
 CREATE TABLE "CustomerInvitation" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "token" TEXT NOT NULL,
     "customerId" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "adminEmail" TEXT,
     "adminName" TEXT,
     "status" TEXT NOT NULL DEFAULT 'PENDING',
-    "expiresAt" DATETIME NOT NULL,
-    "usedAt" DATETIME,
+    "expiresAt" TIMESTAMP NOT NULL,
+    "usedAt" TIMESTAMP,
     "usedBy" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "createdBy" TEXT NOT NULL,
     CONSTRAINT "CustomerInvitation_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "CustomerInvitation_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization" ("id") ON DELETE CASCADE ON UPDATE CASCADE
@@ -92,7 +92,7 @@ CREATE TABLE "CustomerInvitation" (
 PRAGMA defer_foreign_keys=ON;
 PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_Customer" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "name" TEXT NOT NULL,
     "code" TEXT,
     "businessNumber" TEXT,
@@ -105,8 +105,8 @@ CREATE TABLE "new_Customer" (
     "createdBy" TEXT,
     "isPublic" BOOLEAN NOT NULL DEFAULT false,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL,
     CONSTRAINT "Customer_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "CustomerGroup" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 INSERT INTO "new_Customer" ("address", "businessNumber", "code", "createdAt", "fullName", "id", "industry", "isActive", "name", "siteCategory", "siteType", "updatedAt") SELECT "address", "businessNumber", "code", "createdAt", "fullName", "id", "industry", "isActive", "name", "siteCategory", "siteType", "updatedAt" FROM "Customer";
@@ -119,7 +119,7 @@ CREATE INDEX "Customer_businessNumber_idx" ON "Customer"("businessNumber");
 CREATE INDEX "Customer_groupId_idx" ON "Customer"("groupId");
 CREATE INDEX "Customer_createdBy_idx" ON "Customer"("createdBy");
 CREATE TABLE "new_User" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "email" TEXT NOT NULL,
     "password" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -137,17 +137,17 @@ CREATE TABLE "new_User" (
     "status" TEXT NOT NULL DEFAULT 'PENDING',
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "emailVerified" BOOLEAN NOT NULL DEFAULT false,
-    "emailVerifiedAt" DATETIME,
+    "emailVerifiedAt" TIMESTAMP,
     "approvedBy" TEXT,
-    "approvedAt" DATETIME,
+    "approvedAt" TIMESTAMP,
     "rejectedReason" TEXT,
-    "lastLoginAt" DATETIME,
+    "lastLoginAt" TIMESTAMP,
     "lastLoginIp" TEXT,
     "loginCount" INTEGER NOT NULL DEFAULT 0,
     "resetToken" TEXT,
-    "resetTokenExpiry" DATETIME,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "resetTokenExpiry" TIMESTAMP,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL,
     CONSTRAINT "User_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "User_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "User_customerGroupId_fkey" FOREIGN KEY ("customerGroupId") REFERENCES "CustomerGroup" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
@@ -209,3 +209,4 @@ CREATE INDEX "CustomerInvitation_customerId_idx" ON "CustomerInvitation"("custom
 
 -- CreateIndex
 CREATE INDEX "CustomerInvitation_organizationId_idx" ON "CustomerInvitation"("organizationId");
+

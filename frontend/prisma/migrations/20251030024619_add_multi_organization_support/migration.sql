@@ -12,21 +12,21 @@ ALTER TABLE "Stack" ADD COLUMN "location" TEXT;
 
 -- CreateTable
 CREATE TABLE "CustomerOrganization" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "customerId" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'PENDING',
     "requestedBy" TEXT NOT NULL,
-    "contractStartDate" DATETIME,
-    "contractEndDate" DATETIME,
+    "contractStartDate" TIMESTAMP,
+    "contractEndDate" TIMESTAMP,
     "customCode" TEXT,
     "notified30Days" BOOLEAN NOT NULL DEFAULT false,
     "notified7Days" BOOLEAN NOT NULL DEFAULT false,
     "notifiedExpiry" BOOLEAN NOT NULL DEFAULT false,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
-    "approvedAt" DATETIME,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL,
+    "approvedAt" TIMESTAMP,
     "approvedBy" TEXT,
     CONSTRAINT "CustomerOrganization_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "CustomerOrganization_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization" ("id") ON DELETE CASCADE ON UPDATE CASCADE
@@ -34,14 +34,14 @@ CREATE TABLE "CustomerOrganization" (
 
 -- CreateTable
 CREATE TABLE "StackOrganization" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "stackId" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'PENDING',
     "isPrimary" BOOLEAN NOT NULL DEFAULT false,
-    "requestedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "requestedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "requestedBy" TEXT NOT NULL,
-    "approvedAt" DATETIME,
+    "approvedAt" TIMESTAMP,
     "approvedBy" TEXT,
     CONSTRAINT "StackOrganization_stackId_fkey" FOREIGN KEY ("stackId") REFERENCES "Stack" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "StackOrganization_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization" ("id") ON DELETE CASCADE ON UPDATE CASCADE
@@ -49,7 +49,7 @@ CREATE TABLE "StackOrganization" (
 
 -- CreateTable
 CREATE TABLE "StackRequest" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "customerId" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "requestType" TEXT NOT NULL,
@@ -63,9 +63,9 @@ CREATE TABLE "StackRequest" (
     "existingStackId" TEXT,
     "status" TEXT NOT NULL DEFAULT 'PENDING',
     "requestedBy" TEXT NOT NULL,
-    "requestedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "requestedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "reviewedBy" TEXT,
-    "reviewedAt" DATETIME,
+    "reviewedAt" TIMESTAMP,
     "rejectionReason" TEXT,
     CONSTRAINT "StackRequest_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "StackRequest_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
@@ -74,14 +74,14 @@ CREATE TABLE "StackRequest" (
 
 -- CreateTable
 CREATE TABLE "StackHistory" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "stackId" TEXT NOT NULL,
     "fieldName" TEXT NOT NULL,
     "previousValue" TEXT,
     "newValue" TEXT,
     "changeReason" TEXT,
     "changedBy" TEXT NOT NULL,
-    "changedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "changedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "StackHistory_stackId_fkey" FOREIGN KEY ("stackId") REFERENCES "Stack" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "StackHistory_changedBy_fkey" FOREIGN KEY ("changedBy") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
@@ -90,12 +90,12 @@ CREATE TABLE "StackHistory" (
 PRAGMA defer_foreign_keys=ON;
 PRAGMA foreign_keys=OFF;
 
--- 임시 테이블에 기존 Customer 데이터 저장 (organizationId 포함)
+-- ?�시 ?�이블에 기존 Customer ?�이???�??(organizationId ?�함)
 CREATE TEMP TABLE "temp_Customer_Migration" AS
 SELECT * FROM "Customer";
 
 CREATE TABLE "new_Customer" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "name" TEXT NOT NULL,
     "code" TEXT,
     "businessNumber" TEXT,
@@ -105,8 +105,8 @@ CREATE TABLE "new_Customer" (
     "industry" TEXT,
     "siteCategory" TEXT,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL
 );
 INSERT INTO "new_Customer" ("address", "businessNumber", "code", "createdAt", "fullName", "id", "industry", "isActive", "name", "siteCategory", "siteType", "updatedAt") SELECT "address", "businessNumber", "code", "createdAt", "fullName", "id", "industry", "isActive", "name", "siteCategory", "siteType", "updatedAt" FROM "Customer";
 DROP TABLE "Customer";
@@ -116,7 +116,7 @@ CREATE UNIQUE INDEX "Customer_businessNumber_key" ON "Customer"("businessNumber"
 CREATE INDEX "Customer_code_idx" ON "Customer"("code");
 CREATE INDEX "Customer_businessNumber_idx" ON "Customer"("businessNumber");
 
--- 기존 Customer.organizationId를 CustomerOrganization으로 마이그레이션
+-- 기존 Customer.organizationId�?CustomerOrganization?�로 마이그레?�션
 INSERT INTO "CustomerOrganization" ("id", "customerId", "organizationId", "status", "requestedBy", "isActive", "createdAt", "updatedAt", "approvedAt")
 SELECT 
     lower(hex(randomblob(16))),
@@ -131,12 +131,12 @@ SELECT
 FROM "temp_Customer_Migration"
 WHERE "organizationId" IS NOT NULL;
 CREATE TABLE "new_Measurement" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "customerId" TEXT NOT NULL,
     "stackId" TEXT NOT NULL,
     "itemKey" TEXT NOT NULL,
     "value" REAL NOT NULL,
-    "measuredAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "measuredAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "organizationId" TEXT NOT NULL,
     "weather" TEXT,
     "temperatureC" REAL,
@@ -158,7 +158,7 @@ CREATE TABLE "new_Measurement" (
     CONSTRAINT "Measurement_itemKey_fkey" FOREIGN KEY ("itemKey") REFERENCES "Item" ("key") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "Measurement_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
--- Measurement에 organizationId 설정 (임시 테이블의 organizationId 사용)
+-- Measurement??organizationId ?�정 (?�시 ?�이블의 organizationId ?�용)
 INSERT INTO "new_Measurement" 
 SELECT 
     m."id",
@@ -194,7 +194,7 @@ CREATE INDEX "Measurement_organizationId_idx" ON "Measurement"("organizationId")
 CREATE INDEX "Measurement_customerId_organizationId_idx" ON "Measurement"("customerId", "organizationId");
 CREATE UNIQUE INDEX "Measurement_stackId_itemKey_measuredAt_key" ON "Measurement"("stackId", "itemKey", "measuredAt");
 
--- 임시 테이블 삭제
+-- ?�시 ?�이�???��
 DROP TABLE IF EXISTS "temp_Customer_Migration";
 
 PRAGMA foreign_keys=ON;
@@ -226,3 +226,4 @@ CREATE INDEX "StackHistory_stackId_idx" ON "StackHistory"("stackId");
 
 -- CreateIndex
 CREATE INDEX "StackHistory_changedAt_idx" ON "StackHistory"("changedAt");
+

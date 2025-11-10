@@ -5,12 +5,12 @@ ALTER TABLE "Item" ADD COLUMN "options" TEXT;
 
 -- CreateTable
 CREATE TABLE "Report" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "version" INTEGER NOT NULL DEFAULT 1,
     "parentId" TEXT,
     "customerId" TEXT NOT NULL,
     "stackId" TEXT NOT NULL,
-    "measuredAt" DATETIME NOT NULL,
+    "measuredAt" TIMESTAMP NOT NULL,
     "companyName" TEXT NOT NULL,
     "address" TEXT,
     "representative" TEXT,
@@ -38,7 +38,7 @@ CREATE TABLE "Report" (
     "gasTemp" REAL,
     "gasVel" REAL,
     "gasNote" TEXT,
-    "samplingDate" DATETIME NOT NULL,
+    "samplingDate" TIMESTAMP NOT NULL,
     "samplingStart" TEXT,
     "samplingEnd" TEXT,
     "sampler" TEXT,
@@ -51,8 +51,8 @@ CREATE TABLE "Report" (
     "opinion" TEXT,
     "status" TEXT NOT NULL DEFAULT 'DRAFT',
     "createdBy" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL,
     CONSTRAINT "Report_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "Report_stackId_fkey" FOREIGN KEY ("stackId") REFERENCES "Stack" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "Report_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
@@ -60,24 +60,24 @@ CREATE TABLE "Report" (
 
 -- CreateTable
 CREATE TABLE "ReportTemplate" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "customerId" TEXT NOT NULL,
     "environmentalTech" TEXT,
     "chiefTech" TEXT,
     "analyst" TEXT,
     "sampler" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL,
     CONSTRAINT "ReportTemplate_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
 CREATE TABLE "communications" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "customerId" TEXT NOT NULL,
     "measurementId" TEXT,
     "stackId" TEXT,
-    "contactAt" DATETIME NOT NULL,
+    "contactAt" TIMESTAMP NOT NULL,
     "channel" TEXT NOT NULL,
     "direction" TEXT NOT NULL,
     "subject" TEXT,
@@ -90,10 +90,10 @@ CREATE TABLE "communications" (
     "contactOrg" TEXT,
     "isShared" BOOLEAN NOT NULL DEFAULT true,
     "isDeleted" BOOLEAN NOT NULL DEFAULT false,
-    "deletedAt" DATETIME,
+    "deletedAt" TIMESTAMP,
     "deletedById" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL,
     CONSTRAINT "communications_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "communications_measurementId_fkey" FOREIGN KEY ("measurementId") REFERENCES "Measurement" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "communications_stackId_fkey" FOREIGN KEY ("stackId") REFERENCES "Stack" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
@@ -103,7 +103,7 @@ CREATE TABLE "communications" (
 
 -- CreateTable
 CREATE TABLE "communication_attachments" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "communicationId" TEXT NOT NULL,
     "filename" TEXT NOT NULL,
     "originalFilename" TEXT NOT NULL,
@@ -111,33 +111,33 @@ CREATE TABLE "communication_attachments" (
     "fileSize" INTEGER NOT NULL,
     "mimeType" TEXT NOT NULL,
     "uploadedById" TEXT NOT NULL,
-    "uploadedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "uploadedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "communication_attachments_communicationId_fkey" FOREIGN KEY ("communicationId") REFERENCES "communications" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "communication_attachments_uploadedById_fkey" FOREIGN KEY ("uploadedById") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
 CREATE TABLE "communication_replies" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "communicationId" TEXT NOT NULL,
     "content" TEXT NOT NULL,
     "direction" TEXT NOT NULL,
     "createdById" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "communication_replies_communicationId_fkey" FOREIGN KEY ("communicationId") REFERENCES "communications" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "communication_replies_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
 CREATE TABLE "communication_notes" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "communicationId" TEXT NOT NULL,
     "note" TEXT NOT NULL,
     "organizationId" TEXT,
     "customerId" TEXT,
     "mentionedUserId" TEXT,
     "createdById" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "communication_notes_communicationId_fkey" FOREIGN KEY ("communicationId") REFERENCES "communications" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "communication_notes_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "communication_notes_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
@@ -147,7 +147,7 @@ CREATE TABLE "communication_notes" (
 
 -- CreateTable
 CREATE TABLE "communication_templates" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "title" TEXT NOT NULL,
     "content" TEXT NOT NULL,
     "channel" TEXT,
@@ -157,15 +157,15 @@ CREATE TABLE "communication_templates" (
     "sortOrder" INTEGER NOT NULL DEFAULT 0,
     "createdById" TEXT NOT NULL,
     "usageCount" INTEGER NOT NULL DEFAULT 0,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL,
     CONSTRAINT "communication_templates_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "communication_templates_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
 CREATE TABLE "insight_reports" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "customerId" TEXT NOT NULL,
     "itemKey" TEXT NOT NULL,
     "itemName" TEXT NOT NULL,
@@ -173,10 +173,10 @@ CREATE TABLE "insight_reports" (
     "reportData" TEXT NOT NULL,
     "chartImage" TEXT,
     "pdfBase64" TEXT NOT NULL,
-    "sharedAt" DATETIME,
+    "sharedAt" TIMESTAMP,
     "sharedBy" TEXT,
-    "viewedAt" DATETIME,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "viewedAt" TIMESTAMP,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "createdBy" TEXT NOT NULL,
     CONSTRAINT "insight_reports_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "insight_reports_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
@@ -187,7 +187,7 @@ CREATE TABLE "insight_reports" (
 PRAGMA defer_foreign_keys=ON;
 PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_Customer" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "name" TEXT NOT NULL,
     "code" TEXT,
     "businessNumber" TEXT,
@@ -199,20 +199,20 @@ CREATE TABLE "new_Customer" (
     "businessType" TEXT,
     "industry" TEXT,
     "siteCategory" TEXT,
-    "contractStartDate" DATETIME,
-    "contractEndDate" DATETIME,
+    "contractStartDate" TIMESTAMP,
+    "contractEndDate" TIMESTAMP,
     "groupId" TEXT,
     "createdBy" TEXT,
     "isPublic" BOOLEAN NOT NULL DEFAULT false,
     "status" TEXT NOT NULL DEFAULT 'CONNECTED',
     "draftCreatedBy" TEXT,
-    "draftCreatedAt" DATETIME,
+    "draftCreatedAt" TIMESTAMP,
     "isVerified" BOOLEAN NOT NULL DEFAULT true,
     "lastModifiedBy" TEXT,
-    "lastModifiedAt" DATETIME,
+    "lastModifiedAt" TIMESTAMP,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL,
     CONSTRAINT "Customer_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "CustomerGroup" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 INSERT INTO "new_Customer" ("address", "businessNumber", "code", "contractEndDate", "contractStartDate", "createdAt", "createdBy", "draftCreatedAt", "draftCreatedBy", "fullName", "groupId", "id", "industry", "isActive", "isPublic", "name", "siteCategory", "siteType", "status", "updatedAt") SELECT "address", "businessNumber", "code", "contractEndDate", "contractStartDate", "createdAt", "createdBy", "draftCreatedAt", "draftCreatedBy", "fullName", "groupId", "id", "industry", "isActive", "isPublic", "name", "siteCategory", "siteType", "status", "updatedAt" FROM "Customer";
@@ -226,13 +226,13 @@ CREATE INDEX "Customer_createdBy_idx" ON "Customer"("createdBy");
 CREATE INDEX "Customer_status_idx" ON "Customer"("status");
 CREATE INDEX "Customer_draftCreatedBy_idx" ON "Customer"("draftCreatedBy");
 CREATE TABLE "new_CustomerOrganization" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "customerId" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'PENDING',
     "requestedBy" TEXT NOT NULL,
-    "contractStartDate" DATETIME,
-    "contractEndDate" DATETIME,
+    "contractStartDate" TIMESTAMP,
+    "contractEndDate" TIMESTAMP,
     "customCode" TEXT,
     "nickname" TEXT,
     "notified30Days" BOOLEAN NOT NULL DEFAULT false,
@@ -241,9 +241,9 @@ CREATE TABLE "new_CustomerOrganization" (
     "notified7Days" BOOLEAN NOT NULL DEFAULT false,
     "notifiedExpiry" BOOLEAN NOT NULL DEFAULT false,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
-    "approvedAt" DATETIME,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL,
+    "approvedAt" TIMESTAMP,
     "approvedBy" TEXT,
     CONSTRAINT "CustomerOrganization_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "CustomerOrganization_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization" ("id") ON DELETE CASCADE ON UPDATE CASCADE
@@ -255,7 +255,7 @@ CREATE INDEX "CustomerOrganization_status_idx" ON "CustomerOrganization"("status
 CREATE INDEX "CustomerOrganization_contractEndDate_idx" ON "CustomerOrganization"("contractEndDate");
 CREATE UNIQUE INDEX "CustomerOrganization_customerId_organizationId_key" ON "CustomerOrganization"("customerId", "organizationId");
 CREATE TABLE "new_EmissionLimit" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "itemKey" TEXT NOT NULL,
     "limit" REAL NOT NULL,
     "region" TEXT,
@@ -263,8 +263,8 @@ CREATE TABLE "new_EmissionLimit" (
     "stackId" TEXT NOT NULL DEFAULT '',
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "createdBy" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL
 );
 INSERT INTO "new_EmissionLimit" ("createdAt", "createdBy", "customerId", "id", "itemKey", "limit", "region", "stackId", "updatedAt") SELECT "createdAt", "createdBy", "customerId", "id", "itemKey", "limit", "region", "stackId", "updatedAt" FROM "EmissionLimit";
 DROP TABLE "EmissionLimit";
@@ -329,3 +329,4 @@ CREATE INDEX "insight_reports_customerId_itemKey_createdAt_idx" ON "insight_repo
 
 -- CreateIndex
 CREATE INDEX "insight_reports_customerId_sharedAt_idx" ON "insight_reports"("customerId", "sharedAt");
+

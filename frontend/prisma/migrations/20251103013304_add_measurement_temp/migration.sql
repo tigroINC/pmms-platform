@@ -1,16 +1,16 @@
 -- CreateTable
 CREATE TABLE "MeasurementTemp" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "tempId" TEXT NOT NULL,
     "customerId" TEXT NOT NULL,
     "stackId" TEXT NOT NULL,
-    "measurementDate" DATETIME NOT NULL,
+    "measurementDate" TIMESTAMP NOT NULL,
     "measurements" TEXT NOT NULL,
     "auxiliaryData" TEXT,
-    "status" TEXT NOT NULL DEFAULT '임시저장',
+    "status" TEXT NOT NULL DEFAULT '?�시?�??,
     "createdBy" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL
 );
 
 -- CreateIndex
@@ -33,3 +33,4 @@ CREATE INDEX "MeasurementTemp_status_idx" ON "MeasurementTemp"("status");
 
 -- CreateIndex
 CREATE INDEX "MeasurementTemp_tempId_idx" ON "MeasurementTemp"("tempId");
+

@@ -6,3 +6,4 @@
 */
 -- CreateIndex
 CREATE UNIQUE INDEX "Measurement_stackId_itemKey_measuredAt_key" ON "Measurement"("stackId", "itemKey", "measuredAt");
+

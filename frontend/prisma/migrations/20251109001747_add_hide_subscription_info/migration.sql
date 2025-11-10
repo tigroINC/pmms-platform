@@ -2,7 +2,7 @@
 PRAGMA defer_foreign_keys=ON;
 PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_Organization" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "name" TEXT NOT NULL,
     "businessNumber" TEXT,
     "corporateNumber" TEXT,
@@ -13,23 +13,23 @@ CREATE TABLE "new_Organization" (
     "representative" TEXT,
     "website" TEXT,
     "fax" TEXT,
-    "establishedDate" DATETIME,
+    "establishedDate" TIMESTAMP,
     "subscriptionPlan" TEXT NOT NULL DEFAULT 'FREE',
     "subscriptionStatus" TEXT NOT NULL DEFAULT 'TRIAL',
-    "subscriptionStartAt" DATETIME,
-    "subscriptionEndAt" DATETIME,
+    "subscriptionStartAt" TIMESTAMP,
+    "subscriptionEndAt" TIMESTAMP,
     "maxUsers" INTEGER NOT NULL DEFAULT 1,
     "maxStacks" INTEGER NOT NULL DEFAULT 5,
     "maxDataRetention" INTEGER NOT NULL DEFAULT 365,
     "billingEmail" TEXT,
     "billingContact" TEXT,
-    "lastPaymentAt" DATETIME,
-    "nextBillingAt" DATETIME,
+    "lastPaymentAt" TIMESTAMP,
+    "nextBillingAt" TIMESTAMP,
     "hasContractManagement" BOOLEAN NOT NULL DEFAULT false,
     "hideSubscriptionInfo" BOOLEAN NOT NULL DEFAULT false,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL
 );
 INSERT INTO "new_Organization" ("address", "billingContact", "billingEmail", "businessNumber", "businessType", "corporateNumber", "createdAt", "email", "establishedDate", "fax", "hasContractManagement", "id", "isActive", "lastPaymentAt", "maxDataRetention", "maxStacks", "maxUsers", "name", "nextBillingAt", "phone", "representative", "subscriptionEndAt", "subscriptionPlan", "subscriptionStartAt", "subscriptionStatus", "updatedAt", "website") SELECT "address", "billingContact", "billingEmail", "businessNumber", "businessType", "corporateNumber", "createdAt", "email", "establishedDate", "fax", "hasContractManagement", "id", "isActive", "lastPaymentAt", "maxDataRetention", "maxStacks", "maxUsers", "name", "nextBillingAt", "phone", "representative", "subscriptionEndAt", "subscriptionPlan", "subscriptionStartAt", "subscriptionStatus", "updatedAt", "website" FROM "Organization";
 DROP TABLE "Organization";
@@ -39,3 +39,4 @@ CREATE INDEX "Organization_businessNumber_idx" ON "Organization"("businessNumber
 CREATE INDEX "Organization_subscriptionStatus_idx" ON "Organization"("subscriptionStatus");
 PRAGMA foreign_keys=ON;
 PRAGMA defer_foreign_keys=OFF;
+

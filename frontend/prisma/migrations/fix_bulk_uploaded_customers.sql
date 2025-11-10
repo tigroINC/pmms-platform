@@ -1,5 +1,5 @@
--- 일괄업로드로 생성된 고객사의 조직 연결 제거
--- createdBy가 있고 isPublic=false인 고객사는 내부 관리용으로 간주
+-- ?�괄?�로?�로 ?�성??고객?�의 조직 ?�결 ?�거
+-- createdBy가 ?�고 isPublic=false??고객?�는 ?��? 관리용?�로 간주
 
 DELETE FROM "CustomerOrganization"
 WHERE "customerId" IN (
@@ -8,8 +8,9 @@ WHERE "customerId" IN (
   AND "isPublic" = false
 );
 
--- 확인용 쿼리 (실행 전 확인)
+-- ?�인??쿼리 (?�행 ???�인)
 -- SELECT c.id, c.name, c.code, c."createdBy", c."isPublic", co.status
 -- FROM "Customer" c
 -- LEFT JOIN "CustomerOrganization" co ON c.id = co."customerId"
 -- WHERE c."createdBy" IS NOT NULL AND c."isPublic" = false;
+

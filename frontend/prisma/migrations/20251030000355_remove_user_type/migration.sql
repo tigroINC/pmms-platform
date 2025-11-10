@@ -8,7 +8,7 @@
 PRAGMA defer_foreign_keys=ON;
 PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_User" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "email" TEXT NOT NULL,
     "password" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -23,17 +23,17 @@ CREATE TABLE "new_User" (
     "status" TEXT NOT NULL DEFAULT 'PENDING',
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "emailVerified" BOOLEAN NOT NULL DEFAULT false,
-    "emailVerifiedAt" DATETIME,
+    "emailVerifiedAt" TIMESTAMP,
     "approvedBy" TEXT,
-    "approvedAt" DATETIME,
+    "approvedAt" TIMESTAMP,
     "rejectedReason" TEXT,
-    "lastLoginAt" DATETIME,
+    "lastLoginAt" TIMESTAMP,
     "lastLoginIp" TEXT,
     "loginCount" INTEGER NOT NULL DEFAULT 0,
     "resetToken" TEXT,
-    "resetTokenExpiry" DATETIME,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "resetTokenExpiry" TIMESTAMP,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL,
     CONSTRAINT "User_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "User_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
@@ -48,3 +48,4 @@ CREATE INDEX "User_status_idx" ON "User"("status");
 CREATE INDEX "User_role_idx" ON "User"("role");
 PRAGMA foreign_keys=ON;
 PRAGMA defer_foreign_keys=OFF;
+

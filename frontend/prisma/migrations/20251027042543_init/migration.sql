@@ -39,7 +39,7 @@ ALTER TABLE "Stack" ADD COLUMN "height" REAL;
 
 -- CreateTable
 CREATE TABLE "StackAlias" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "stackId" TEXT NOT NULL,
     "alias" TEXT NOT NULL,
     "type" TEXT,
@@ -48,22 +48,22 @@ CREATE TABLE "StackAlias" (
 
 -- CreateTable
 CREATE TABLE "ItemLimitHistory" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "itemKey" TEXT NOT NULL,
     "limit" REAL NOT NULL,
-    "effectiveFrom" DATETIME,
-    "effectiveTo" DATETIME,
+    "effectiveFrom" TIMESTAMP,
+    "effectiveTo" TIMESTAMP,
     "source" TEXT,
     CONSTRAINT "ItemLimitHistory_itemKey_fkey" FOREIGN KEY ("itemKey") REFERENCES "Item" ("key") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
 CREATE TABLE "StagingMeasurementRaw" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "sourceFile" TEXT NOT NULL,
     "rowNo" INTEGER NOT NULL,
     "rawJson" TEXT NOT NULL,
-    "ingestedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "ingestedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- CreateIndex
@@ -86,3 +86,4 @@ CREATE INDEX "Measurement_customerId_stackId_measuredAt_idx" ON "Measurement"("c
 
 -- CreateIndex
 CREATE INDEX "Measurement_itemKey_measuredAt_idx" ON "Measurement"("itemKey", "measuredAt");
+

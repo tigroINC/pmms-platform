@@ -2,7 +2,7 @@
 PRAGMA defer_foreign_keys=ON;
 PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_Customer" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "name" TEXT NOT NULL,
     "code" TEXT,
     "businessNumber" TEXT,
@@ -14,23 +14,23 @@ CREATE TABLE "new_Customer" (
     "businessType" TEXT,
     "industry" TEXT,
     "siteCategory" TEXT,
-    "contractStartDate" DATETIME,
-    "contractEndDate" DATETIME,
+    "contractStartDate" TIMESTAMP,
+    "contractEndDate" TIMESTAMP,
     "groupId" TEXT,
     "createdBy" TEXT,
     "isPublic" BOOLEAN NOT NULL DEFAULT false,
     "status" TEXT NOT NULL DEFAULT 'CONNECTED',
     "draftCreatedBy" TEXT,
-    "draftCreatedAt" DATETIME,
+    "draftCreatedAt" TIMESTAMP,
     "isVerified" BOOLEAN NOT NULL DEFAULT true,
     "lastModifiedBy" TEXT,
-    "lastModifiedAt" DATETIME,
+    "lastModifiedAt" TIMESTAMP,
     "subscriptionPlan" TEXT NOT NULL DEFAULT 'FREE',
     "subscriptionStatus" TEXT NOT NULL DEFAULT 'TRIAL',
     "hideSubscriptionInfo" BOOLEAN NOT NULL DEFAULT false,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL,
     CONSTRAINT "Customer_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "CustomerGroup" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 INSERT INTO "new_Customer" ("address", "businessNumber", "businessType", "code", "contractEndDate", "contractStartDate", "corporateNumber", "createdAt", "createdBy", "draftCreatedAt", "draftCreatedBy", "fullName", "groupId", "id", "industry", "isActive", "isPublic", "isVerified", "lastModifiedAt", "lastModifiedBy", "name", "representative", "siteCategory", "siteType", "status", "updatedAt") SELECT "address", "businessNumber", "businessType", "code", "contractEndDate", "contractStartDate", "corporateNumber", "createdAt", "createdBy", "draftCreatedAt", "draftCreatedBy", "fullName", "groupId", "id", "industry", "isActive", "isPublic", "isVerified", "lastModifiedAt", "lastModifiedBy", "name", "representative", "siteCategory", "siteType", "status", "updatedAt" FROM "Customer";
@@ -45,3 +45,4 @@ CREATE INDEX "Customer_status_idx" ON "Customer"("status");
 CREATE INDEX "Customer_draftCreatedBy_idx" ON "Customer"("draftCreatedBy");
 PRAGMA foreign_keys=ON;
 PRAGMA defer_foreign_keys=OFF;
+

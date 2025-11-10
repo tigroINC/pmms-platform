@@ -2,17 +2,17 @@
 PRAGMA defer_foreign_keys=ON;
 PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_MeasurementTemp" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT PRIMARY KEY,
     "tempId" TEXT NOT NULL,
     "customerId" TEXT NOT NULL,
     "stackId" TEXT NOT NULL,
-    "measurementDate" DATETIME NOT NULL,
+    "measurementDate" TIMESTAMP NOT NULL,
     "measurements" TEXT NOT NULL,
     "auxiliaryData" TEXT,
-    "status" TEXT NOT NULL DEFAULT '임시저장',
+    "status" TEXT NOT NULL DEFAULT '?�시?�??,
     "createdBy" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL,
     CONSTRAINT "MeasurementTemp_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "MeasurementTemp_stackId_fkey" FOREIGN KEY ("stackId") REFERENCES "Stack" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
@@ -28,3 +28,4 @@ CREATE INDEX "MeasurementTemp_status_idx" ON "MeasurementTemp"("status");
 CREATE INDEX "MeasurementTemp_tempId_idx" ON "MeasurementTemp"("tempId");
 PRAGMA foreign_keys=ON;
 PRAGMA defer_foreign_keys=OFF;
+
