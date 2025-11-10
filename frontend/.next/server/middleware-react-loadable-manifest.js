@@ -1,0 +1,1 @@
+self.__REACT_LOADABLE_MANIFEST='{"components\\\\charts\\\\BoazTrendChart.tsx -> chart.js/auto":{"id":5678,"files":["static/chunks/ca377847.78f5bfde1ce65614.js","static/chunks/1276.04c34a65360a86cb.js"]}}';
