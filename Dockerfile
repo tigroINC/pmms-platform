@@ -56,15 +56,18 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/backend ./backend
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /usr/lib/python3.11 /usr/lib/python3.11
 COPY --from=builder /usr/bin/python3 /usr/bin/python3
+COPY frontend/start.sh ./start.sh
 
-# 업로드 디렉토리 생성
-RUN mkdir -p /app/public/uploads
+# 업로드 디렉토리 생성 및 스크립트 실행 권한 부여
+RUN mkdir -p /app/public/uploads && chmod +x /app/start.sh
 
 EXPOSE 3000
 
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
-CMD ["node", "server.js"]
+CMD ["sh", "start.sh"]
