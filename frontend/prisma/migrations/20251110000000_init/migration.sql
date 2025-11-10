@@ -1382,5 +1382,3 @@ ALTER TABLE "insight_reports" ADD CONSTRAINT "insight_reports_createdBy_fkey" FO
 -- AddForeignKey
 ALTER TABLE "insight_reports" ADD CONSTRAINT "insight_reports_sharedBy_fkey" FOREIGN KEY ("sharedBy") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
-
-
