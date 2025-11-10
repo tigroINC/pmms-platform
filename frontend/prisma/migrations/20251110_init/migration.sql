@@ -1,4 +1,4 @@
-﻿-- CreateEnum
+-- CreateEnum
 CREATE TYPE "CustomerStatus" AS ENUM ('DRAFT', 'CONNECTED');
 
 -- CreateEnum
@@ -694,7 +694,7 @@ CREATE TABLE "MeasurementTemp" (
     "measurementDate" TIMESTAMP(3) NOT NULL,
     "measurements" TEXT NOT NULL,
     "auxiliaryData" TEXT,
-    "status" TEXT NOT NULL DEFAULT '?꾩떆???,
+    "status" TEXT NOT NULL DEFAULT '???????,
     "createdBy" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
