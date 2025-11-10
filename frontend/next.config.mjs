@@ -13,11 +13,6 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   
-  // 동적 렌더링 강제 (static generation 비활성화)
-  experimental: {
-    dynamicIO: true,
-  },
-  
   images: {
     unoptimized: true,
     remotePatterns: [
