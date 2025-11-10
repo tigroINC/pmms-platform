@@ -1,10 +1,8 @@
 -- AlterTable
 ALTER TABLE "Customer" ADD COLUMN "contractEndDate" TIMESTAMP;
 ALTER TABLE "Customer" ADD COLUMN "contractStartDate" TIMESTAMP;
-
 -- AlterTable
 ALTER TABLE "UserPermission" ADD COLUMN "expiresAt" TIMESTAMP;
-
 -- CreateTable
 CREATE TABLE "StackAssignment" (
     "id" TEXT PRIMARY KEY,
@@ -16,7 +14,6 @@ CREATE TABLE "StackAssignment" (
     CONSTRAINT "StackAssignment_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "StackAssignment_stackId_fkey" FOREIGN KEY ("stackId") REFERENCES "Stack" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
-
 -- CreateTable
 CREATE TABLE "PermissionChangeLog" (
     "id" TEXT PRIMARY KEY,
@@ -36,10 +33,6 @@ CREATE TABLE "PermissionChangeLog" (
     "success" BOOLEAN NOT NULL,
     "errorMsg" TEXT
 );
-
--- RedefineTables
-PRAGMA defer_foreign_keys=ON;
-PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_CustomRole" (
     "id" TEXT PRIMARY KEY,
     "organizationId" TEXT,
@@ -61,27 +54,18 @@ ALTER TABLE "new_CustomRole" RENAME TO "CustomRole";
 CREATE INDEX "CustomRole_organizationId_idx" ON "CustomRole"("organizationId");
 CREATE INDEX "CustomRole_customerId_idx" ON "CustomRole"("customerId");
 CREATE UNIQUE INDEX "CustomRole_organizationId_name_key" ON "CustomRole"("organizationId", "name");
-PRAGMA foreign_keys=ON;
-PRAGMA defer_foreign_keys=OFF;
-
 -- CreateIndex
 CREATE INDEX "StackAssignment_userId_idx" ON "StackAssignment"("userId");
-
 -- CreateIndex
 CREATE INDEX "StackAssignment_stackId_idx" ON "StackAssignment"("stackId");
-
 -- CreateIndex
 CREATE UNIQUE INDEX "StackAssignment_userId_stackId_key" ON "StackAssignment"("userId", "stackId");
-
 -- CreateIndex
 CREATE INDEX "PermissionChangeLog_targetUser_idx" ON "PermissionChangeLog"("targetUser");
-
 -- CreateIndex
 CREATE INDEX "PermissionChangeLog_changedBy_idx" ON "PermissionChangeLog"("changedBy");
-
 -- CreateIndex
 CREATE INDEX "PermissionChangeLog_changedAt_idx" ON "PermissionChangeLog"("changedAt");
-
 -- CreateIndex
 CREATE INDEX "UserPermission_expiresAt_idx" ON "UserPermission"("expiresAt");
 

@@ -1,6 +1,3 @@
--- RedefineTables
-PRAGMA defer_foreign_keys=ON;
-PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_Organization" (
     "id" TEXT PRIMARY KEY,
     "name" TEXT NOT NULL,
@@ -37,6 +34,4 @@ ALTER TABLE "new_Organization" RENAME TO "Organization";
 CREATE UNIQUE INDEX "Organization_businessNumber_key" ON "Organization"("businessNumber");
 CREATE INDEX "Organization_businessNumber_idx" ON "Organization"("businessNumber");
 CREATE INDEX "Organization_subscriptionStatus_idx" ON "Organization"("subscriptionStatus");
-PRAGMA foreign_keys=ON;
-PRAGMA defer_foreign_keys=OFF;
 

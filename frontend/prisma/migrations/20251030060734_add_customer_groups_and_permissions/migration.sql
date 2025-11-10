@@ -1,6 +1,5 @@
 -- AlterTable
 ALTER TABLE "CustomerOrganization" ADD COLUMN "nickname" TEXT;
-
 -- CreateTable
 CREATE TABLE "CustomerGroup" (
     "id" TEXT PRIMARY KEY,
@@ -13,7 +12,6 @@ CREATE TABLE "CustomerGroup" (
     "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP NOT NULL
 );
-
 -- CreateTable
 CREATE TABLE "RoleTemplate" (
     "id" TEXT PRIMARY KEY,
@@ -25,7 +23,6 @@ CREATE TABLE "RoleTemplate" (
     "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP NOT NULL
 );
-
 -- CreateTable
 CREATE TABLE "RoleTemplatePermission" (
     "id" TEXT PRIMARY KEY,
@@ -33,7 +30,6 @@ CREATE TABLE "RoleTemplatePermission" (
     "permissionCode" TEXT NOT NULL,
     CONSTRAINT "RoleTemplatePermission_templateId_fkey" FOREIGN KEY ("templateId") REFERENCES "RoleTemplate" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
-
 -- CreateTable
 CREATE TABLE "CustomRole" (
     "id" TEXT PRIMARY KEY,
@@ -48,7 +44,6 @@ CREATE TABLE "CustomRole" (
     "updatedAt" TIMESTAMP NOT NULL,
     CONSTRAINT "CustomRole_templateId_fkey" FOREIGN KEY ("templateId") REFERENCES "RoleTemplate" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
-
 -- CreateTable
 CREATE TABLE "CustomRolePermission" (
     "id" TEXT PRIMARY KEY,
@@ -57,7 +52,6 @@ CREATE TABLE "CustomRolePermission" (
     "granted" BOOLEAN NOT NULL DEFAULT true,
     CONSTRAINT "CustomRolePermission_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "CustomRole" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
-
 -- CreateTable
 CREATE TABLE "UserPermission" (
     "id" TEXT PRIMARY KEY,
@@ -69,7 +63,6 @@ CREATE TABLE "UserPermission" (
     "reason" TEXT,
     CONSTRAINT "UserPermission_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
-
 -- CreateTable
 CREATE TABLE "CustomerInvitation" (
     "id" TEXT PRIMARY KEY,
@@ -87,10 +80,6 @@ CREATE TABLE "CustomerInvitation" (
     CONSTRAINT "CustomerInvitation_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "CustomerInvitation_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
-
--- RedefineTables
-PRAGMA defer_foreign_keys=ON;
-PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_Customer" (
     "id" TEXT PRIMARY KEY,
     "name" TEXT NOT NULL,
@@ -162,51 +151,34 @@ CREATE INDEX "User_organizationId_idx" ON "User"("organizationId");
 CREATE INDEX "User_customerId_idx" ON "User"("customerId");
 CREATE INDEX "User_status_idx" ON "User"("status");
 CREATE INDEX "User_role_idx" ON "User"("role");
-PRAGMA foreign_keys=ON;
-PRAGMA defer_foreign_keys=OFF;
-
 -- CreateIndex
 CREATE UNIQUE INDEX "CustomerGroup_businessNumber_key" ON "CustomerGroup"("businessNumber");
-
 -- CreateIndex
 CREATE INDEX "CustomerGroup_businessNumber_idx" ON "CustomerGroup"("businessNumber");
-
 -- CreateIndex
 CREATE UNIQUE INDEX "RoleTemplate_code_key" ON "RoleTemplate"("code");
-
 -- CreateIndex
 CREATE UNIQUE INDEX "RoleTemplatePermission_templateId_permissionCode_key" ON "RoleTemplatePermission"("templateId", "permissionCode");
-
 -- CreateIndex
 CREATE INDEX "CustomRole_organizationId_idx" ON "CustomRole"("organizationId");
-
 -- CreateIndex
 CREATE INDEX "CustomRole_customerId_idx" ON "CustomRole"("customerId");
-
 -- CreateIndex
 CREATE UNIQUE INDEX "CustomRole_organizationId_name_key" ON "CustomRole"("organizationId", "name");
-
 -- CreateIndex
 CREATE UNIQUE INDEX "CustomRolePermission_roleId_permissionCode_key" ON "CustomRolePermission"("roleId", "permissionCode");
-
 -- CreateIndex
 CREATE INDEX "UserPermission_userId_idx" ON "UserPermission"("userId");
-
 -- CreateIndex
 CREATE UNIQUE INDEX "UserPermission_userId_permissionCode_key" ON "UserPermission"("userId", "permissionCode");
-
 -- CreateIndex
 CREATE UNIQUE INDEX "CustomerInvitation_token_key" ON "CustomerInvitation"("token");
-
 -- CreateIndex
 CREATE INDEX "CustomerInvitation_token_idx" ON "CustomerInvitation"("token");
-
 -- CreateIndex
 CREATE INDEX "CustomerInvitation_status_idx" ON "CustomerInvitation"("status");
-
 -- CreateIndex
 CREATE INDEX "CustomerInvitation_customerId_idx" ON "CustomerInvitation"("customerId");
-
 -- CreateIndex
 CREATE INDEX "CustomerInvitation_organizationId_idx" ON "CustomerInvitation"("organizationId");
 

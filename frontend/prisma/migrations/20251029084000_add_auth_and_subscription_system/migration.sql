@@ -22,7 +22,6 @@ CREATE TABLE "Organization" (
     "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP NOT NULL
 );
-
 -- CreateTable
 CREATE TABLE "SubscriptionHistory" (
     "id" TEXT PRIMARY KEY,
@@ -36,7 +35,6 @@ CREATE TABLE "SubscriptionHistory" (
     "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "SubscriptionHistory_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
-
 -- CreateTable
 CREATE TABLE "Invoice" (
     "id" TEXT PRIMARY KEY,
@@ -53,7 +51,6 @@ CREATE TABLE "Invoice" (
     "paymentMethod" TEXT,
     CONSTRAINT "Invoice_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
-
 -- CreateTable
 CREATE TABLE "User" (
     "id" TEXT PRIMARY KEY,
@@ -86,7 +83,6 @@ CREATE TABLE "User" (
     CONSTRAINT "User_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "User_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
-
 -- CreateTable
 CREATE TABLE "CustomerAssignment" (
     "id" TEXT PRIMARY KEY,
@@ -97,7 +93,6 @@ CREATE TABLE "CustomerAssignment" (
     CONSTRAINT "CustomerAssignment_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "CustomerAssignment_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
-
 -- CreateTable
 CREATE TABLE "ActivityLog" (
     "id" TEXT PRIMARY KEY,
@@ -111,10 +106,6 @@ CREATE TABLE "ActivityLog" (
     "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "ActivityLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
-
--- RedefineTables
-PRAGMA defer_foreign_keys=ON;
-PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_Customer" (
     "id" TEXT PRIMARY KEY,
     "name" TEXT NOT NULL,
@@ -136,63 +127,42 @@ ALTER TABLE "new_Customer" RENAME TO "Customer";
 CREATE UNIQUE INDEX "Customer_name_key" ON "Customer"("name");
 CREATE INDEX "Customer_code_idx" ON "Customer"("code");
 CREATE INDEX "Customer_organizationId_idx" ON "Customer"("organizationId");
-PRAGMA foreign_keys=ON;
-PRAGMA defer_foreign_keys=OFF;
-
 -- CreateIndex
 CREATE UNIQUE INDEX "Organization_businessNumber_key" ON "Organization"("businessNumber");
-
 -- CreateIndex
 CREATE INDEX "Organization_businessNumber_idx" ON "Organization"("businessNumber");
-
 -- CreateIndex
 CREATE INDEX "Organization_subscriptionStatus_idx" ON "Organization"("subscriptionStatus");
-
 -- CreateIndex
 CREATE INDEX "SubscriptionHistory_organizationId_idx" ON "SubscriptionHistory"("organizationId");
-
 -- CreateIndex
 CREATE UNIQUE INDEX "Invoice_invoiceNumber_key" ON "Invoice"("invoiceNumber");
-
 -- CreateIndex
 CREATE INDEX "Invoice_organizationId_idx" ON "Invoice"("organizationId");
-
 -- CreateIndex
 CREATE INDEX "Invoice_status_idx" ON "Invoice"("status");
-
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
-
 -- CreateIndex
 CREATE INDEX "User_email_idx" ON "User"("email");
-
 -- CreateIndex
 CREATE INDEX "User_organizationId_idx" ON "User"("organizationId");
-
 -- CreateIndex
 CREATE INDEX "User_customerId_idx" ON "User"("customerId");
-
 -- CreateIndex
 CREATE INDEX "User_status_idx" ON "User"("status");
-
 -- CreateIndex
 CREATE INDEX "User_role_idx" ON "User"("role");
-
 -- CreateIndex
 CREATE INDEX "CustomerAssignment_userId_idx" ON "CustomerAssignment"("userId");
-
 -- CreateIndex
 CREATE INDEX "CustomerAssignment_customerId_idx" ON "CustomerAssignment"("customerId");
-
 -- CreateIndex
 CREATE UNIQUE INDEX "CustomerAssignment_userId_customerId_key" ON "CustomerAssignment"("userId", "customerId");
-
 -- CreateIndex
 CREATE INDEX "ActivityLog_userId_idx" ON "ActivityLog"("userId");
-
 -- CreateIndex
 CREATE INDEX "ActivityLog_action_idx" ON "ActivityLog"("action");
-
 -- CreateIndex
 CREATE INDEX "ActivityLog_createdAt_idx" ON "ActivityLog"("createdAt");
 

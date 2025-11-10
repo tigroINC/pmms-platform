@@ -1,9 +1,7 @@
 -- DropIndex
 DROP INDEX "MeasurementTemp_tempId_idx";
-
 -- DropIndex
 DROP INDEX "MeasurementTemp_status_idx";
-
 -- CreateTable
 CREATE TABLE "Contract" (
     "id" TEXT PRIMARY KEY,
@@ -20,10 +18,6 @@ CREATE TABLE "Contract" (
     CONSTRAINT "Contract_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "Contract_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
-
--- RedefineTables
-PRAGMA defer_foreign_keys=ON;
-PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_Organization" (
     "id" TEXT PRIMARY KEY,
     "name" TEXT NOT NULL,
@@ -59,18 +53,12 @@ ALTER TABLE "new_Organization" RENAME TO "Organization";
 CREATE UNIQUE INDEX "Organization_businessNumber_key" ON "Organization"("businessNumber");
 CREATE INDEX "Organization_businessNumber_idx" ON "Organization"("businessNumber");
 CREATE INDEX "Organization_subscriptionStatus_idx" ON "Organization"("subscriptionStatus");
-PRAGMA foreign_keys=ON;
-PRAGMA defer_foreign_keys=OFF;
-
 -- CreateIndex
 CREATE INDEX "Contract_organizationId_idx" ON "Contract"("organizationId");
-
 -- CreateIndex
 CREATE INDEX "Contract_customerId_idx" ON "Contract"("customerId");
-
 -- CreateIndex
 CREATE INDEX "Contract_status_idx" ON "Contract"("status");
-
 -- CreateIndex
 CREATE INDEX "Contract_endDate_idx" ON "Contract"("endDate");
 

@@ -1,12 +1,7 @@
 /*
   Warnings:
-
   - You are about to drop the column `userType` on the `User` table. All the data in the column will be lost.
-
 */
--- RedefineTables
-PRAGMA defer_foreign_keys=ON;
-PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_User" (
     "id" TEXT PRIMARY KEY,
     "email" TEXT NOT NULL,
@@ -46,6 +41,4 @@ CREATE INDEX "User_organizationId_idx" ON "User"("organizationId");
 CREATE INDEX "User_customerId_idx" ON "User"("customerId");
 CREATE INDEX "User_status_idx" ON "User"("status");
 CREATE INDEX "User_role_idx" ON "User"("role");
-PRAGMA foreign_keys=ON;
-PRAGMA defer_foreign_keys=OFF;
 

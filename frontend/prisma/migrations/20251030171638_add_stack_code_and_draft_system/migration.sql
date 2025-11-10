@@ -14,7 +14,6 @@ CREATE TABLE "StackCode" (
     CONSTRAINT "StackCode_stackId_fkey" FOREIGN KEY ("stackId") REFERENCES "Stack" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "StackCode_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
-
 -- CreateTable
 CREATE TABLE "StackUpdateLog" (
     "id" TEXT PRIMARY KEY,
@@ -27,10 +26,6 @@ CREATE TABLE "StackUpdateLog" (
     "notifiedOrgs" TEXT NOT NULL,
     CONSTRAINT "StackUpdateLog_stackId_fkey" FOREIGN KEY ("stackId") REFERENCES "Stack" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
-
--- RedefineTables
-PRAGMA defer_foreign_keys=ON;
-PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_Customer" (
     "id" TEXT PRIMARY KEY,
     "name" TEXT NOT NULL,
@@ -97,21 +92,14 @@ CREATE INDEX "Stack_status_idx" ON "Stack"("status");
 CREATE INDEX "Stack_draftCreatedBy_idx" ON "Stack"("draftCreatedBy");
 CREATE UNIQUE INDEX "Stack_customerId_siteCode_key" ON "Stack"("customerId", "siteCode");
 CREATE UNIQUE INDEX "Stack_customerId_name_key" ON "Stack"("customerId", "name");
-PRAGMA foreign_keys=ON;
-PRAGMA defer_foreign_keys=OFF;
-
 -- CreateIndex
 CREATE INDEX "StackCode_organizationId_internalCode_idx" ON "StackCode"("organizationId", "internalCode");
-
 -- CreateIndex
 CREATE INDEX "StackCode_stackId_idx" ON "StackCode"("stackId");
-
 -- CreateIndex
 CREATE UNIQUE INDEX "StackCode_stackId_organizationId_key" ON "StackCode"("stackId", "organizationId");
-
 -- CreateIndex
 CREATE INDEX "StackUpdateLog_stackId_idx" ON "StackUpdateLog"("stackId");
-
 -- CreateIndex
 CREATE INDEX "StackUpdateLog_updatedAt_idx" ON "StackUpdateLog"("updatedAt");
 

@@ -1,6 +1,3 @@
--- RedefineTables
-PRAGMA defer_foreign_keys=ON;
-PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_CustomerAssignment" (
     "id" TEXT PRIMARY KEY,
     "userId" TEXT NOT NULL,
@@ -17,6 +14,4 @@ ALTER TABLE "new_CustomerAssignment" RENAME TO "CustomerAssignment";
 CREATE INDEX "CustomerAssignment_userId_idx" ON "CustomerAssignment"("userId");
 CREATE INDEX "CustomerAssignment_customerId_idx" ON "CustomerAssignment"("customerId");
 CREATE UNIQUE INDEX "CustomerAssignment_userId_customerId_key" ON "CustomerAssignment"("userId", "customerId");
-PRAGMA foreign_keys=ON;
-PRAGMA defer_foreign_keys=OFF;
 

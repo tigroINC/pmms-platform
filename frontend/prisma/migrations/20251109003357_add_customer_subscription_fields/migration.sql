@@ -1,6 +1,3 @@
--- RedefineTables
-PRAGMA defer_foreign_keys=ON;
-PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_Customer" (
     "id" TEXT PRIMARY KEY,
     "name" TEXT NOT NULL,
@@ -43,6 +40,4 @@ CREATE INDEX "Customer_groupId_idx" ON "Customer"("groupId");
 CREATE INDEX "Customer_createdBy_idx" ON "Customer"("createdBy");
 CREATE INDEX "Customer_status_idx" ON "Customer"("status");
 CREATE INDEX "Customer_draftCreatedBy_idx" ON "Customer"("draftCreatedBy");
-PRAGMA foreign_keys=ON;
-PRAGMA defer_foreign_keys=OFF;
 

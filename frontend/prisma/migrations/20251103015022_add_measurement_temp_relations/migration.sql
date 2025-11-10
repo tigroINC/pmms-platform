@@ -1,6 +1,3 @@
--- RedefineTables
-PRAGMA defer_foreign_keys=ON;
-PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_MeasurementTemp" (
     "id" TEXT PRIMARY KEY,
     "tempId" TEXT NOT NULL,
@@ -26,6 +23,4 @@ CREATE INDEX "MeasurementTemp_customerId_idx" ON "MeasurementTemp"("customerId")
 CREATE INDEX "MeasurementTemp_stackId_idx" ON "MeasurementTemp"("stackId");
 CREATE INDEX "MeasurementTemp_status_idx" ON "MeasurementTemp"("status");
 CREATE INDEX "MeasurementTemp_tempId_idx" ON "MeasurementTemp"("tempId");
-PRAGMA foreign_keys=ON;
-PRAGMA defer_foreign_keys=OFF;
 

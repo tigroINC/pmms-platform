@@ -1,6 +1,3 @@
--- RedefineTables
-PRAGMA defer_foreign_keys=ON;
-PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_EmissionLimit" (
     "id" TEXT PRIMARY KEY,
     "itemKey" TEXT NOT NULL,
@@ -19,6 +16,4 @@ CREATE INDEX "EmissionLimit_itemKey_idx" ON "EmissionLimit"("itemKey");
 CREATE INDEX "EmissionLimit_customerId_idx" ON "EmissionLimit"("customerId");
 CREATE INDEX "EmissionLimit_stackId_idx" ON "EmissionLimit"("stackId");
 CREATE UNIQUE INDEX "EmissionLimit_itemKey_customerId_stackId_key" ON "EmissionLimit"("itemKey", "customerId", "stackId");
-PRAGMA foreign_keys=ON;
-PRAGMA defer_foreign_keys=OFF;
 

@@ -2,7 +2,6 @@
 ALTER TABLE "Item" ADD COLUMN "analysisMethod" TEXT;
 ALTER TABLE "Item" ADD COLUMN "inputType" TEXT DEFAULT 'number';
 ALTER TABLE "Item" ADD COLUMN "options" TEXT;
-
 -- CreateTable
 CREATE TABLE "Report" (
     "id" TEXT PRIMARY KEY,
@@ -57,7 +56,6 @@ CREATE TABLE "Report" (
     CONSTRAINT "Report_stackId_fkey" FOREIGN KEY ("stackId") REFERENCES "Stack" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "Report_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
-
 -- CreateTable
 CREATE TABLE "ReportTemplate" (
     "id" TEXT PRIMARY KEY,
@@ -70,7 +68,6 @@ CREATE TABLE "ReportTemplate" (
     "updatedAt" TIMESTAMP NOT NULL,
     CONSTRAINT "ReportTemplate_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
-
 -- CreateTable
 CREATE TABLE "communications" (
     "id" TEXT PRIMARY KEY,
@@ -100,7 +97,6 @@ CREATE TABLE "communications" (
     CONSTRAINT "communications_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "communications_assignedToId_fkey" FOREIGN KEY ("assignedToId") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
-
 -- CreateTable
 CREATE TABLE "communication_attachments" (
     "id" TEXT PRIMARY KEY,
@@ -115,7 +111,6 @@ CREATE TABLE "communication_attachments" (
     CONSTRAINT "communication_attachments_communicationId_fkey" FOREIGN KEY ("communicationId") REFERENCES "communications" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "communication_attachments_uploadedById_fkey" FOREIGN KEY ("uploadedById") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
-
 -- CreateTable
 CREATE TABLE "communication_replies" (
     "id" TEXT PRIMARY KEY,
@@ -127,7 +122,6 @@ CREATE TABLE "communication_replies" (
     CONSTRAINT "communication_replies_communicationId_fkey" FOREIGN KEY ("communicationId") REFERENCES "communications" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "communication_replies_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
-
 -- CreateTable
 CREATE TABLE "communication_notes" (
     "id" TEXT PRIMARY KEY,
@@ -144,7 +138,6 @@ CREATE TABLE "communication_notes" (
     CONSTRAINT "communication_notes_mentionedUserId_fkey" FOREIGN KEY ("mentionedUserId") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "communication_notes_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
-
 -- CreateTable
 CREATE TABLE "communication_templates" (
     "id" TEXT PRIMARY KEY,
@@ -162,7 +155,6 @@ CREATE TABLE "communication_templates" (
     CONSTRAINT "communication_templates_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "communication_templates_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
-
 -- CreateTable
 CREATE TABLE "insight_reports" (
     "id" TEXT PRIMARY KEY,
@@ -182,10 +174,6 @@ CREATE TABLE "insight_reports" (
     CONSTRAINT "insight_reports_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "insight_reports_sharedBy_fkey" FOREIGN KEY ("sharedBy") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
-
--- RedefineTables
-PRAGMA defer_foreign_keys=ON;
-PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_Customer" (
     "id" TEXT PRIMARY KEY,
     "name" TEXT NOT NULL,
@@ -273,60 +261,40 @@ CREATE INDEX "EmissionLimit_itemKey_idx" ON "EmissionLimit"("itemKey");
 CREATE INDEX "EmissionLimit_customerId_idx" ON "EmissionLimit"("customerId");
 CREATE INDEX "EmissionLimit_stackId_idx" ON "EmissionLimit"("stackId");
 CREATE UNIQUE INDEX "EmissionLimit_itemKey_customerId_stackId_key" ON "EmissionLimit"("itemKey", "customerId", "stackId");
-PRAGMA foreign_keys=ON;
-PRAGMA defer_foreign_keys=OFF;
-
 -- CreateIndex
 CREATE INDEX "Report_customerId_stackId_measuredAt_idx" ON "Report"("customerId", "stackId", "measuredAt");
-
 -- CreateIndex
 CREATE INDEX "Report_status_idx" ON "Report"("status");
-
 -- CreateIndex
 CREATE INDEX "Report_createdBy_idx" ON "Report"("createdBy");
-
 -- CreateIndex
 CREATE UNIQUE INDEX "ReportTemplate_customerId_key" ON "ReportTemplate"("customerId");
-
 -- CreateIndex
 CREATE INDEX "communications_customerId_status_contactAt_idx" ON "communications"("customerId", "status", "contactAt" DESC);
-
 -- CreateIndex
 CREATE INDEX "communications_assignedToId_status_isDeleted_idx" ON "communications"("assignedToId", "status", "isDeleted");
-
 -- CreateIndex
 CREATE INDEX "communications_createdById_isDeleted_idx" ON "communications"("createdById", "isDeleted");
-
 -- CreateIndex
 CREATE INDEX "communications_isDeleted_contactAt_idx" ON "communications"("isDeleted", "contactAt" DESC);
-
 -- CreateIndex
 CREATE INDEX "communication_attachments_communicationId_idx" ON "communication_attachments"("communicationId");
-
 -- CreateIndex
 CREATE INDEX "communication_replies_communicationId_createdAt_idx" ON "communication_replies"("communicationId", "createdAt");
-
 -- CreateIndex
 CREATE INDEX "communication_notes_communicationId_idx" ON "communication_notes"("communicationId");
-
 -- CreateIndex
 CREATE INDEX "communication_notes_organizationId_idx" ON "communication_notes"("organizationId");
-
 -- CreateIndex
 CREATE INDEX "communication_notes_customerId_idx" ON "communication_notes"("customerId");
-
 -- CreateIndex
 CREATE INDEX "communication_notes_mentionedUserId_idx" ON "communication_notes"("mentionedUserId");
-
 -- CreateIndex
 CREATE INDEX "communication_templates_organizationId_isShared_category_idx" ON "communication_templates"("organizationId", "isShared", "category");
-
 -- CreateIndex
 CREATE INDEX "communication_templates_usageCount_idx" ON "communication_templates"("usageCount" DESC);
-
 -- CreateIndex
 CREATE INDEX "insight_reports_customerId_itemKey_createdAt_idx" ON "insight_reports"("customerId", "itemKey", "createdAt");
-
 -- CreateIndex
 CREATE INDEX "insight_reports_customerId_sharedAt_idx" ON "insight_reports"("customerId", "sharedAt");
 
