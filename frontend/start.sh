@@ -1,8 +1,4 @@
-#!/bin/sh
-set -e
-
-echo "Running database migrations..."
+﻿#!/bin/sh
 npx prisma migrate deploy
-
-echo "Starting application..."
-node server.js
+npm run build
+next start
