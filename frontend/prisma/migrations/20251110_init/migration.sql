@@ -5,16 +5,16 @@ CREATE TYPE "CustomerStatus" AS ENUM ('DRAFT', 'CONNECTED');
 CREATE TYPE "SubscriptionPlan" AS ENUM ('FREE', 'BASIC', 'PLUS', 'MASTER', 'STANDARD', 'PREMIUM', 'ENTERPRISE');
 
 -- CreateEnum
-CREATE TYPE "SubscriptionStatus" AS ENUM ('TRIAL', 'ACTIVE', 'EXPIRED', 'SUSPENDED', 'CANCELLED');
+CREATE TYPE "SubscriptionStatus" AS ENUM ('TRIAL', ''ACTIVE'', 'EXPIRED', 'SUSPENDED', ''CANCELLED'');
 
 -- CreateEnum
-CREATE TYPE "InvoiceStatus" AS ENUM ('PENDING', 'PAID', 'OVERDUE', 'CANCELLED');
+CREATE TYPE "InvoiceStatus" AS ENUM (''PENDING'', 'PAID', 'OVERDUE', ''CANCELLED'');
 
 -- CreateEnum
 CREATE TYPE "UserRole" AS ENUM ('SUPER_ADMIN', 'ORG_ADMIN', 'OPERATOR', 'CUSTOMER_ADMIN', 'CUSTOMER_USER');
 
 -- CreateEnum
-CREATE TYPE "UserStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED', 'WITHDRAWN');
+CREATE TYPE "UserStatus" AS ENUM (''PENDING'', 'APPROVED', 'REJECTED', 'SUSPENDED', 'WITHDRAWN');
 
 -- CreateEnum
 CREATE TYPE "AccessScope" AS ENUM ('SYSTEM', 'ORGANIZATION', 'SITE');
@@ -29,7 +29,7 @@ CREATE TYPE "CommunicationChannel" AS ENUM ('PHONE', 'EMAIL', 'VISIT', 'KAKAO', 
 CREATE TYPE "CommunicationDirection" AS ENUM ('INBOUND', 'OUTBOUND');
 
 -- CreateEnum
-CREATE TYPE "CommunicationStatus" AS ENUM ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'REFERENCE');
+CREATE TYPE "CommunicationStatus" AS ENUM (''PENDING'', 'IN_PROGRESS', ''COMPLETED'', 'REFERENCE');
 
 -- CreateEnum
 CREATE TYPE "Priority" AS ENUM ('URGENT', 'HIGH', 'NORMAL', 'LOW');
@@ -321,7 +321,7 @@ CREATE TABLE "Invoice" (
     "invoiceNumber" TEXT NOT NULL,
     "amount" DOUBLE PRECISION NOT NULL,
     "currency" TEXT NOT NULL DEFAULT 'KRW',
-    "status" "InvoiceStatus" NOT NULL DEFAULT 'PENDING',
+    "status" "InvoiceStatus" NOT NULL DEFAULT ''PENDING'',
     "billingPeriodStart" TIMESTAMP(3) NOT NULL,
     "billingPeriodEnd" TIMESTAMP(3) NOT NULL,
     "issuedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -349,7 +349,7 @@ CREATE TABLE "User" (
     "position" TEXT,
     "companyName" TEXT,
     "businessNumber" TEXT,
-    "status" "UserStatus" NOT NULL DEFAULT 'PENDING',
+    "status" "UserStatus" NOT NULL DEFAULT ''PENDING'',
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "emailVerified" BOOLEAN NOT NULL DEFAULT false,
     "emailVerifiedAt" TIMESTAMP(3),
@@ -417,7 +417,7 @@ CREATE TABLE "CustomerOrganization" (
     "id" TEXT NOT NULL,
     "customerId" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
-    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "status" TEXT NOT NULL DEFAULT ''PENDING'',
     "requestedBy" TEXT NOT NULL,
     "contractStartDate" TIMESTAMP(3),
     "contractEndDate" TIMESTAMP(3),
@@ -443,7 +443,7 @@ CREATE TABLE "StackOrganization" (
     "id" TEXT NOT NULL,
     "stackId" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
-    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "status" TEXT NOT NULL DEFAULT ''PENDING'',
     "isPrimary" BOOLEAN NOT NULL DEFAULT false,
     "requestedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "requestedBy" TEXT NOT NULL,
@@ -467,7 +467,7 @@ CREATE TABLE "StackRequest" (
     "coordinates" TEXT,
     "description" TEXT,
     "existingStackId" TEXT,
-    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "status" TEXT NOT NULL DEFAULT ''PENDING'',
     "requestedBy" TEXT NOT NULL,
     "requestedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "reviewedBy" TEXT,
@@ -645,7 +645,7 @@ CREATE TABLE "CustomerInvitation" (
     "adminPhone" TEXT,
     "suggestedRole" TEXT,
     "roleNote" TEXT,
-    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "status" TEXT NOT NULL DEFAULT ''PENDING'',
     "expiresAt" TIMESTAMP(3) NOT NULL,
     "usedAt" TIMESTAMP(3),
     "usedBy" TEXT,
@@ -709,7 +709,7 @@ CREATE TABLE "Contract" (
     "customerId" TEXT NOT NULL,
     "startDate" TIMESTAMP(3) NOT NULL,
     "endDate" TIMESTAMP(3) NOT NULL,
-    "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+    "status" TEXT NOT NULL DEFAULT ''ACTIVE'',
     "lastNotifiedAt" TIMESTAMP(3),
     "memo" TEXT,
     "createdBy" TEXT NOT NULL,
@@ -730,7 +730,7 @@ CREATE TABLE "communications" (
     "direction" "CommunicationDirection" NOT NULL,
     "subject" TEXT,
     "content" TEXT NOT NULL,
-    "status" "CommunicationStatus" NOT NULL DEFAULT 'PENDING',
+    "status" "CommunicationStatus" NOT NULL DEFAULT ''PENDING'',
     "priority" "Priority" NOT NULL DEFAULT 'NORMAL',
     "createdById" TEXT NOT NULL,
     "assignedToId" TEXT,
@@ -1381,4 +1381,5 @@ ALTER TABLE "insight_reports" ADD CONSTRAINT "insight_reports_createdBy_fkey" FO
 
 -- AddForeignKey
 ALTER TABLE "insight_reports" ADD CONSTRAINT "insight_reports_sharedBy_fkey" FOREIGN KEY ("sharedBy") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
 
