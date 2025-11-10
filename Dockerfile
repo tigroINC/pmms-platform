@@ -32,6 +32,7 @@ COPY frontend/ .
 
 # Prisma 생성 (빌드용 임시 DATABASE_URL)
 ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
+ENV NEXT_PUBLIC_APP_URL="http://localhost:3000"
 RUN npx prisma generate
 
 # Next.js 빌드
