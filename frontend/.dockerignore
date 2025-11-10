@@ -1,0 +1,53 @@
+# Node
+node_modules
+npm-debug.log
+.npm
+
+# Next.js
+.next
+out
+dist
+
+# Environment
+.env
+.env.local
+.env.development
+.env.test
+.env.production.local
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Testing
+coverage
+.nyc_output
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# Misc
+README.md
+docs/
+*.md
