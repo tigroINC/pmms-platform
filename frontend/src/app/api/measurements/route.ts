@@ -88,6 +88,9 @@ export async function GET(request: Request) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const customerFilter: any = {};
     
+    // 조직 ID 계산 (고객사 사용자와 환경측정기업 사용자 모두 사용)
+    const effectiveOrgId = organizationId || userOrgId;
+    
     // 고객사 사용자: 자신의 고객사 데이터만 조회
     if (isCustomerUser && userCustomerId) {
       customerFilter.id = userCustomerId;
@@ -102,7 +105,6 @@ export async function GET(request: Request) {
       
       // 조직 필터링 (내부 관리 + 연결된 고객사)
       const userId = (session.user as any).id;
-      const effectiveOrgId = organizationId || userOrgId;
       
       if (userRole === "SUPER_ADMIN") {
         if (organizationId) {
