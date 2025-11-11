@@ -4,7 +4,7 @@ EA-I-0003,암모니아,Ammonia,ppm,오염물질,무기물질(기본항목),3,ES 
 EA-I-0004,일산화탄소,Carbon Monoxide,ppm,오염물질,무기물질(기본항목),,ES 01309.2c 자외선/가시선분광법
 EA-I-0005,염화수소,Hydrogen Chloride,ppm,오염물질,무기물질,3,ES 01309.2c 자외선/가시선분광법
 EA-I-0006,염소,Chlorine,ppm,오염물질,무기물질,,ES 01309.2c 자외선/가시선분광법
-EA-I-0007,황산화물,Sulfur Oxides,ppm,오염물질,무기물질(기본항목),14,ES 01309.2c 자외선/가시선분광법
+EA-I-0007,황산화물,Sulfur Oxides,ppm,오염물질,무기물질(기본항목),140,ES 01309.2c 자외선/가시선분광법
 EA-I-0008,질소산화물,Nitrogen Oxides,ppm,오염물질,무기물질(기본항목),,ES 01309.2c 자외선/가시선분광법
 EA-I-0009,이황화탄소,Carbon Disulfide,ppm,오염물질,무기물질(기본항목),,ES 01309.2c 자외선/가시선분광법
 EA-I-0010,황화수소,Hydrogen Sulfide,ppm,오염물질,무기물질(기본항목),,ES 01309.2c 자외선/가시선분광법
@@ -12,14 +12,14 @@ EA-I-0011,플루오린화합물,Fluorine Compounds,ppm,오염물질,무기물질
 EA-I-0012,사이안화수소,Hydrogen Cyanide,ppm,오염물질,무기물질,,ES 01309.2c 자외선/가시선분광법
 EA-I-0013,매연,Smoke,도,오염물질,무기물질(기본항목),,ES 01309.2c 자외선/가시선분광법
 EA-I-0018,하이드라진,Hydrazine,ppm,오염물질,무기물질,,ES 01309.2c 자외선/가시선분광법
-EA-M-0001,비소화합물 ,Arsenic Compounds,ppm,오염물질,금속화합물,0.25,ES 01309.2c 자외선/가시선분광법
-EA-M-0002,카드뮴화합물,Cadmium Compounds,mg/S㎥,오염물질,금속화합물,0.1,ES 01309.2c 자외선/가시선분광법
-EA-M-0003,납화합물,Lead Compounds,mg/S㎥,오염물질,금속화합물,0.39,ES 01309.2c 자외선/가시선분광법
-EA-M-0004,크로뮴화합물,Chromium Compounds,mg/S㎥,오염물질,금속화합물,,ES 01309.2c 자외선/가시선분광법
-EA-M-0005,구리화합물,Copper Compounds,mg/S㎥,오염물질,금속화합물,4,ES 01309.2c 자외선/가시선분광법
-EA-M-0006,니켈화합물,Nickel Compounds,mg/S㎥,오염물질,금속화합물,,ES 01309.2c 자외선/가시선분광법
-EA-M-0007,아연화합물,Zinc Compounds,mg/S㎥,오염물질,금속화합물,4,ES 01309.2c 자외선/가시선분광법
-EA-M-0008,수은화합물,Mercury Compounds,mg/S㎥,오염물질,금속화합물,0.1,ES 01309.2c 자외선/가시선분광법
+EA-M-0001,비소화합물(As로서),Arsenic Compounds,ppm,오염물질,금속화합물,0.25,ES 01309.2c 자외선/가시선분광법
+EA-M-0002,카드뮴화합물(Cd로서),Cadmium Compounds,mg/S㎥,오염물질,금속화합물,0.1,ES 01309.2c 자외선/가시선분광법
+EA-M-0003,납화합물(Pb로서),Lead Compounds,mg/S㎥,오염물질,금속화합물,0.39,ES 01309.2c 자외선/가시선분광법
+EA-M-0004,크롬화합물(Cr로서),Chromium Compounds,mg/S㎥,오염물질,금속화합물,,ES 01309.2c 자외선/가시선분광법
+EA-M-0005,구리화합물(Cu로서),Copper Compounds,mg/S㎥,오염물질,금속화합물,4,ES 01309.2c 자외선/가시선분광법
+EA-M-0006,니켈 및 그 화합물,Nickel Compounds,mg/S㎥,오염물질,금속화합물,,ES 01309.2c 자외선/가시선분광법
+EA-M-0007,아연화합물(Zn로서),Zinc Compounds,mg/S㎥,오염물질,금속화합물,4,ES 01309.2c 자외선/가시선분광법
+EA-M-0008,수은화합물(Hg로서),Mercury Compounds,mg/S㎥,오염물질,금속화합물,0.1,ES 01309.2c 자외선/가시선분광법
 EA-M-0009,베릴륨화합물,Beryllium Compounds,mg/S㎥,오염물질,금속화합물,,ES 01309.2c 자외선/가시선분광법
 EA-V-0001,폼알데하이드,Formaldehyde,ppm,오염물질,휘발성유기화합물,8,ES 01309.2c 자외선/가시선분광법
 EA-V-0002,아세트알데하이드,Acetaldehyde,ppm,오염물질,휘발성유기화합물,,ES 01309.2c 자외선/가시선분광법
@@ -42,6 +42,7 @@ EA-V-0087,아닐린,Aniline,ppm,오염물질,휘발성유기화합물,,ES 01309.
 EA-V-0088,에틸렌옥사이드,Ethylene Oxide,ppm,오염물질,휘발성유기화합물,,ES 01309.2c 자외선/가시선분광법
 EA-V-0093,이황화메틸,Dimethyldisulfide,ppm,오염물질,휘발성유기화합물,,ES 01309.2c 자외선/가시선분광법
 EA-V-0094,프로필렌옥사이드,Propylene Oxide,ppm,오염물질,휘발성유기화합물,,ES 01309.2c 자외선/가시선분광법
+EA-V-0099,불소화합물(F로서),,ppm,오염물질,휘발성유기화합물,2,ES 01309.2c 자외선/가시선분광법
 MENV0001,기상,Weather Condition,N/A (상태),채취환경,,,
 MENV0002,기온,Air Temperature,℃,채취환경,,,
 MENV0003,습도,Relative Humidity,％,채취환경,,,

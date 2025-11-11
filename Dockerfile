@@ -11,7 +11,7 @@ COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 
 # Python 의존성 설치
-COPY frontend/backend/requirements.txt ./backend/
+COPY backend/requirements.txt ./backend/
 RUN pip3 install --no-cache-dir -r backend/requirements.txt
 
 # Builder stage
@@ -29,6 +29,7 @@ COPY --from=deps /usr/bin/pip3 /usr/bin/pip3
 
 # 소스 코드 복사
 COPY frontend/ .
+COPY backend/ ./backend/
 
 # Prisma 생성 (빌드용 임시 환경변수)
 ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
@@ -60,12 +61,17 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /usr/lib/python3.11 /usr/lib/python3.11
 COPY --from=builder /usr/bin/python3 /usr/bin/python3
+COPY --from=deps /root/.local /root/.local
 COPY frontend/start.sh ./start.sh
+
+# Python 패키지 경로 추가
+ENV PATH="/root/.local/bin:$PATH"
+ENV PYTHONPATH="/usr/lib/python3.11/site-packages"
 
 # 업로드 디렉토리 생성 및 스크립트 실행 권한 부여
 RUN mkdir -p /app/public/uploads && chmod +x /app/start.sh
 
-EXPOSE 3000
+EXPOSE 3000 8000
 
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"

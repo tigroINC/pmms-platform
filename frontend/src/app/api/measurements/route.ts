@@ -119,18 +119,8 @@ export async function GET(request: Request) {
           ];
         }
       } else if (effectiveOrgId) {
-        // 일반 환경측정기업 사용자: 내부 관리 + 연결된 고객사
-        customerFilter.OR = [
-          { createdBy: userId },
-          {
-            organizations: {
-              some: {
-                organizationId: effectiveOrgId,
-                status: "APPROVED"
-              }
-            }
-          }
-        ];
+        // 일반 환경측정기업 사용자: 해당 조직의 측정 데이터만 조회
+        // customerFilter는 설정하지 않고, measurement의 organizationId로 필터링
       }
     }
     
@@ -138,6 +128,11 @@ export async function GET(request: Request) {
       ...stackFilter,
       ...(Object.keys(customerFilter).length > 0 ? { customer: customerFilter } : {}),
     };
+    
+    // 환경측정기업 사용자는 organizationId로 필터링
+    if (!isCustomerUser && effectiveOrgId) {
+      where.organizationId = effectiveOrgId;
+    }
 
   const data = await prisma.measurement.findMany({
     where,
