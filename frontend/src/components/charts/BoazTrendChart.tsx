@@ -54,14 +54,37 @@ export default function BoazTrendChart({
   }, [exportRef, labels, data, chartType]);
 
   useEffect(() => {
+    console.log("[BoazTrendChart] useEffect triggered", {
+      hasLabels: !!labels,
+      labelsLength: labels?.length,
+      hasData: !!data,
+      dataLength: data?.length,
+      labelsType: typeof labels,
+      dataType: typeof data,
+      firstLabel: labels?.[0],
+      firstData: data?.[0],
+      chartType
+    });
+
     let mounted = true;
     (async () => {
       try {
         const mod: any = await import("chart.js/auto");
         if (!mounted) return;
         setReady(true);
+        
+        if (!canvasRef.current) {
+          console.log("[BoazTrendChart] ❌ No canvas ref!");
+          return;
+        }
+        
+        console.log("[BoazTrendChart] ✅ Canvas ref exists, proceeding...");
+        
         const ctx = canvasRef.current?.getContext("2d");
-        if (!ctx) return;
+        if (!ctx) {
+          console.log("[BoazTrendChart] ❌ No canvas context!");
+          return;
+        }
         // destroy previous
         if (chartRef.current) {
           chartRef.current.destroy();
@@ -325,7 +348,7 @@ export default function BoazTrendChart({
           }
         };
 
-        chartRef.current = new ChartCtor(ctx, {
+        const chartConfig = {
           type: chartType === "scatter" ? "scatter" : chartType,
           data: { labels, datasets },
           options: {
@@ -460,7 +483,26 @@ export default function BoazTrendChart({
             },
           },
           plugins: [lineValuePlugin],
+        };
+
+        console.log("[BoazTrendChart] Creating chart with config:", {
+          type: chartConfig.type,
+          labelsLength: chartConfig.data.labels?.length,
+          datasetsLength: chartConfig.data.datasets?.length,
+          firstDatasetLength: chartConfig.data.datasets?.[0]?.data?.length,
+          firstDatasetType: typeof chartConfig.data.datasets?.[0]?.data,
+          firstDataPoint: chartConfig.data.datasets?.[0]?.data?.[0],
+          xAxisType: chartConfig.options?.scales?.x?.type,
+          xAxisMin: chartConfig.options?.scales?.x?.min,
+          xAxisMax: chartConfig.options?.scales?.x?.max,
+          monthTicksLength: monthTicks?.length,
+          firstMonthTick: monthTicks?.[0],
+          lastMonthTick: monthTicks?.[monthTicks?.length - 1]
         });
+
+        chartRef.current = new ChartCtor(ctx, chartConfig);
+        
+        console.log("[BoazTrendChart] ✅ Chart created successfully!");
       } catch (e) {
         // Chart.js not installed yet; keep placeholder
         setReady(false);
@@ -470,7 +512,7 @@ export default function BoazTrendChart({
       mounted = false;
       if (chartRef.current) chartRef.current.destroy();
     };
-  }, [labels, data, limit, title, chartType, showLimit30, showPrediction, showAverage, xTimes, aiPredictions]);
+  }, [labels, data, limit, title, chartType, showLimit30, showPrediction, showAverage]);
 
   return (
     <div className="w-full rounded-lg border bg-white/50 dark:bg-white/5 p-3" style={{ height: (height ?? 256) + "px" }}>

@@ -79,8 +79,25 @@ export async function POST(request: Request) {
       const stackInfo = stackMap.get(r.stack);
       if (!stackInfo) continue;
       
-      const when = r.measuredAt ? new Date(r.measuredAt) : undefined;
-      if (!r.itemKey || !when) continue;
+      // measuredAt 파싱: YYYYMMDDHHmmss 형식 또는 ISO 문자열
+      let when: Date | undefined;
+      if (r.measuredAt) {
+        const str = String(r.measuredAt).trim();
+        // YYYYMMDDHHmmss 형식 (14자리 숫자)
+        if (/^\d{14}$/.test(str)) {
+          const year = parseInt(str.substring(0, 4));
+          const month = parseInt(str.substring(4, 6)) - 1; // 0-based
+          const day = parseInt(str.substring(6, 8));
+          const hour = parseInt(str.substring(8, 10));
+          const minute = parseInt(str.substring(10, 12));
+          const second = parseInt(str.substring(12, 14));
+          when = new Date(year, month, day, hour, minute, second);
+        } else {
+          // ISO 문자열 또는 다른 형식
+          when = new Date(r.measuredAt);
+        }
+      }
+      if (!r.itemKey || !when || isNaN(when.getTime())) continue;
       
       const groupKey = `${stackInfo.id}_${when.toISOString()}`;
       

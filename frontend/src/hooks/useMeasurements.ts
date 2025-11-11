@@ -68,10 +68,15 @@ export function useMeasurementHistory(query: HistoryQuery = {}) {
     
     console.log("[useMeasurementHistory] Fetching with params:", params.toString());
     fetch(`/api/measurements?${params.toString()}`, { signal: ctrl.signal })
-      .then((r) => r.json())
+      .then((r) => {
+        console.log("[useMeasurementHistory] Fetch completed, parsing JSON...");
+        return r.json();
+      })
       .then((json) => { 
         console.log("[useMeasurementHistory] Response:", json);
-        if (mounted) setRaw(Array.isArray(json.measurements) ? json.measurements : Array.isArray(json.data) ? json.data : []); 
+        const data = Array.isArray(json.measurements) ? json.measurements : Array.isArray(json.data) ? json.data : [];
+        console.log("[useMeasurementHistory] Parsed data length:", data.length);
+        if (mounted) setRaw(data); 
       })
       .catch((err) => { 
         // AbortError는 무시 (컴포넌트 언마운트 시 정상적인 동작)
@@ -83,7 +88,7 @@ export function useMeasurementHistory(query: HistoryQuery = {}) {
         if (mounted) setRaw([]); 
       });
     return () => { mounted = false; ctrl.abort(); };
-  }, [customerId, stack, (stacks || []).join('|'), itemKey, start, end, refreshKey, selectedOrg, isCustomerUser]);
+  }, [customerId, stack, (stacks || []).join('|'), itemKey, start, end, refreshKey, selectedOrg?.id, isCustomerUser]);
 
   const filtered = raw; // API에서 1차 필터 적용됨
 

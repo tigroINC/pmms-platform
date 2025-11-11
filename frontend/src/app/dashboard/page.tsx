@@ -92,10 +92,10 @@ export default function DashboardPage() {
   const defaultDates = getDefaultDates();
   const [customer, setCustomer] = useState("전체");
   const [stacksSel, setStacksSel] = useState<string[]>([]); // empty = 전체
-  const [item, setItem] = useState<string>("먼지");
+  const [item, setItem] = useState<string>("");
   const [start, setStart] = useState(defaultDates.start);
   const [end, setEnd] = useState(defaultDates.end);
-  const [applied, setApplied] = useState({ customer: "전체", stack: "전체", item: "먼지", start: defaultDates.start, end: defaultDates.end });
+  const [applied, setApplied] = useState({ customer: "", stack: "전체", item: "", start: defaultDates.start, end: defaultDates.end });
   const [chartType, setChartType] = useState<"line" | "bar" | "scatter">("scatter");
   const [showLimit30, setShowLimit30] = useState(false);
   const [showPrediction, setShowPrediction] = useState(false);
@@ -215,25 +215,13 @@ export default function DashboardPage() {
     }
   }, [isCustomerUser, viewAsCustomerId]);
 
-  // 최소 필터 요건: 고객사 + 항목 선택 시 자동 조회
+  // 고객사 사용자만 자동 선택 (본인 회사)
   useEffect(() => {
-    // 초기 기본값 설정
-    if (customers.length && customer === "전체") {
-      if (isCustomerUser && userCustomerId) {
-        // 고객사 사용자: 자신의 회사 자동 선택
-        const myCustomer = customers.find((c) => c.id === userCustomerId);
-        if (myCustomer) setCustomer(myCustomer.name);
-      } else {
-        // 환경측정기업: '고려아연' 우선, 없으면 첫 고객사
-        const prefer = customers.find((c) => c.name.includes("고려아연")) || customers[0];
-        if (prefer) setCustomer(prefer.name);
-      }
+    if (customers.length && customer === "전체" && isCustomerUser && userCustomerId) {
+      const myCustomer = customers.find((c) => c.id === userCustomerId);
+      if (myCustomer) setCustomer(myCustomer.name);
     }
-    if (items.length && (!item || item === "")) {
-      const preferItem = items.find((it: any) => it.name === "먼지") || items[0];
-      if (preferItem) setItem(preferItem.name);
-    }
-  }, [customers, items, isCustomerUser, userCustomerId]);
+  }, [customers, isCustomerUser, userCustomerId]);
 
   useEffect(() => {
     // 고객사와 항목이 모두 선택되면 자동으로 적용 상태 반영
@@ -249,15 +237,21 @@ export default function DashboardPage() {
     }
   }, [customer, stacksSel, item, start, end]);
 
+  const sortConfig = useMemo(() => ({ key: "measuredAt" as const, dir: "asc" as const }), []);
+  const stacksArray = useMemo(() => 
+    applied.stack === "전체" || applied.stack === "" ? undefined : applied.stack.split(",").filter(Boolean),
+    [applied.stack]
+  );
+
   const { data: history } = useMeasurementHistory({
     customerId: selectedCustomerId,
-    stacks: applied.stack === "전체" || applied.stack === "" ? undefined : applied.stack.split(",").filter(Boolean),
+    stacks: stacksArray,
     itemKey: selectedItem?.key,
     page: 1,
     pageSize: 999999,
     start: applied.start,
     end: applied.end,
-    sort: { key: "measuredAt", dir: "asc" },
+    sort: sortConfig,
   });
 
   // Load auxiliary measurements for condition items
@@ -379,7 +373,7 @@ export default function DashboardPage() {
     
     console.log(`[보조항목 필터] ${base.length}건 -> ${filtered.length}건`);
     return filtered;
-  }, [history, valueMin, valueMax, JSON.stringify(conds), condDataMap]);
+  }, [history, valueMin, valueMax, JSON.stringify(conds), condDataLoading]);
 
   const { data: stackSummary, loading: stackSummaryLoading } = useStackSummary({
     customerId: selectedCustomerId,
@@ -391,6 +385,7 @@ export default function DashboardPage() {
 
   const scatterSeries = useMemo(() => {
     if (chartType !== "scatter") return undefined;
+    console.log("[Dashboard] scatterSeries - filteredHistory:", filteredHistory.length, "sample:", filteredHistory[0]);
     const seen = new Set<string>();
     const uniq: any[] = [];
     for (const r of (filteredHistory as any[])) {
@@ -406,6 +401,9 @@ export default function DashboardPage() {
     }
     const labels = uniq.map((r) => {
       const dt = new Date(r.measuredAt);
+      if (isNaN(dt.getTime())) {
+        console.warn("[Dashboard] Invalid date:", r.measuredAt, "from record:", r.id);
+      }
       const mm = String(dt.getMonth() + 1).padStart(2, '0');
       const dd = String(dt.getDate()).padStart(2, '0');
       const hh = String(dt.getHours()).padStart(2, '0');
@@ -415,6 +413,7 @@ export default function DashboardPage() {
     const values = uniq.map((r) => Number(r.value));
     const times = uniq.map((r) => r.measuredAt);
     const stacks = uniq.map((r) => r.stack?.name || "");
+    console.log("[Dashboard] Chart data:", { labels: labels.length, values: values.length, labelsample: labels[0], valuesample: values[0] });
     return { labels, values, times, stacks, payloads: uniq };
   }, [filteredHistory, chartType]);
 
@@ -499,6 +498,12 @@ export default function DashboardPage() {
     while (d <= endD) {
       out.push(d.getTime());
       d.setMonth(d.getMonth() + 1);
+    }
+    // 마지막 틱을 다음 달 첫날로 추가하여 현재 달의 데이터가 범위 안에 들어오도록 함
+    if (out.length > 0) {
+      const lastTick = new Date(out[out.length - 1]);
+      lastTick.setMonth(lastTick.getMonth() + 1);
+      out.push(lastTick.getTime());
     }
     return out;
   }, [applied.start, applied.end, chartType]);
@@ -625,7 +630,7 @@ export default function DashboardPage() {
                   >
                     <option value="전체">전체</option>
                     {customers.map((c)=> (
-                      <option key={c.id} value={c.name}>{c.name} ({c.code})</option>
+                      <option key={c.id} value={c.name}>{c.name}</option>
                     ))}
                   </Select>
                 </>
@@ -647,6 +652,7 @@ export default function DashboardPage() {
             <div className="space-y-1">
               <label className="text-sm">항목</label>
               <Select className="bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600" value={item} onChange={(e)=>setItem(((e.target as HTMLSelectElement).value))}>
+                <option value="">항목 선택</option>
                 {availableItems.map((it: any)=> (
                   <option key={it.key} value={it.name}>{it.name}</option>
                 ))}
