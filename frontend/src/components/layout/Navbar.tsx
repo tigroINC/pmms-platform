@@ -57,6 +57,11 @@ const navItems: NavItem[] = [
 export default function Navbar() {
   const pathname = usePathname();
   const { data: session, status } = useSession();
+  
+  // 세션 로딩 중에는 렌더링하지 않음
+  if (status === "loading") {
+    return null;
+  }
   const [open, setOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [orgMenuOpen, setOrgMenuOpen] = useState(false);
@@ -195,7 +200,7 @@ export default function Navbar() {
           ) : (
             // 일반 환경측정기업 사용자: 환경측정기업명 표시
             <Link href="/" className="font-semibold text-lg whitespace-nowrap">
-              {selectedOrg?.name || "보아스환경기술"}
+              {selectedOrg?.name || ((session?.user as any)?.organizationName) || "환경측정기업"}
             </Link>
           )}
 

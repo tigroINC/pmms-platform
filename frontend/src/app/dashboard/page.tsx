@@ -17,14 +17,27 @@ import { InsightReportResponse, isValidPdfResponse, validatePdfBase64 } from "@/
 import { useSession } from "next-auth/react";
 
 // 카테고리형 필터 체크박스 컴포넌트
-function CategoryCheckboxes({ itemKey, selected, onChange }: { itemKey: string; selected: string[]; onChange: (cats: string[]) => void }) {
-  // 기상: 맑음, 흐림, 비, 눈
-  // 풍향: 북, 북동, 동, 남동, 남, 남서, 서, 북서 (한글로 저장되어 있음)
-  const options = itemKey === "weather" 
-    ? ["맑음", "흐림", "비", "눈", "구름", "안개"]
-    : (itemKey === "wind_dir" || itemKey === "wind_direction")
-    ? ["북", "북동", "동", "남동", "남", "남서", "서", "북서"]
-    : [];
+function CategoryCheckboxes({ itemKey, selected, onChange, items }: { itemKey: string; selected: string[]; onChange: (cats: string[]) => void; items: any[] }) {
+  // 항목의 options에서 선택지 가져오기
+  const item = items.find((it: any) => it.key === itemKey);
+  let options: string[] = [];
+  
+  if (item?.options) {
+    try {
+      options = JSON.parse(item.options);
+    } catch (e) {
+      console.error("Failed to parse options:", e);
+    }
+  }
+  
+  // 기본값 (옵션이 없을 경우)
+  if (options.length === 0) {
+    if (itemKey === "weather") {
+      options = ["맑음", "흐림", "비", "눈", "구름", "안개"];
+    } else if (itemKey === "wind_dir" || itemKey === "wind_direction") {
+      options = ["북", "북동", "동", "남동", "남", "남서", "서", "북서"];
+    }
+  }
   
   const toggleCategory = (cat: string) => {
     if (selected.includes(cat)) {
@@ -70,11 +83,16 @@ export default function DashboardPage() {
   // 고객사 사용자 또는 고객사 시스템 보기 모드
   const isCustomerUser = (userRole === "CUSTOMER_ADMIN" || userRole === "CUSTOMER_USER") || isViewingAsCustomer;
 
-  // 기본 날짜: 6개월 전 ~ 오늘
+  // 기본 날짜: 6개월 vs 올해 1월 1일 중 더 긴 기간
   const getDefaultDates = () => {
     const today = new Date();
     const sixMonthsAgo = new Date(today);
     sixMonthsAgo.setMonth(today.getMonth() - 6);
+    
+    const thisYearStart = new Date(today.getFullYear(), 0, 1); // 올해 1월 1일
+    
+    // 두 날짜 중 더 이른 날짜 선택 (더 긴 기간)
+    const startDate = sixMonthsAgo < thisYearStart ? sixMonthsAgo : thisYearStart;
     
     const formatDate = (date: Date) => {
       const year = date.getFullYear();
@@ -84,18 +102,18 @@ export default function DashboardPage() {
     };
     
     return {
-      start: formatDate(sixMonthsAgo),
+      start: formatDate(startDate),
       end: formatDate(today)
     };
   };
 
   const defaultDates = getDefaultDates();
-  const [customer, setCustomer] = useState("전체");
+  const [customer, setCustomer] = useState("");
   const [stacksSel, setStacksSel] = useState<string[]>([]); // empty = 전체
   const [item, setItem] = useState<string>("");
   const [start, setStart] = useState(defaultDates.start);
   const [end, setEnd] = useState(defaultDates.end);
-  const [applied, setApplied] = useState({ customer: "", stack: "전체", item: "", start: defaultDates.start, end: defaultDates.end });
+  const [applied, setApplied] = useState({ customer: "", stack: "", item: "", start: defaultDates.start, end: defaultDates.end });
   const [chartType, setChartType] = useState<"line" | "bar" | "scatter">("scatter");
   const [showLimit30, setShowLimit30] = useState(false);
   const [showPrediction, setShowPrediction] = useState(false);
@@ -116,18 +134,21 @@ export default function DashboardPage() {
   const [valueMin, setValueMin] = useState<string>("");
   const [valueMax, setValueMax] = useState<string>("");
   
-  // 보조항목 목록 (items에서 category가 "보조항목"인 것들)
+  // 보조항목 목록 (items에서 category가 "보조항목" 또는 "채취환경"인 것들)
   const auxItems = useMemo(() => {
+    console.log('[auxItems] Total items:', items.length);
+    console.log('[auxItems] Categories:', [...new Set(items.map((i: any) => i.category))]);
+    
     return items
-      .filter((item: any) => item.category === "보조항목")
+      .filter((item: any) => item.category === "보조항목" || item.category === "채취환경")
       .filter((item: any) => {
         // wind_direction 중복 제거 (wind_dir만 사용)
         if (item.key === "wind_direction") return false;
         return true;
       })
       .map((item: any) => {
-        // 기상, 풍향은 카테고리형으로 처리
-        const isCategorical = item.key === "weather" || item.key === "wind_dir" || item.key === "wind_direction";
+        // inputType이 "select"이면 카테고리형, 아니면 숫자형
+        const isCategorical = item.inputType === "select" || item.key === "weather" || item.key === "wind_dir" || item.key === "wind_direction";
         return {
           name: item.name,
           itemKey: item.key,
@@ -147,9 +168,14 @@ export default function DashboardPage() {
   };
   const [conds, setConds] = useState<Cond[]>([]);
   const addCond = () => {
+    console.log('[addCond] auxItems:', auxItems);
     const first = auxItems[0];
-    if (!first) return;
+    if (!first) {
+      console.log('[addCond] No auxItems available');
+      return;
+    }
     const mode = first.mode;
+    console.log('[addCond] Adding condition:', { itemKey: first.itemKey, itemName: first.name, mode });
     setConds((s) => [...s, { id: Math.random().toString(36).slice(2), itemKey: first.itemKey, itemName: first.name, mode }]);
   };
   const removeCond = (id: string) => setConds((s) => s.filter((c) => c.id !== id));
@@ -158,19 +184,27 @@ export default function DashboardPage() {
 
   // 현재 선택(적용 전) 기준 고객사 ID
   const currentCustomerId = useMemo(() => {
-    if (customer === "전체") return undefined;
+    if (!customer || customer === "전체") return undefined;
     return customers.find((c) => c.name === customer)?.id;
   }, [customers, customer]);
   // 조회 적용된 고객사 ID
   const selectedCustomerId = useMemo(() => {
+    console.log("[Dashboard] Computing selectedCustomerId - applied.customer:", applied.customer, "applied.item:", applied.item);
+    
     // 고객사 사용자는 자신의 고객사 ID를 사용
     if (isCustomerUser) {
       return viewAsCustomerId || userCustomerId;
     }
     // 환경측정기업 사용자는 선택된 고객사 ID 사용
+    if (!applied.customer || !applied.item) {
+      console.log("[Dashboard] No customer or item selected, returning null");
+      return null; // 초기 상태: 데이터 로딩 안 함
+    }
     if (applied.customer === "전체") return undefined;
-    return customers.find((c) => c.name === applied.customer)?.id;
-  }, [customers, applied.customer, isCustomerUser, viewAsCustomerId, userCustomerId]);
+    const found = customers.find((c) => c.name === applied.customer);
+    console.log("[Dashboard] Found customer ID:", found?.id);
+    return found?.id;
+  }, [customers, applied.customer, applied.item, isCustomerUser, viewAsCustomerId, userCustomerId]);
   const selectedItem = useMemo(() => items.find((it) => it.name === applied.item), [items, applied.item]);
   // 스택 목록은 현재 선택된 고객사에 종속
   const { list: stackList } = useStacks(currentCustomerId);
@@ -217,7 +251,7 @@ export default function DashboardPage() {
 
   // 고객사 사용자만 자동 선택 (본인 회사)
   useEffect(() => {
-    if (customers.length && customer === "전체" && isCustomerUser && userCustomerId) {
+    if (customers.length && customer === "" && isCustomerUser && userCustomerId) {
       const myCustomer = customers.find((c) => c.id === userCustomerId);
       if (myCustomer) setCustomer(myCustomer.name);
     }
@@ -225,7 +259,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     // 고객사와 항목이 모두 선택되면 자동으로 적용 상태 반영
-    if (customer !== "전체" && item) {
+    if (customer && customer !== "전체" && item) {
       const next = { customer, stack: stacksSel.join(","), item, start, end };
       const same =
         applied.customer === next.customer &&
@@ -243,10 +277,13 @@ export default function DashboardPage() {
     [applied.stack]
   );
 
+  // 고객사와 항목이 모두 선택되어야만 데이터 로딩
+  const shouldLoadData = applied.customer && applied.item;
+  
   const { data: history } = useMeasurementHistory({
-    customerId: selectedCustomerId,
-    stacks: stacksArray,
-    itemKey: selectedItem?.key,
+    customerId: shouldLoadData ? selectedCustomerId : null,
+    stacks: shouldLoadData ? stacksArray : undefined,
+    itemKey: shouldLoadData ? selectedItem?.key : undefined,
     page: 1,
     pageSize: 999999,
     start: applied.start,
@@ -266,6 +303,14 @@ export default function DashboardPage() {
         return; 
       }
       
+      // 고객사와 항목이 선택되지 않으면 보조항목 데이터도 로딩 안 함
+      if (!shouldLoadData) {
+        console.log('[보조항목 데이터] 고객사/항목 미선택, 로딩 스킵');
+        setCondDataMap({});
+        setCondDataLoading(false);
+        return;
+      }
+      
       setCondDataLoading(true);
       const qsBase = new URLSearchParams();
       if (selectedCustomerId) qsBase.set("customerId", selectedCustomerId);
@@ -276,26 +321,50 @@ export default function DashboardPage() {
       if (applied.end) qsBase.set("end", applied.end);
       
       try {
-        const results = await Promise.all(conds.map(async (c) => {
-          const qs = new URLSearchParams(qsBase);
-          qs.set("itemKey", c.itemKey);
-          const url = `/api/measurements?${qs.toString()}`;
-          console.log(`[보조항목 API 호출] ${c.itemName} (${c.itemKey}):`, url);
-          const res = await fetch(url);
-          const json = await res.json();
-          const arr = Array.isArray(json?.data) ? json.data : [];
-          console.log(`[보조항목 데이터] ${c.itemName} (${c.itemKey}):`, arr.length, '건', arr.length > 0 ? `(샘플: ${JSON.stringify(arr[0])})` : '');
+        // 보조항목 데이터는 history에서 직접 추출 (채취환경은 오염물질과 함께 저장됨)
+        const results = conds.map((c) => {
+          const sample = (history as any[])[0];
+          console.log(`[보조항목 데이터 추출] ${c.itemName} (${c.itemKey})`);
+          console.log(`[보조항목] history 샘플 전체 키:`, sample ? Object.keys(sample) : 'no data');
+          
           const m = new Map<string, any>();
-          for (const r of arr) {
+          
+          // itemKey를 실제 필드명으로 매핑
+          const fieldMap: Record<string, string> = {
+            'MENV0001': 'weather',
+            'MENV0002': 'temperatureC',
+            'MENV0003': 'humidityPct',
+            'MENV0004': 'pressureMmHg',
+            'MENV0005': 'windDirection',
+            'MENV0006': 'windSpeedMs',
+            'MENV0007': 'gasVelocityMs',
+            'MENV0008': 'gasTempC',
+            'MENV0009': 'moisturePct',
+            'MENV0010': 'oxygenMeasuredPct',
+            'MENV0011': 'oxygenStdPct',
+            'MENV0012': 'flowSm3Min',
+          };
+          
+          const fieldName = fieldMap[c.itemKey] || c.itemKey;
+          console.log(`[보조항목] ${c.itemKey} -> ${fieldName} 매핑`);
+          
+          for (const r of (history as any[])) {
             const d = r.measuredAt ? new Date(r.measuredAt) : null;
             const minuteEpoch = d ? Math.floor(d.getTime() / 60000) : r.measuredAt;
             const stackKey = r.stack?.id || r.stackId || r.stack?.name || '';
             const key = `${stackKey}|${minuteEpoch}`;
-            const v = (r as any).value;
-            m.set(key, v);
+            
+            // 매핑된 필드명으로 값 추출
+            const v = (r as any)[fieldName];
+            
+            if (v !== undefined && v !== null && v !== '') {
+              m.set(key, v);
+            }
           }
+          
+          console.log(`[보조항목 데이터] ${c.itemName} (${c.itemKey}):`, m.size, '건', m.size > 0 ? `샘플 값: ${Array.from(m.values())[0]}` : '');
           return [c.itemKey, m] as const;
-        }));
+        });
         const mapObj: Record<string, Map<string, any>> = {};
         for (const [k, m] of results) mapObj[k] = m;
         setCondDataMap(mapObj);
@@ -594,7 +663,10 @@ export default function DashboardPage() {
 
   return (
     <section className="space-y-6">
-      <h1 className="text-2xl font-semibold">통계 차트 대시보드</h1>
+      <div className="flex items-center gap-3">
+        <h1 className="text-2xl font-semibold">통계 차트 대시보드</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400">고객사, 측정항목 등 조건을 선택하시면 자동으로 데이터가 로딩됩니다</p>
+      </div>
 
       <div className="grid grid-cols-12 gap-4">
         {/* Sidebar: Filters */}
@@ -628,7 +700,7 @@ export default function DashboardPage() {
                     value={customer} 
                     onChange={(e)=>setCustomer((e.target as HTMLSelectElement).value)}
                   >
-                    <option value="전체">전체</option>
+                    <option value="">선택하세요</option>
                     {customers.map((c)=> (
                       <option key={c.id} value={c.name}>{c.name}</option>
                     ))}
@@ -639,8 +711,8 @@ export default function DashboardPage() {
             <div className="space-y-1">
               <label className="text-sm">굴뚝</label>
               <div className="flex items-center gap-2">
-                <button className="px-3 py-2 border rounded w-full border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700" onClick={()=> setShowStackModal(true)}>
-                  스택 선택{stacksSel.length ? ` (${stacksSel.length})` : ""}
+                <button className="px-3 py-2 border rounded w-full border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm" onClick={()=> setShowStackModal(true)}>
+                  굴뚝번호{stacksSel.length ? ` (${stacksSel.length})` : ""}
                 </button>
               </div>
               {stacksSel.length > 0 && (
@@ -650,7 +722,7 @@ export default function DashboardPage() {
               )}
             </div>
             <div className="space-y-1">
-              <label className="text-sm">항목</label>
+              <label className="text-sm">측정항목</label>
               <Select className="bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600" value={item} onChange={(e)=>setItem(((e.target as HTMLSelectElement).value))}>
                 <option value="">항목 선택</option>
                 {availableItems.map((it: any)=> (
@@ -757,6 +829,7 @@ export default function DashboardPage() {
                         itemKey={c.itemKey}
                         selected={c.categories || []}
                         onChange={(cats) => updateCond(c.id, { categories: cats })}
+                        items={items}
                       />
                     )}
                   </div>

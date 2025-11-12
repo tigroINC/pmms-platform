@@ -50,6 +50,17 @@ export function useMeasurementHistory(query: HistoryQuery = {}) {
       return;
     }
     
+    // customerId가 null이면 명시적으로 데이터 로딩 안 함 (측정이력 "선택" 상태)
+    if (customerId === null) {
+      console.log("[useMeasurementHistory] customerId is null, skipping fetch");
+      setRaw([]);
+      return;
+    }
+    
+    // organizationId가 있으면 customerId/itemKey 없어도 조회 가능
+    // customerId, itemKey는 서버 측 필터링 파라미터로 전달
+    console.log("[useMeasurementHistory] Fetching data - customerId:", customerId, "itemKey:", itemKey);
+    
     const params = new URLSearchParams();
     if (customerId) params.set("customerId", customerId);
     if (stacks && stacks.length) {
