@@ -298,8 +298,18 @@ export function getMeasurementInputHelpSections() {
           <div>
             <h3 className="text-lg font-bold mb-3">Excel 파일 형식</h3>
             <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
-              임시데이터관리 탭에서 다운로드한 Excel 파일을 그대로 사용할 수 있습니다.
+              [📤 파일 업로드] 버튼을 클릭하면 양식을 다운로드할 수 있습니다.
             </p>
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-3 mb-3">
+              <h4 className="font-medium text-blue-900 dark:text-blue-300 mb-2">📋 날짜/시간 입력 형식</h4>
+              <ul className="space-y-1 text-sm text-blue-800 dark:text-blue-200">
+                <li>• <strong>측정일자</strong>: 2025-09-04 또는 20250904</li>
+                <li>• <strong>측정시간</strong>: 10:52 또는 1052</li>
+                <li className="text-xs mt-2 text-blue-600 dark:text-blue-400">
+                  ⚠️ Excel에서 날짜/시간 열을 "텍스트" 형식으로 설정하면 더 안전합니다
+                </li>
+              </ul>
+            </div>
             <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
               <li>• 컬럼 순서 및 이름 변경 금지</li>
               <li>• 측정값만 수정 가능</li>

@@ -152,10 +152,10 @@ export default function MeasureInputPage() {
   };
   // Bulk upload configuration
   const bulkUploadHeaders = [
-    "굴뚝번호","측정일자","기상","기온℃","습도％","기압mmHg","풍향","풍속m／sec","가스속도m／s","가스온도℃","수분함량％","실측산소농도％","표준산소농도％","배출가스유량S㎥／min","오염물질","농도","배출허용기준농도","배출허용기준체크","측정업체"
+    "굴뚝번호","측정일자","측정시간","기상","기온℃","습도％","기압mmHg","풍향","풍속m／sec","가스속도m／s","가스온도℃","수분함량％","실측산소농도％","표준산소농도％","배출가스유량S㎥／min","오염물질","농도","배출허용기준농도","배출허용기준체크","측정업체"
   ];
   const bulkUploadExample = [
-    "C-ST01001","202501131125","맑음","4.0","33","769.9","북서","3.0","26.63","12","1.97","0","0","1713.8","먼지","0.7","30","","보아스환경기술"
+    "C-ST01001","2025-09-04","10:52","맑음","4.0","33","769.9","북서","3.0","26.63","12","1.97","0","0","1713.8","먼지","0.7","30","","보아스환경기술"
   ];
   const handleBulkUpload = async (file: File): Promise<{ success: boolean; message: string; count?: number }> => {
     try {
@@ -199,6 +199,7 @@ export default function MeasureInputPage() {
     const idx = (name: string) => header.findIndex((h)=>h.trim()===name);
     const ixStack = idx("굴뚝번호");
     const ixDate = idx("측정일자");
+    const ixTime = idx("측정시간");
     const ixWeather = idx("기상");
     const ixTemp = idx("기온℃");
     const ixHumidity = idx("습도％");
@@ -219,15 +220,26 @@ export default function MeasureInputPage() {
       const cols = lines[i].split(",");
       if (cols.length < 16) continue;
       const stack = cols[ixStack]?.trim();
-      const dt = cols[ixDate]?.trim();
+      const dateValue = cols[ixDate]?.trim();
+      const timeValue = cols[ixTime]?.trim();
       const pollutant = cols[ixPollutant]?.trim();
       const v = cols[ixValue]?.trim();
-      if (!stack || !dt || !pollutant) continue;
+      if (!stack || !dateValue || !pollutant) continue;
+      
+      // 날짜/시간 파싱
+      const date = parseDate(dateValue);
+      if (!date) {
+        console.warn(`${i+1}행: 측정일자 형식 오류 - ${dateValue}`);
+        continue;
+      }
+      const { hour, minute } = parseTime(timeValue || '');
+      const measuredAt = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}T${hour}:${minute}:00`;
+      
       const valueNum = Number(v);
       if (!Number.isFinite(valueNum)) continue;
       rows.push({
         stack,
-        measuredAt: dt,
+        measuredAt,
         weather: cols[ixWeather]?.trim(),
         temp: cols[ixTemp]?.trim(),
         humidity: cols[ixHumidity]?.trim(),
@@ -247,11 +259,72 @@ export default function MeasureInputPage() {
     }
     return { rows };
   };
+  
+  // 날짜 파싱 함수 (모든 형식 지원)
+  const parseDate = (value: string): Date | null => {
+    if (!value) return null;
+    const str = value.trim().replace(/\//g, '-');
+    
+    // "2025-09-04" 형식
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      return new Date(str + 'T00:00:00');
+    }
+    
+    // "20250904" 형식 (8자리 숫자)
+    if (/^\d{8}$/.test(str)) {
+      const year = str.substring(0, 4);
+      const month = str.substring(4, 6);
+      const day = str.substring(6, 8);
+      return new Date(`${year}-${month}-${day}T00:00:00`);
+    }
+    
+    console.warn('파싱 불가능한 날짜 형식:', value);
+    return null;
+  };
+  
+  // 시간 파싱 함수 (모든 형식 지원)
+  const parseTime = (value: string): { hour: string; minute: string } => {
+    const defaultTime = { hour: '00', minute: '00' };
+    if (!value) return defaultTime;
+    
+    const str = value.trim();
+    
+    // "10:52" 형식
+    if (/^\d{1,2}:\d{2}$/.test(str)) {
+      const [h, m] = str.split(':');
+      return {
+        hour: h.padStart(2, '0'),
+        minute: m.padStart(2, '0')
+      };
+    }
+    
+    // "1052" 형식 (4자리 숫자)
+    if (/^\d{3,4}$/.test(str)) {
+      const padded = str.padStart(4, '0');
+      return {
+        hour: padded.substring(0, 2),
+        minute: padded.substring(2, 4)
+      };
+    }
+    
+    console.warn('파싱 불가능한 시간 형식:', value);
+    return defaultTime;
+  };
+  
   const toISOFromYYYYMMDDhhmm = (s: string) => {
     if (!s || s.trim() === "") return new Date().toISOString();
     
+    let dateStr = s.trim();
+    
+    // 과학적 표기법은 처리 불가 - 경고 후 현재 시간 반환
+    if (dateStr.includes('E') || dateStr.includes('e')) {
+      console.error('❌ 측정일자가 과학적 표기법으로 저장되어 있습니다:', dateStr);
+      console.error('Excel에서 측정일자 열을 "텍스트" 형식으로 변경 후 다시 업로드하세요.');
+      return new Date().toISOString();
+    }
+    
     // 1. YYYYMMDDhhmm 형식 (예: 202501131125)
-    let m = s.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})$/);
+    let m = dateStr.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})$/);
     if (m) {
       const [_, Y, M, D, h, m2] = m;
       const dt = new Date(Number(Y), Number(M)-1, Number(D), Number(h), Number(m2));
