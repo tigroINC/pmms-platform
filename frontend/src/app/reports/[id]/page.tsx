@@ -146,9 +146,9 @@ export default function ReportDetailPage() {
   };
 
   const handleMeasurementsChange = (index: number, field: string, value: any) => {
-    const measurements = JSON.parse(formData.measurements || "[]");
-    measurements[index][field] = value;
-    handleChange("measurements", JSON.stringify(measurements));
+    const allMeasurements = JSON.parse(formData.measurements || "[]");
+    allMeasurements[index][field] = value;
+    setFormData((prev) => ({ ...prev, measurements: JSON.stringify(allMeasurements) }));
   };
 
   if (loading) {
