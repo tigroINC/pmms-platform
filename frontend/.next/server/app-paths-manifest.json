@@ -1,14 +1,8 @@
 {
-  "/masters/items/page": "app/masters/items/page.js",
-  "/masters/stacks/page": "app/masters/stacks/page.js",
-  "/measure/history/page": "app/measure/history/page.js",
   "/page": "app/page.js",
   "/masters/customers/page": "app/masters/customers/page.js",
-  "/api/customers/route": "app/api/customers/route.js",
-  "/api/users/[id]/permissions/route": "app/api/users/[id]/permissions/route.js",
-  "/api/notifications/unread-count/route": "app/api/notifications/unread-count/route.js",
-  "/api/stacks/route": "app/api/stacks/route.js",
   "/measure/input/page": "app/measure/input/page.js",
-  "/api/items/route": "app/api/items/route.js",
-  "/api/stacks/[id]/measurement-items/route": "app/api/stacks/[id]/measurement-items/route.js"
+  "/masters/items/page": "app/masters/items/page.js",
+  "/api/notifications/unread-count/route": "app/api/notifications/unread-count/route.js",
+  "/dashboard/page": "app/dashboard/page.js"
 }

@@ -82,7 +82,7 @@ export default function ItemsPage() {
 
   const fetchCustomers = async () => {
     try {
-      const res = await fetch("/api/customers");
+      const res = await fetch("/api/customers?tab=all");
       const json = await res.json();
       setCustomers(json.customers || []);
     } catch (err) {
@@ -151,11 +151,8 @@ export default function ItemsPage() {
   };
 
   const handleOpenAddItemModal = () => {
-    // 현재 굴뚝에 없는 오염물질 + 채취환경 필터링
-    const currentItemKeys = new Set(stackItems.map(item => item.key));
-    const available = list.filter(item => 
-      (item.category === "오염물질" || item.category === "채취환경") && !currentItemKeys.has(item.key)
-    );
+    // 모든 오염물질 표시 (채취환경 제외)
+    const available = list.filter(item => item.category === "오염물질");
     setAvailableItemsToAdd(available);
     setShowAddItemModal(true);
   };
@@ -979,7 +976,7 @@ export default function ItemsPage() {
                       🔄 전체 기준으로 초기화
                     </Button>
                     <Button size="sm" onClick={handleOpenAddItemModal}>
-                      + 신규추가
+                      + 항목추가
                     </Button>
                   </div>
                 )}
@@ -1198,7 +1195,7 @@ export default function ItemsPage() {
             </div>
 
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              이 굴뚝에 추가할 측정항목을 선택하세요. (오염물질 + 채취환경)
+              이 굴뚝에 추가할 측정항목을 선택하세요. (오염물질만)
             </p>
 
             {availableItemsToAdd.length === 0 ? (
@@ -1207,25 +1204,36 @@ export default function ItemsPage() {
               </div>
             ) : (
               <div className="space-y-2">
-                {availableItemsToAdd.map((item) => (
-                  <div
-                    key={item.key}
-                    className="flex items-center justify-between p-3 border rounded hover:bg-gray-50 dark:hover:bg-gray-700"
-                  >
-                    <div>
-                      <div className="font-medium">{item.name}</div>
-                      <div className="text-xs text-gray-500">
-                        {item.key} • {item.unit} • 기준: {item.limit}
-                      </div>
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={() => handleAddItemToStack(item.key)}
+                {availableItemsToAdd.map((item) => {
+                  const isAdded = stackItems.some(si => si.key === item.key);
+                  return (
+                    <div
+                      key={item.key}
+                      className={`flex items-center justify-between p-3 border rounded ${
+                        isAdded 
+                          ? 'bg-gray-100 dark:bg-gray-800 opacity-60' 
+                          : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
                     >
-                      추가
-                    </Button>
-                  </div>
-                ))}
+                      <div>
+                        <div className={`font-medium ${isAdded ? 'text-gray-500' : ''}`}>
+                          {item.name}
+                          {isAdded && <span className="ml-2 text-xs text-blue-600">✓ 추가됨</span>}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {item.key} • {item.unit} • 기준: {item.limit}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => handleAddItemToStack(item.key)}
+                        disabled={isAdded}
+                      >
+                        {isAdded ? '추가됨' : '추가'}
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
