@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useOrganization } from "@/contexts/OrganizationContext";
 
 export function useStacks(customerId?: string) {
-  const [list, setList] = useState<Array<{ id: string; name: string; customerId: string; isActive: boolean }>>([]);
+  const [list, setList] = useState<Array<{ id: string; name: string; siteCode?: string; customerId: string; isActive: boolean }>>([]);
   const { selectedOrg } = useOrganization();
   
   useEffect(() => {

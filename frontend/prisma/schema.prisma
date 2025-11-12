@@ -202,6 +202,9 @@ model Measurement {
   limitAtMeasure    Float? // 배출허용기준농도(해당 측정치에 기재된 값)
   limitCheck        String? // 배출허용기준체크
   measuringCompany  String? // 측정업체
+  
+  // 활성 상태
+  isActive          Boolean @default(true)
 
   // 데이터 무결성: 동일 분 단위에 스택/항목 조합은 1건만 허용
   @@unique([stackId, itemKey, measuredAt], name: "stackId_itemKey_measuredAt")

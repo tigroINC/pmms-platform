@@ -48,10 +48,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 측정값 검증
-    if (!Array.isArray(measurements) || measurements.length === 0) {
+    // 측정값 검증 - 채취환경만 있는 경우 허용
+    if (!Array.isArray(measurements)) {
       return NextResponse.json(
-        { error: "측정값이 비어있습니다" },
+        { error: "측정값 형식이 올바르지 않습니다" },
+        { status: 400 }
+      );
+    }
+    
+    // measurements와 auxiliaryData 둘 다 비어있으면 에러
+    if (measurements.length === 0 && (!auxiliaryData || Object.keys(auxiliaryData).length === 0)) {
+      return NextResponse.json(
+        { error: "측정값 또는 채취환경 데이터가 필요합니다" },
         { status: 400 }
       );
     }
@@ -145,14 +153,14 @@ export async function GET(req: NextRequest) {
     }
     // ORG_ADMIN, SUPER_ADMIN은 모든 데이터 조회 가능
 
-    // 검색 조건 추가
+    // 검색 조건 추가 - measurementDate 기준으로 조회
     if (startDate) {
-      where.createdAt = { ...where.createdAt, gte: new Date(startDate) };
+      where.measurementDate = { ...where.measurementDate, gte: new Date(startDate) };
     }
     if (endDate) {
       const end = new Date(endDate);
       end.setHours(23, 59, 59, 999);
-      where.createdAt = { ...where.createdAt, lte: end };
+      where.measurementDate = { ...where.measurementDate, lte: end };
     }
     if (customerId) {
       where.customerId = customerId;
@@ -217,22 +225,22 @@ export async function GET(req: NextRequest) {
       // 고객사명
       const customerName = temp.customer?.name || "";
 
-      // 굴뚝명
-      const stackName = temp.stack?.siteName || temp.stack?.name || "";
+      // 굴뚝번호 (siteCode 우선, 없으면 name)
+      const stackName = temp.stack?.siteCode || temp.stack?.name || "";
 
       // 보조 데이터 (여러 키 형식 지원)
       const weather = auxiliaryData.weather || "";
-      const temperature = auxiliaryData.temperature || "";
-      const humidity = auxiliaryData.humidity || "";
-      const pressure = auxiliaryData.pressure || "";
-      const windDir = auxiliaryData.wind_direction || auxiliaryData.windDirection || "";
-      const windSpeed = auxiliaryData.wind_speed || auxiliaryData.windSpeed || "";
-      const gasVel = auxiliaryData.gas_velocity || auxiliaryData.gasVelocity || "";
-      const gasTemp = auxiliaryData.gas_temp || auxiliaryData.gasTemp || "";
-      const moisture = auxiliaryData.moisture || "";
-      const o2Measured = auxiliaryData.oxygen_measured || auxiliaryData.oxygenMeasured || "";
-      const o2Standard = auxiliaryData.oxygen_std || auxiliaryData.oxygenStd || "";
-      const flowRate = auxiliaryData.flow || auxiliaryData.flowRate || "";
+      const temperature = auxiliaryData.temperatureC || auxiliaryData.temperature || "";
+      const humidity = auxiliaryData.humidityPct || auxiliaryData.humidity || "";
+      const pressure = auxiliaryData.pressureMmHg || auxiliaryData.pressure || "";
+      const windDir = auxiliaryData.windDirection || auxiliaryData.wind_direction || "";
+      const windSpeed = auxiliaryData.windSpeedMs || auxiliaryData.windSpeed || auxiliaryData.wind_speed || "";
+      const gasVel = auxiliaryData.gasVelocityMs || auxiliaryData.gasVelocity || auxiliaryData.gas_velocity || "";
+      const gasTemp = auxiliaryData.gasTempC || auxiliaryData.gasTemp || auxiliaryData.gas_temp || "";
+      const moisture = auxiliaryData.moisturePct || auxiliaryData.moisture || "";
+      const o2Measured = auxiliaryData.oxygenMeasuredPct || auxiliaryData.oxygenMeasured || auxiliaryData.oxygen_measured || "";
+      const o2Standard = auxiliaryData.oxygenStdPct || auxiliaryData.oxygenStd || auxiliaryData.oxygen_std || "";
+      const flowRate = auxiliaryData.flowSm3Min || auxiliaryData.flowRate || auxiliaryData.flow || "";
       const company = auxiliaryData.company || "";
 
       // 오염물질 항목만 행 생성 (채취환경은 각 행의 컬럼으로 표시)

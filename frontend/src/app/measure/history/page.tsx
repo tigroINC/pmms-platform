@@ -21,13 +21,19 @@ export default function MeasureHistoryPage() {
   const { data: session } = useSession();
   const userRole = (session?.user as any)?.role;
   const isCustomerUser = userRole === "CUSTOMER_ADMIN" || userRole === "CUSTOMER_USER";
-  // 기본 조회 기간 계산 함수
+  // 기본 조회 기간 계산 함수: 6개월 vs 올해 1월 1일 중 더 긴 기간
   const getDefaultDates = () => {
     const today = new Date();
-    const sixMonthsAgo = new Date();
+    const sixMonthsAgo = new Date(today);
     sixMonthsAgo.setMonth(today.getMonth() - 6);
+    
+    const thisYearStart = new Date(today.getFullYear(), 0, 1); // 올해 1월 1일
+    
+    // 두 날짜 중 더 이른 날짜 선택 (더 긴 기간)
+    const startDate = sixMonthsAgo < thisYearStart ? sixMonthsAgo : thisYearStart;
+    
     return {
-      start: sixMonthsAgo.toISOString().split('T')[0],
+      start: startDate.toISOString().split('T')[0],
       end: today.toISOString().split('T')[0]
     };
   };
@@ -35,7 +41,7 @@ export default function MeasureHistoryPage() {
   const defaultDates = useMemo(() => getDefaultDates(), []);
   
   const [q, setQ] = useState("");
-  const [fc, setFc] = useState("전체");
+  const [fc, setFc] = useState("선택");
   const [fs, setFs] = useState("전체");
   const [fi, setFi] = useState("전체");
   const [start, setStart] = useState(defaultDates.start);
@@ -65,7 +71,11 @@ export default function MeasureHistoryPage() {
     }
   }, [isCustomerUser]);
 
-  const selectedCustomerId = useMemo(() => (fc === "전체" ? undefined : customerList.find((c)=>c.name===fc)?.id), [fc, customerList]);
+  const selectedCustomerId = useMemo(() => {
+    if (fc === "선택") return null; // "선택" 상태에서는 데이터 로딩 안 함
+    if (fc === "전체") return undefined; // "전체" 선택 시 모든 고객사 데이터 로딩
+    return customerList.find((c)=>c.name===fc)?.id;
+  }, [fc, customerList]);
   const { list: stackList } = useStacks(selectedCustomerId);
 
   const selectedStacks = useMemo(() => (fs === "전체" ? undefined : fs), [fs]);
@@ -87,6 +97,7 @@ export default function MeasureHistoryPage() {
 
   // Build rows in upload-template-like columns
   const rows = useMemo(() => {
+    console.log("[MeasureHistory] Building rows - mainData:", mainData);
     if (!Array.isArray(mainData)) return [];
     
     // 1단계: 동일 시간대의 기상 데이터를 매핑
@@ -170,10 +181,12 @@ export default function MeasureHistoryPage() {
         company: r.customer?.organizations?.[0]?.organization?.name || r.organization?.name || r.company || "",
       };
     });
+    console.log("[MeasureHistory] Built rows:", arr.length);
     return arr;
   }, [mainData]);
 
   const filtered = useMemo(() => {
+    console.log("[MeasureHistory] Filtering - rows:", rows.length, "rows sample:", rows[0], "fc:", fc, "fs:", fs, "fi:", fi);
     let arr = rows.filter((r: any) => {
       // 활성/비활성 필터
       const matchesActive = showInactive ? true : r.isActive !== false;
@@ -185,11 +198,12 @@ export default function MeasureHistoryPage() {
         if (orgName && r.company !== orgName) return false;
       }
       
-      if (fc !== "전체" && r.customer !== fc) return false;
+      if (fc !== "전체" && fc !== "선택" && r.customer !== fc) return false;
       if (fs !== "전체" && r.stack !== fs) return false;
       if (fi !== "전체" && r.pollutant !== fi) return false;
-      if (start && r.measuredAt < start) return false;
-      if (end && r.measuredAt > end) return false;
+      // 날짜 비교: measuredAt은 "YYYY-MM-DD HH:MM" 형식, start/end는 "YYYY-MM-DD" 형식
+      if (start && r.measuredAt && r.measuredAt.substring(0, 10) < start) return false;
+      if (end && r.measuredAt && r.measuredAt.substring(0, 10) > end) return false;
       if (q) {
         const s = q.toLowerCase();
         return (
@@ -200,17 +214,25 @@ export default function MeasureHistoryPage() {
       }
       return true;
     });
+    console.log("[MeasureHistory] Filtered result:", arr.length, "sample:", arr[0]);
     return arr;
   }, [rows, q, fc, fs, fi, start, end, showInactive, isCustomerUser, selectedOrgFilter, customerOrganizations]);
 
-  const sorted = useMemo(() => sortBy(filtered, sortKey, sortDir), [filtered, sortKey, sortDir]);
+  const sorted = useMemo(() => {
+    console.log("[MeasureHistory] Sorting - filtered sample:", filtered[0], "sortKey:", sortKey, "sortDir:", sortDir);
+    const result = sortBy(filtered, sortKey, sortDir);
+    console.log("[MeasureHistory] Sorted result length:", result.length);
+    return result;
+  }, [filtered, sortKey, sortDir]);
   const total = sorted.length;
   const totalPages = Math.ceil(total / pageSize);
   const currentPage = Math.min(page, totalPages || 1);
   const paged = sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  
+  console.log("[MeasureHistory] Pagination - sorted:", sorted.length, "paged:", paged.length, "page:", currentPage, "pageSize:", pageSize);
 
   const onExport = () => {
-    const header = ["측정일자", "고객사", "배출구명", "기상", "기온℃", "습도％", "기압mmHg", "풍향", "풍속m/sec", "가스속도m/s", "가스온도℃", "수분함량％", "실측산소농도％", "표준산소농도％", "배출가스유량S㎥/min", "오염물질", "농도", "배출허용기준농도", "배출허용기준체크", "측정업체"];
+    const header = ["측정일자", "고객사", "굴뚝번호", "기상", "기온℃", "습도％", "기압mmHg", "풍향", "풍속m/sec", "가스속도m/s", "가스온도℃", "수분함량％", "실측산소농도％", "표준산소농도％", "배출가스유량S㎥/min", "오염물질", "농도", "배출허용기준농도", "배출허용기준체크", "측정업체"];
     const body = sorted.map((r: any) => [
       r.measuredAt, r.customer, r.stack, r.weather, r.temp, r.humidity, r.pressure, r.windDir, r.windSpeed, r.gasVel, r.gasTemp, r.moisture, r.o2Measured, r.o2Standard, r.flowRate, r.pollutant, r.value, r.limit ?? "", r.limitCheck, r.company
     ]);
@@ -322,7 +344,7 @@ export default function MeasureHistoryPage() {
             <div className="flex flex-col" style={{ width: '176px', minWidth: '176px' }}>
               <label className="text-xs text-gray-600 dark:text-gray-400 mb-0.5">고객사</label>
               <Select className="text-sm h-8 w-full" value={fc} onChange={(e)=>{ setFc((e.target as HTMLSelectElement).value); setFs("전체"); setPage(1); }}>
-                {["전체", ...customerList.map(c=>c.name)].map((c)=> (<option key={c}>{c}</option>))}
+                {["선택", "전체", ...customerList.map(c=>c.name)].map((c)=> (<option key={c}>{c}</option>))}
               </Select>
             </div>
           )}
@@ -361,11 +383,10 @@ export default function MeasureHistoryPage() {
           </div>
           <div className="flex flex-col" style={{ width: '158px', minWidth: '158px' }}>
             <label className="text-xs text-gray-600 dark:text-gray-400 mb-0.5">한페이지당</label>
-            <Select className="text-sm h-8 w-full" value={String(pageSize)} onChange={(e)=>{ const v=(e.target as HTMLSelectElement).value; setPageSize(v==="ALL"?999999:Number(v)); setPage(1); }}>
+            <Select className="text-sm h-8 w-full" value={String(pageSize)} onChange={(e)=>{ setPageSize(Number((e.target as HTMLSelectElement).value)); setPage(1); }}>
               <option value="50">50</option>
               <option value="100">100</option>
               <option value="200">200</option>
-              <option value="ALL">전체</option>
             </Select>
           </div>
           <label className="flex items-center gap-1.5 text-xs cursor-pointer mb-1.5 whitespace-nowrap ml-auto">
@@ -395,7 +416,7 @@ export default function MeasureHistoryPage() {
                 <Th className="bg-gray-50 dark:bg-gray-800">상태</Th>
                 <Th onClick={()=>{ setSortKey("measuredAt"); setSortDir(d=> sortKey==="measuredAt" ? (d==="asc"?"desc":"asc") : "desc"); }} className="cursor-pointer bg-gray-50 dark:bg-gray-800">측정일자 {sortKey==="measuredAt"? (sortDir==="asc"?"▲":"▼"):""}</Th>
                 {!isCustomerUser && <Th className="bg-gray-50 dark:bg-gray-800">고객사</Th>}
-                <Th className="bg-gray-50 dark:bg-gray-800">배출구명</Th>
+                <Th className="bg-gray-50 dark:bg-gray-800">굴뚝번호</Th>
                 <Th className="bg-gray-50 dark:bg-gray-800">기상</Th>
                 <Th className="bg-gray-50 dark:bg-gray-800">기온℃</Th>
                 <Th className="bg-gray-50 dark:bg-gray-800">습도％</Th>

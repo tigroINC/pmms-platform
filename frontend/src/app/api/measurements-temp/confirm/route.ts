@@ -21,7 +21,11 @@ export async function POST(req: NextRequest) {
     const tempData = await prisma.measurementTemp.findMany({
       where: { id: { in: ids } },
       include: {
-        customer: true,
+        customer: {
+          include: {
+            organizations: true,
+          },
+        },
         stack: true,
       },
     });
@@ -36,37 +40,64 @@ export async function POST(req: NextRequest) {
     // 각 임시 데이터를 확정 데이터로 변환
     for (const temp of tempData) {
       try {
+        // measurements 파싱
+        const measurements = temp.measurements ? JSON.parse(temp.measurements as string) : [];
+        
+        if (measurements.length === 0) {
+          console.log('[확정] 건너뜀 (측정값 없음):', temp.tempId);
+          errors.push(`${temp.tempId}: 측정값이 없습니다 (채취환경만 있는 데이터).`);
+          continue;
+        }
+        
+        const firstMeasurement = measurements[0];
+        const itemKey = firstMeasurement.itemKey;
+        const measurementValue = firstMeasurement.value;
+        
+        console.log('[확정] 처리 중:', temp.tempId, 'itemKey:', itemKey, 'value:', measurementValue);
+        
         // 측정항목 조회
         const item = await prisma.item.findFirst({
-          where: { name: temp.pollutant },
+          where: { key: itemKey },
         });
 
         if (!item) {
-          errors.push(`${temp.tempId}: 측정항목 '${temp.pollutant}'을 찾을 수 없습니다.`);
+          console.error('[확정] 측정항목 없음:', itemKey);
+          errors.push(`${temp.tempId}: 측정항목 '${itemKey}'을 찾을 수 없습니다.`);
           continue;
         }
+        
+        console.log('[확정] 측정항목 찾음:', item.key, item.name);
 
+        // auxiliaryData 파싱
+        const auxData = temp.auxiliaryData ? JSON.parse(temp.auxiliaryData as string) : {};
+        
+        // organizationId 결정
+        const orgId = Array.isArray(temp.customer.organizations) && temp.customer.organizations.length > 0
+          ? temp.customer.organizations[0].organizationId
+          : (session.user as any).organizationId || "";
+        
         // 확정 데이터 생성
         await prisma.measurement.create({
           data: {
             customerId: temp.customerId,
             stackId: temp.stackId,
             itemKey: item.key,
-            measuredAt: temp.measuredAt,
-            value: temp.value,
-            weather: temp.weather,
-            temp: temp.temp,
-            humidity: temp.humidity,
-            pressure: temp.pressure,
-            windDir: temp.windDir,
-            wind: temp.wind,
-            gasVel: temp.gasVel,
-            gasTemp: temp.gasTemp,
-            moisture: temp.moisture,
-            o2Measured: temp.o2Measured,
-            o2Standard: temp.o2Standard,
-            flow: temp.flow,
-            company: temp.company,
+            measuredAt: temp.measurementDate,
+            value: Number(measurementValue),
+            organizationId: orgId,
+            weather: auxData.weather || null,
+            temperatureC: auxData.temperatureC || null,
+            humidityPct: auxData.humidityPct || null,
+            pressureMmHg: auxData.pressureMmHg || null,
+            windDirection: auxData.windDirection || null,
+            windSpeedMs: auxData.windSpeedMs || null,
+            gasVelocityMs: auxData.gasVelocityMs || null,
+            gasTempC: auxData.gasTempC || null,
+            moisturePct: auxData.moisturePct || null,
+            oxygenMeasuredPct: auxData.oxygenMeasuredPct || null,
+            oxygenStdPct: auxData.oxygenStdPct || null,
+            flowSm3Min: auxData.flowSm3Min || null,
+            measuringCompany: auxData.company || null,
           },
         });
 

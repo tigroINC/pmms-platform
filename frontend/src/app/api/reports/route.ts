@@ -162,6 +162,36 @@ export async function POST(req: NextRequest) {
       endTime: extractTime(m.measuredAt),
       note: "",
     }));
+    
+    // 첫 번째 측정 데이터에서 채취환경 정보 추출
+    const firstMeasurement = measurements[0];
+    const samplingData = firstMeasurement ? {
+      weather: firstMeasurement.weather,
+      temp: firstMeasurement.temperatureC,
+      humidity: firstMeasurement.humidityPct,
+      pressure: firstMeasurement.pressureMmHg,
+      windDir: firstMeasurement.windDirection,
+      wind: firstMeasurement.windSpeedMs,
+      gasVel: firstMeasurement.gasVelocityMs,
+      gasTemp: firstMeasurement.gasTempC,
+      moisture: firstMeasurement.moisturePct,
+      o2Measured: firstMeasurement.oxygenMeasuredPct,
+      o2Standard: firstMeasurement.oxygenStdPct,
+      flow: firstMeasurement.flowSm3Min,
+    } : {
+      weather: null,
+      temp: null,
+      humidity: null,
+      pressure: null,
+      windDir: null,
+      wind: null,
+      gasVel: null,
+      gasTemp: null,
+      moisture: null,
+      o2Measured: null,
+      o2Standard: null,
+      flow: null,
+    };
 
     // 템플릿 조회 (기본값)
     const template = await prisma.reportTemplate.findUnique({
@@ -192,19 +222,19 @@ export async function POST(req: NextRequest) {
         stackDiameter: stack.diameter,
         stackType: stack.category,
         
-        // 시료채취 (기본값 설정, 사용자가 입력 필요)
-        weather: null,
-        temp: null,
-        humidity: null,
-        pressure: null,
-        windDir: null,
-        wind: null,
-        o2Standard: null,
-        o2Measured: null,
-        flow: null,
-        moisture: null,
-        gasTemp: null,
-        gasVel: null,
+        // 시료채취 (측정 데이터에서 가져옴)
+        weather: samplingData.weather,
+        temp: samplingData.temp,
+        humidity: samplingData.humidity,
+        pressure: samplingData.pressure,
+        windDir: samplingData.windDir,
+        wind: samplingData.wind,
+        o2Standard: samplingData.o2Standard,
+        o2Measured: samplingData.o2Measured,
+        flow: samplingData.flow,
+        moisture: samplingData.moisture,
+        gasTemp: samplingData.gasTemp,
+        gasVel: samplingData.gasVel,
         
         samplingDate: new Date(measuredAt),
         samplingStart: measurements[0] ? extractTime(measurements[0].measuredAt) : "",

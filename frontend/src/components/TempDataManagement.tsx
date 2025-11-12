@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrganization } from "@/contexts/OrganizationContext";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
@@ -37,31 +38,36 @@ type TempDataRow = {
 
 export default function TempDataManagement() {
   const { user } = useAuth();
+  const { selectedOrg } = useOrganization();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<TempDataRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
 
-  // 기본 조회 기간 (최근 1개월)
-  const getDefaultDates = () => {
-    const today = new Date();
-    const oneMonthAgo = new Date();
-    oneMonthAgo.setMonth(today.getMonth() - 1);
-    return {
-      start: oneMonthAgo.toISOString().split('T')[0],
-      end: today.toISOString().split('T')[0]
-    };
-  };
-  
-  const defaultDates = useMemo(() => getDefaultDates(), []);
-
   // 검색 조건
   const [q, setQ] = useState("");
   const [fc, setFc] = useState("전체");
   const [fs, setFs] = useState("전체");
-  const [start, setStart] = useState(defaultDates.start);
-  const [end, setEnd] = useState(defaultDates.end);
+  const [showAuxOnly, setShowAuxOnly] = useState(false); // 채취환경만 있는 데이터 표시 여부
+  const [start, setStart] = useState(() => {
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+    return oneMonthAgo.toISOString().split('T')[0];
+  });
+  const [end, setEnd] = useState(() => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
+
+  const defaultDates = useMemo(() => {
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+    return {
+      start: oneMonthAgo.toISOString().split('T')[0],
+      end: new Date().toISOString().split('T')[0]
+    };
+  }, []);
 
   const { list: customers } = useCustomers();
   const selectedCustomerId = useMemo(() => (fc === "전체" ? undefined : customers.find((c)=>c.name===fc)?.id), [fc, customers]);
@@ -75,22 +81,44 @@ export default function TempDataManagement() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (start) params.append("startDate", start);
-      if (end) params.append("endDate", end);
+      if (selectedOrg?.id) params.append("organizationId", selectedOrg.id);
+      if (start) params.append("startDate", `${start}T00:00:00`);
+      if (end) params.append("endDate", `${end}T23:59:59`);
       if (selectedCustomerId) params.append("customerId", selectedCustomerId);
       if (fs !== "전체") {
-        const stackId = stacks.find((s) => s.name === fs)?.id;
+        const stackId = stacks.find((s: any) => ((s.siteCode || s.name) === fs))?.id;
         if (stackId) params.append("stackId", stackId);
       }
       params.append("page", page.toString());
       params.append("limit", pageSize.toString());
 
-      const res = await fetch(`/api/measurements-temp?${params.toString()}`);
+      const url = `/api/measurements-temp?${params.toString()}`;
+      console.log("[임시데이터] API 호출:", url);
+      const res = await fetch(url);
       const json = await res.json();
+      console.log("[임시데이터] API 응답:", json);
 
       if (res.ok) {
-        setData(json.data || []);
-        setTotal(json.total || 0);
+        const allData = json.data || [];
+        
+        // 1. 채취환경만 있는 데이터 필터링
+        let filteredData = showAuxOnly 
+          ? allData.filter((row: TempDataRow) => row.pollutant === "-")
+          : allData.filter((row: TempDataRow) => row.pollutant !== "-");
+        
+        // 2. 검색어 필터링 (고객사, 굴뚝번호, 오염물질)
+        if (q.trim()) {
+          const searchLower = q.toLowerCase();
+          filteredData = filteredData.filter((row: TempDataRow) => 
+            row.customer.toLowerCase().includes(searchLower) ||
+            row.stack.toLowerCase().includes(searchLower) ||
+            row.pollutant.toLowerCase().includes(searchLower)
+          );
+        }
+        
+        setData(filteredData);
+        setTotal(filteredData.length);
+        console.log("[임시데이터] 로드 완료:", filteredData.length, "건 (전체:", allData.length, "건)");
       } else {
         console.error("데이터 조회 실패:", json.error);
         setData([]);
@@ -107,7 +135,7 @@ export default function TempDataManagement() {
 
   useEffect(() => {
     fetchData();
-  }, [page, start, end, fc, fs]);
+  }, [page, start, end, fc, fs, showAuxOnly, q]);
 
   // 전체 선택/해제
   const handleSelectAll = (checked: boolean) => {
@@ -198,12 +226,18 @@ export default function TempDataManagement() {
       });
 
       const json = await res.json();
+      console.log('[확정] 응답:', json);
 
       if (res.ok) {
-        alert(json.message || "확정되었습니다.");
+        if (json.errors && json.errors.length > 0) {
+          alert(json.message + "\n\n실패 내역:\n" + json.errors.join("\n"));
+        } else {
+          alert(json.message || "확정되었습니다.");
+        }
         setSelectedIds(new Set());
         fetchData();
       } else {
+        console.error('[확정] 실패:', json);
         alert(json.error || "확정 실패");
       }
     } catch (error: any) {
@@ -254,16 +288,19 @@ export default function TempDataManagement() {
       {/* Compact Header - 반응형 필터 */}
       <div className="rounded-lg border bg-white/50 dark:bg-white/5 p-2.5">
         <div className="flex flex-wrap items-end gap-2">
+          <div className="flex flex-col" style={{ width: '200px', minWidth: '200px' }}>
+            <label className="text-xs text-gray-600 dark:text-gray-400 mb-0.5">검색 (고객사/굴뚝번호/오염물질)</label>
+            <Input 
+              className="text-sm h-8"
+              placeholder="검색어 입력"
+              value={q}
+              onChange={(e) => { setQ(e.target.value); setPage(1); }}
+            />
+          </div>
           <div className="flex flex-col" style={{ width: '176px', minWidth: '176px' }}>
             <label className="text-xs text-gray-600 dark:text-gray-400 mb-0.5">고객사</label>
             <Select className="text-sm h-8 w-full" value={fc} onChange={(e)=>{ setFc(e.target.value); setFs("전체"); setPage(1); }}>
               {["전체", ...customers.map(c=>c.name)].map((c)=> (<option key={c}>{c}</option>))}
-            </Select>
-          </div>
-          <div className="flex flex-col" style={{ width: '176px', minWidth: '176px' }}>
-            <label className="text-xs text-gray-600 dark:text-gray-400 mb-0.5">굴뚝명</label>
-            <Select className="text-sm h-8 w-full" value={fs} onChange={(e)=>{ setFs(e.target.value); setPage(1); }}>
-              {["전체", ...(selectedCustomerId ? stacks.map(s=>s.name) : [])].map((s)=> (<option key={s}>{s}</option>))}
             </Select>
           </div>
           <div className="flex flex-col">
@@ -296,8 +333,23 @@ export default function TempDataManagement() {
               <option value="ALL">전체</option>
             </Select>
           </div>
-          <div className="flex gap-1.5 ml-auto mb-1.5">
-            <Button size="sm" variant="secondary" onClick={()=>{ setQ(""); setFc("전체"); setFs("전체"); setStart(defaultDates.start); setEnd(defaultDates.end); setPage(1); fetchData(); }}>초기화</Button>
+          <div className="flex items-center gap-2 ml-auto mb-1.5">
+            <label className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={showAuxOnly} 
+                onChange={(e) => setShowAuxOnly(e.target.checked)}
+                className="accent-blue-500"
+              />
+              채취환경만 표시
+              <span 
+                className="inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-white bg-blue-500 rounded-full cursor-help"
+                title="채취환경만 있는 데이터는 확정 시 제외됩니다.&#10;필요 시 체크하여 확인 후 삭제하세요."
+              >
+                ?
+              </span>
+            </label>
+            <Button size="sm" variant="secondary" onClick={()=>{ setQ(""); setFc("전체"); setStart(defaultDates.start); setEnd(defaultDates.end); setShowAuxOnly(false); setPage(1); }}>초기화</Button>
             <Button size="sm" onClick={handleConfirm} className="bg-blue-600 hover:bg-blue-700" disabled={loading}>
               {loading ? "처리중..." : "확정"}
             </Button>
@@ -326,7 +378,7 @@ export default function TempDataManagement() {
                 <Th className="bg-gray-50 dark:bg-gray-800">임시ID</Th>
                 <Th className="bg-gray-50 dark:bg-gray-800">측정일자</Th>
                 <Th className="bg-gray-50 dark:bg-gray-800">고객사</Th>
-                <Th className="bg-gray-50 dark:bg-gray-800">배출구명</Th>
+                <Th className="bg-gray-50 dark:bg-gray-800">굴뚝번호</Th>
                 <Th className="bg-gray-50 dark:bg-gray-800">기상</Th>
                 <Th className="bg-gray-50 dark:bg-gray-800">기온℃</Th>
                 <Th className="bg-gray-50 dark:bg-gray-800">습도％</Th>

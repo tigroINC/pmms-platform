@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrganization } from "@/contexts/OrganizationContext";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
@@ -36,6 +37,7 @@ type BulkRow = {
 
 export default function MeasureInputPage() {
   const { user } = useAuth();
+  const { selectedOrg } = useOrganization();
   const role = user?.role;
 
   // 탭 상태
@@ -53,9 +55,14 @@ export default function MeasureInputPage() {
     return { dateStr, timeStr };
   };
   
-  const { dateStr: initialDate, timeStr: initialTime } = getCurrentDateTime();
-  const [date, setDate] = useState(initialDate);
-  const [time, setTime] = useState(initialTime);
+  const [date, setDate] = useState(() => {
+    const now = new Date();
+    return now.toISOString().split('T')[0];
+  });
+  const [time, setTime] = useState(() => {
+    const now = new Date();
+    return now.toTimeString().slice(0, 5);
+  });
   const { list: customers } = useCustomers();
   const [customerSel, setCustomerSel] = useState("");
   const selectedCustomerId = useMemo(() => customers.find((c)=>c.name===customerSel)?.id, [customers, customerSel]);
@@ -91,10 +98,24 @@ export default function MeasureInputPage() {
       );
       // 활성화된 항목만 필터링 (API에서 이미 정렬되어 옴)
       const activeItems = (json.items || []).filter((item: any) => item.isActive);
-      setStackItems(activeItems);
+      
+      // 채취환경 항목을 apiItems에서 가져와서 항상 표시
+      const auxiliaryItems = apiItems.filter((item: any) => 
+        item.category === "채취환경" || item.category === "보조항목"
+      );
+      
+      // 채취환경 항목을 먼저 배치하고, 그 다음에 오염물질 항목 배치
+      const pollutantItems = activeItems.filter((item: any) => item.category === "오염물질");
+      const combinedItems = [...auxiliaryItems, ...pollutantItems];
+      
+      setStackItems(combinedItems);
     } catch (err) {
       console.error("Failed to fetch stack items:", err);
-      setStackItems([]);
+      // 에러 시에도 채취환경 항목은 표시
+      const auxiliaryItems = apiItems.filter((item: any) => 
+        item.category === "채취환경" || item.category === "보조항목"
+      );
+      setStackItems(auxiliaryItems);
     } finally {
       setLoadingStackItems(false);
     }
@@ -131,7 +152,7 @@ export default function MeasureInputPage() {
   };
   // Bulk upload configuration
   const bulkUploadHeaders = [
-    "배출구명","측정일자","기상","기온℃","습도％","기압mmHg","풍향","풍속m／sec","가스속도m／s","가스온도℃","수분함량％","실측산소농도％","표준산소농도％","배출가스유량S㎥／min","오염물질","농도","배출허용기준농도","배출허용기준체크","측정업체"
+    "굴뚝번호","측정일자","기상","기온℃","습도％","기압mmHg","풍향","풍속m／sec","가스속도m／s","가스온도℃","수분함량％","실측산소농도％","표준산소농도％","배출가스유량S㎥／min","오염물질","농도","배출허용기준농도","배출허용기준체크","측정업체"
   ];
   const bulkUploadExample = [
     "C-ST01001","202501131125","맑음","4.0","33","769.9","북서","3.0","26.63","12","1.97","0","0","1713.8","먼지","0.7","30","","보아스환경기술"
@@ -169,14 +190,14 @@ export default function MeasureInputPage() {
     if (lines.length === 0) {
       return { rows: null, error: "빈 파일입니다." };
     }
-    let headerLineIdx = lines.findIndex((l)=> l.startsWith("배출구명,"));
+    let headerLineIdx = lines.findIndex((l)=> l.startsWith("굴뚝번호,"));
     if (headerLineIdx < 0) {
       return { rows: null, error: "헤더 행을 찾을 수 없습니다." };
     }
     const header = lines[headerLineIdx].split(",");
     // Simple CSV split (assumes no quoted commas in source docs)
     const idx = (name: string) => header.findIndex((h)=>h.trim()===name);
-    const ixStack = idx("배출구명");
+    const ixStack = idx("굴뚝번호");
     const ixDate = idx("측정일자");
     const ixWeather = idx("기상");
     const ixTemp = idx("기온℃");
@@ -402,32 +423,70 @@ export default function MeasureInputPage() {
     if (isAuxiliary) {
       try {
         const dt = new Date(date + "T" + (time || "00:00") + ":00");
-        const auxiliaryData: any = { [itemKey]: v };
+        const value = (item?.inputType === "select" || item?.inputType === "text") ? v : Number(v);
         
-        // 채취환경 일괄 업데이트 API 호출
-        const res = await fetch("/api/measurements-temp/auxiliary", {
+        // itemKey를 실제 필드명으로 매핑
+        const fieldMap: Record<string, string> = {
+          'MENV0001': 'weather',
+          'MENV0002': 'temperatureC',
+          'MENV0003': 'humidityPct',
+          'MENV0004': 'pressureMmHg',
+          'MENV0005': 'windDirection',
+          'MENV0006': 'windSpeedMs',
+          'MENV0007': 'gasVelocityMs',
+          'MENV0008': 'gasTempC',
+          'MENV0009': 'moisturePct',
+          'MENV0010': 'oxygenMeasuredPct',
+          'MENV0011': 'oxygenStdPct',
+          'MENV0012': 'flowSm3Min',
+        };
+        const fieldName = fieldMap[itemKey] || itemKey;
+        
+        // 1. 동일 날짜/굴뚝의 기존 오염물질 데이터 업데이트
+        const updateRes = await fetch("/api/measurements-temp/auxiliary", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             customerId: selectedCustomerId,
             stackId: selectedStackId,
             measurementDate: dt.toISOString(),
-            auxiliaryData,
+            auxiliaryData: { [fieldName]: value },
           }),
         });
 
-        const json = await res.json();
+        const updateJson = await updateRes.json();
+        const updatedCount = updateJson.updatedCount || 0;
 
-        if (res.ok) {
-          setSavedItems(prev => new Set(prev).add(itemKey));
-          showResult(
-            "채취환경 저장 완료",
-            (item?.name || itemKey) + " 항목이 저장되었습니다.\n동일 날짜/굴뚝의 " + json.updatedCount + "건 임시데이터에 적용되었습니다.",
-            "success"
-          );
-        } else {
-          showResult("저장 실패", json.error || "저장 중 오류가 발생했습니다.", "error");
+        // 2. 오염물질 데이터가 없으면 채취환경만 임시 저장
+        if (updatedCount === 0) {
+          const saveRes = await fetch("/api/measurements-temp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              customerId: selectedCustomerId,
+              stackId: selectedStackId,
+              measurementDate: dt.toISOString(),
+              measurements: [],
+              auxiliaryData: { [fieldName]: value },
+              company: companySel,
+              createdBy: user?.name || user?.email || "unknown",
+            }),
+          });
+          
+          const saveJson = await saveRes.json();
+          
+          if (!saveRes.ok) {
+            showResult("저장 실패", saveJson.error || "저장 중 오류가 발생했습니다.", "error");
+            return;
+          }
         }
+
+        setSavedItems(prev => new Set(prev).add(itemKey));
+        showResult(
+          "채취환경 저장 완료",
+          (item?.name || itemKey) + " 항목이 저장되었습니다." + (updatedCount > 0 ? "\n동일 날짜/굴뚝의 " + updatedCount + "건 오염물질 데이터에 적용되었습니다." : ""),
+          "success"
+        );
       } catch (error: any) {
         showResult("저장 오류", error.message || "저장 중 오류가 발생했습니다.", "error");
       }
@@ -472,8 +531,8 @@ export default function MeasureInputPage() {
             return; // 저장 중단
           }
         } catch (validationError) {
-          console.warn('검증 실패, 저장 계속 진행:', validationError);
-          // 검증 실패 시에도 저장은 계속 진행
+          // 검증 서버 연결 실패 시 조용히 무시 (저장은 계속 진행)
+          // Python 검증 서버가 실행 중이 아니면 이 에러가 발생할 수 있음
         }
       }
     }
@@ -490,18 +549,61 @@ export default function MeasureInputPage() {
         unit: item?.unit || "",
       }];
 
-      // 최신 채취환경 값 가져오기
+      // 동일 날짜/굴뚝의 채취환경 데이터 조회
       const auxiliaryData: any = {};
-      stackItems
-        .filter(i => i.category === "채취환경" || i.category === "보조항목")
-        .forEach(i => {
-          const auxValue = values[i.key];
-          if (auxValue) {
-            auxiliaryData[i.key] = auxValue;
-          }
+      console.log('[오염물질 저장] 채취환경 조회 시작');
+      try {
+        // 같은 날짜의 모든 시간대 데이터 조회
+        const dateOnly = dt.toISOString().split('T')[0];
+        const queryParams = new URLSearchParams({
+          organizationId: selectedOrg?.id || "",
+          customerId: selectedCustomerId,
+          stackId: selectedStackId,
+          startDate: `${dateOnly}T00:00:00`,
+          endDate: `${dateOnly}T23:59:59`,
+          limit: "100",
         });
-      if (companySel) auxiliaryData.company = companySel;
-
+        
+        console.log('[오염물질 저장] API 호출:', `/api/measurements-temp?${queryParams}`);
+        const existingRes = await fetch(`/api/measurements-temp?${queryParams}`);
+        const existingData = await existingRes.json();
+        
+        console.log('[오염물질 저장] 채취환경 조회 결과:', existingData.data?.length, '건', existingData);
+        
+        if (existingData.data && existingData.data.length > 0) {
+          const firstRecord = existingData.data[0];
+          console.log('[오염물질 저장] 첫 번째 레코드:', firstRecord);
+          
+          // API 응답 필드명(temp, humidity 등)을 저장 필드명(temperatureC, humidityPct 등)으로 매핑
+          const fieldMap: any = {
+            'weather': 'weather',
+            'temp': 'temperatureC',
+            'humidity': 'humidityPct',
+            'pressure': 'pressureMmHg',
+            'windDir': 'windDirection',
+            'windSpeed': 'windSpeedMs',
+            'gasVel': 'gasVelocityMs',
+            'gasTemp': 'gasTempC',
+            'moisture': 'moisturePct',
+            'o2Measured': 'oxygenMeasuredPct',
+            'o2Standard': 'oxygenStdPct',
+            'flowRate': 'flowSm3Min'
+          };
+          
+          Object.entries(fieldMap).forEach(([apiField, saveField]) => {
+            const value = firstRecord[apiField as keyof typeof firstRecord];
+            if (value !== undefined && value !== null && value !== '') {
+              console.log(`[오염물질 저장] ${apiField} (${value}) -> ${saveField}`);
+              auxiliaryData[saveField as string] = value;
+            }
+          });
+          
+          console.log('[오염물질 저장] 최종 auxiliaryData:', auxiliaryData);
+        }
+      } catch (e) {
+        console.log('[오염물질 저장] 채취환경 조회 실패:', e);
+      }
+      
       const res = await fetch("/api/measurements-temp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -511,6 +613,8 @@ export default function MeasureInputPage() {
           measurementDate: dt.toISOString(),
           measurements,
           auxiliaryData: Object.keys(auxiliaryData).length > 0 ? auxiliaryData : null,
+          company: companySel,
+          createdBy: user?.name || user?.email || "unknown",
         }),
       });
 
@@ -518,16 +622,17 @@ export default function MeasureInputPage() {
 
       if (res.ok) {
         setSavedItems(prev => new Set(prev).add(itemKey));
+        const auxCount = Object.keys(auxiliaryData).length;
         showResult(
-          savedItems.has(itemKey) ? "재저장 완료" : "임시저장 완료",
-          (item?.name || itemKey) + " 항목이 임시 저장되었습니다.\n임시 ID: " + json.tempId,
+          "임시저장 완료",
+          "임시 ID: " + json.tempId + (auxCount > 0 ? "\n채취환경 " + auxCount + "개 항목도 함께 저장되었습니다." : "") + "\n\n💡 임시 저장된 데이터는:\n- 측정 이력 및 대시보드에 반영되지 않습니다\n- [임시데이터관리] 탭에서 다운로드하여 검증 후\n- [확정일괄업로드] 탭으로 확정 등록하세요",
           "success"
         );
       } else {
-        showResult("저장 실패", json.error || "임시저장 중 오류가 발생했습니다.", "error");
+        showResult("저장 실패", json.error || "저장 중 오류가 발생했습니다.", "error");
       }
     } catch (error: any) {
-      showResult("저장 오류", error.message || "임시저장 중 오류가 발생했습니다.", "error");
+      showResult("저장 오류", error.message || "저장 중 오류가 발생했습니다.", "error");
     }
   };
 
@@ -760,7 +865,7 @@ export default function MeasureInputPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <label className="block text-xs sm:text-sm">굴뚝</label>
+              <label className="block text-xs sm:text-sm">굴뚝번호</label>
               <Select className="w-full text-xs sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-gray-700" value={stackSel} onChange={(e)=>setStackSel((e.target as HTMLSelectElement).value)} disabled={role === "customer" || !selectedCustomerId}>
                 <option value="" disabled>{selectedCustomerId ? "선택" : "고객사 선택 필요"}</option>
                 {stacks.map((s)=>(
@@ -798,11 +903,6 @@ export default function MeasureInputPage() {
             ) : loadingStackItems ? (
               <div className="text-center py-12 text-gray-500">
                 로딩 중...
-              </div>
-            ) : stackItems.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <p className="mb-2">측정 이력이 없습니다.</p>
-                <p className="text-sm">측정 데이터를 입력하면 자동으로 항목이 표시됩니다.</p>
               </div>
             ) : (
               <>
@@ -861,9 +961,12 @@ export default function MeasureInputPage() {
                 )}
 
                 {/* 오염물질 항목 */}
-                {stackItems.filter(item => item.category === "오염물질").length > 0 && (
-                  <div>
-                    <h3 className="text-base font-semibold mb-3">🏭 오염물질</h3>
+                <div>
+                  <div className="flex items-center gap-3 mb-3">
+                    <h3 className="text-base font-semibold">🏭 오염물질</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">과거 측정이력과 측정항목에서 굴뚝별로 설정하신 항목이 보여집니다</p>
+                  </div>
+                  {stackItems.filter(item => item.category === "오염물질").length > 0 ? (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                       {stackItems
                         .filter(item => item.category === "오염물질")
@@ -898,8 +1001,13 @@ export default function MeasureInputPage() {
                           );
                         })}
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="text-center py-8 text-gray-500 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <p className="text-sm">과거 측정이력이 없습니다.</p>
+                      <p className="text-sm mt-1">측정항목 메뉴에서 굴뚝별 측정 대상 설정을 해주세요</p>
+                    </div>
+                  )}
+                </div>
               </>
             )}
             {hasErrors && (

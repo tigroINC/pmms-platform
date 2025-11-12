@@ -35,7 +35,7 @@ export function getMeasurementInputHelpSections() {
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <h4 className="font-bold text-blue-900 dark:text-blue-300 mb-2">💡 핵심 Tip</h4>
             <ul className="space-y-1 text-sm text-blue-800 dark:text-blue-200">
-              <li>• 채취환경을 먼저 입력하세요 (모든 오염물질에 공통 적용)</li>
+              <li>• 채취환경은 오염물질 전/후 언제든 입력 가능 (자동 적용)</li>
               <li>• 임시저장 → 임시데이터관리 탭에서 체크박스 선택 → 확정 버튼 클릭</li>
               <li>• 측정항목 변경은 [측정항목] 메뉴에서</li>
             </ul>
@@ -134,8 +134,8 @@ export function getMeasurementInputHelpSections() {
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
             <h4 className="font-bold text-yellow-900 dark:text-yellow-300 mb-2">⚠️ 주의사항</h4>
             <ul className="space-y-1 text-sm text-yellow-800 dark:text-yellow-200">
-              <li>• 채취환경은 측정 시작 전에 먼저 입력하는 것을 권장</li>
-              <li>• 나중에 수정하면 기존 임시데이터도 함께 업데이트됨</li>
+              <li>• 오염물질 저장 시 같은 날짜의 채취환경 자동 포함</li>
+              <li>• 채취환경 수정 시 동일 날짜/굴뚝의 오염물질 데이터에 자동 반영</li>
               <li>• 확정 후에는 측정이력 메뉴에서 수정 가능</li>
             </ul>
           </div>
@@ -249,6 +249,20 @@ export function getMeasurementInputHelpSections() {
           </div>
 
           <div>
+            <h3 className="text-lg font-bold mb-3">채취환경만 표시 기능</h3>
+            <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded p-3">
+              <p className="text-sm text-purple-800 dark:text-purple-200 mb-2">
+                <strong>채취환경만 표시</strong> 체크박스를 활성화하면 오염물질 없이 채취환경만 저장된 데이터를 확인할 수 있습니다.
+              </p>
+              <ul className="space-y-1 text-sm text-purple-800 dark:text-purple-200">
+                <li>• 기본적으로 오염물질 데이터만 표시됨</li>
+                <li>• 채취환경만 있는 데이터는 확정 시 자동 제외됨</li>
+                <li>• 필요 시 체크하여 확인 후 삭제 가능</li>
+              </ul>
+            </div>
+          </div>
+
+          <div>
             <h3 className="text-lg font-bold mb-3">기타 기능</h3>
             <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
               <li>• <strong>[Excel]</strong>: 선택한 항목 또는 전체 다운로드</li>
@@ -318,7 +332,8 @@ export function getMeasurementInputHelpSections() {
           <div className="border-b pb-4">
             <h4 className="font-bold mb-2">Q2. 채취환경을 나중에 입력해도 되나요?</h4>
             <p className="text-sm text-gray-700 dark:text-gray-300">
-              A: 네, 가능합니다. 나중에 입력하면 동일 날짜/굴뚝의 모든 임시데이터에 자동 적용됩니다.
+              A: 네, 가능합니다. 오염물질 저장 시 같은 날짜의 채취환경이 자동으로 포함되며,<br/>
+              나중에 채취환경을 입력/수정하면 동일 날짜/굴뚝의 오염물질 데이터에 자동 반영됩니다.
             </p>
           </div>
           <div className="border-b pb-4">
@@ -340,11 +355,19 @@ export function getMeasurementInputHelpSections() {
               A: 현장임시입력은 굴뚝별로 입력합니다. 여러 굴뚝은 Excel 파일로 일괄 업로드하세요.
             </p>
           </div>
-          <div className="pb-4">
+          <div className="border-b pb-4">
             <h4 className="font-bold mb-2">Q6. AI 이상치 워닝이 뜨는데 값이 맞아요</h4>
             <p className="text-sm text-gray-700 dark:text-gray-300">
               A: 실제로 높은 값이 측정된 경우 "확인하고 저장" 버튼을 클릭하면 됩니다.<br/>
               AI는 과거 데이터 기반으로 예측하므로 실제 배출 상황이 변경된 경우 워닝이 표시될 수 있습니다.
+            </p>
+          </div>
+          <div className="pb-4">
+            <h4 className="font-bold mb-2">Q7. 채취환경만 있는 데이터가 임시데이터에 보여요</h4>
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              A: "채취환경만 표시" 체크박스를 활성화하면 확인할 수 있습니다.<br/>
+              이러한 데이터는 확정 시 자동으로 제외되며, 필요 시 삭제할 수 있습니다.<br/>
+              기본적으로는 오염물질 데이터만 표시됩니다.
             </p>
           </div>
         </div>
