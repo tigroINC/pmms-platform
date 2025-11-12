@@ -46,6 +46,7 @@ export default function ItemsPage() {
   const [loadingStackItems, setLoadingStackItems] = useState(false);
   const [showAddItemModal, setShowAddItemModal] = useState(false);
   const [availableItemsToAdd, setAvailableItemsToAdd] = useState<any[]>([]);
+  const [selectedItemKeys, setSelectedItemKeys] = useState<Set<string>>(new Set());
   const [showHelpModal, setShowHelpModal] = useState(false);
 
   useEffect(() => {
@@ -151,14 +152,38 @@ export default function ItemsPage() {
   };
 
   const handleOpenAddItemModal = () => {
-    // 모든 오염물질 표시 (채취환경 제외)
-    const available = list.filter(item => item.category === "오염물질");
+    // 모든 오염물질 표시 (채취환경 제외) + 가나다순 정렬
+    const available = list
+      .filter(item => item.category === "오염물질")
+      .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
     setAvailableItemsToAdd(available);
+    setSelectedItemKeys(new Set());
     setShowAddItemModal(true);
   };
 
-  const handleAddItemToStack = async (itemKey: string) => {
-    if (!selectedStackId) return;
+  const handleToggleItemSelection = (itemKey: string) => {
+    const newSet = new Set(selectedItemKeys);
+    if (newSet.has(itemKey)) {
+      newSet.delete(itemKey);
+    } else {
+      newSet.add(itemKey);
+    }
+    setSelectedItemKeys(newSet);
+  };
+
+  const handleSelectAll = () => {
+    const availableKeys = availableItemsToAdd
+      .filter(item => !stackItems.some(si => si.key === item.key))
+      .map(item => item.key);
+    setSelectedItemKeys(new Set(availableKeys));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedItemKeys(new Set());
+  };
+
+  const handleAddSelectedItems = async () => {
+    if (!selectedStackId || selectedItemKeys.size === 0) return;
 
     try {
       const newItems = [
@@ -167,11 +192,11 @@ export default function ItemsPage() {
           isActive: item.isActive,
           order: item.order,
         })),
-        {
+        ...Array.from(selectedItemKeys).map(itemKey => ({
           itemKey,
           isActive: true,
           order: 0,
-        }
+        }))
       ];
 
       const res = await fetch(`/api/stacks/${selectedStackId}/measurement-items`, {
@@ -187,6 +212,7 @@ export default function ItemsPage() {
       // 목록 새로고침
       await fetchStackItems(selectedStackId);
       setShowAddItemModal(false);
+      setSelectedItemKeys(new Set());
       alert("항목이 추가되었습니다.");
     } catch (err: any) {
       alert(err.message || "항목 추가 중 오류가 발생했습니다.");
@@ -1179,9 +1205,9 @@ export default function ItemsPage() {
 
       {/* 항목 추가 모달 */}
       {showAddItemModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowAddItemModal(false)}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddItemModal(false)}>
           <div
-            className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto"
+            className="bg-white dark:bg-gray-800 rounded-lg p-6 w-[95vw] max-w-[1800px] h-[90vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
@@ -1194,55 +1220,81 @@ export default function ItemsPage() {
               </button>
             </div>
 
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              이 굴뚝에 추가할 측정항목을 선택하세요. (오염물질만)
-            </p>
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  선택: <span className="font-semibold text-blue-600">{selectedItemKeys.size}개</span>
+                </p>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="secondary" onClick={handleSelectAll}>
+                    전체 선택
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={handleDeselectAll}>
+                    전체 해제
+                  </Button>
+                </div>
+              </div>
+            </div>
 
             {availableItemsToAdd.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 추가 가능한 항목이 없습니다.
               </div>
             ) : (
-              <div className="space-y-2">
-                {availableItemsToAdd.map((item) => {
-                  const isAdded = stackItems.some(si => si.key === item.key);
-                  return (
-                    <div
-                      key={item.key}
-                      className={`flex items-center justify-between p-3 border rounded ${
-                        isAdded 
-                          ? 'bg-gray-100 dark:bg-gray-800 opacity-60' 
-                          : 'hover:bg-gray-50 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      <div>
-                        <div className={`font-medium ${isAdded ? 'text-gray-500' : ''}`}>
-                          {item.name}
-                          {isAdded && <span className="ml-2 text-xs text-blue-600">✓ 추가됨</span>}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {item.key} • {item.unit} • 기준: {item.limit}
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        onClick={() => handleAddItemToStack(item.key)}
-                        disabled={isAdded}
+              <div className="flex-1 overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
+                  {availableItemsToAdd.map((item) => {
+                    const isAdded = stackItems.some(si => si.key === item.key);
+                    const isSelected = selectedItemKeys.has(item.key);
+                    return (
+                      <label
+                        key={item.key}
+                        className={`flex items-start gap-3 p-3 border rounded cursor-pointer transition-colors ${
+                          isAdded 
+                            ? 'bg-gray-100 dark:bg-gray-800 opacity-60 cursor-not-allowed' 
+                            : isSelected
+                            ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500'
+                            : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
                       >
-                        {isAdded ? '추가됨' : '추가'}
-                      </Button>
-                    </div>
-                  );
-                })}
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          disabled={isAdded}
+                          onChange={() => handleToggleItemSelection(item.key)}
+                          className="mt-1 w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 disabled:opacity-50 flex-shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className={`font-medium text-sm ${isAdded ? 'text-gray-500' : ''}`}>
+                            {item.name}
+                            {isAdded && <span className="ml-2 text-xs text-blue-600">✓ 추가됨</span>}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {item.key}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {item.unit} • 기준: {item.limit}
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
-            <div className="mt-6 flex justify-end">
+            <div className="mt-4 pt-4 border-t flex justify-end gap-2 flex-shrink-0">
               <Button
                 variant="secondary"
                 onClick={() => setShowAddItemModal(false)}
               >
-                닫기
+                취소
+              </Button>
+              <Button
+                onClick={handleAddSelectedItems}
+                disabled={selectedItemKeys.size === 0}
+              >
+                선택 항목 추가 ({selectedItemKeys.size}개)
               </Button>
             </div>
           </div>

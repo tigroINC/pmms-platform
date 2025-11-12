@@ -1,8 +1,13 @@
 {
-  "/page": "app/page.js",
-  "/masters/customers/page": "app/masters/customers/page.js",
-  "/measure/input/page": "app/measure/input/page.js",
-  "/masters/items/page": "app/masters/items/page.js",
+  "/masters/limits/page": "app/masters/limits/page.js",
+  "/org/staff/page": "app/org/staff/page.js",
+  "/reports/page": "app/reports/page.js",
+  "/reports/new/page": "app/reports/new/page.js",
+  "/reports/[id]/page": "app/reports/[id]/page.js",
+  "/api/reports/[id]/route": "app/api/reports/[id]/route.js",
   "/api/notifications/unread-count/route": "app/api/notifications/unread-count/route.js",
-  "/dashboard/page": "app/dashboard/page.js"
+  "/reports/[id]/pdf/page": "app/reports/[id]/pdf/page.js",
+  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
+  "/api/organizations/[id]/route": "app/api/organizations/[id]/route.js",
+  "/api/notifications/route": "app/api/notifications/route.js"
 }

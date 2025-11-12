@@ -14,6 +14,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const customerId = searchParams.get("customerId") || undefined;
     const customerName = searchParams.get("customerName") || undefined;
+    const stackId = searchParams.get("stackId") || undefined;
     const stackName = searchParams.get("stack") || undefined;
     const stackNames = searchParams.getAll("stack");
     const itemKey = searchParams.get("itemKey") || undefined;
@@ -81,7 +82,8 @@ export async function GET(request: Request) {
     // Join via stack to ensure accurate customer matching even when raw monthly data lacked customer field
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const stackFilter: any = {};
-    if (stackNames && stackNames.length > 1) stackFilter.name = { in: stackNames };
+    if (stackId) stackFilter.id = stackId;
+    else if (stackNames && stackNames.length > 1) stackFilter.name = { in: stackNames };
     else if (stackName) stackFilter.name = stackName;
     
     // 고객사 필터링
