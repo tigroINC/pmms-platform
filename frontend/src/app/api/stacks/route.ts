@@ -28,44 +28,33 @@ export async function GET(request: Request) {
     // 고객사 사용자: 자사 굴뚝만 조회
     if (userRole === "CUSTOMER_ADMIN" || userRole === "CUSTOMER_USER") {
       where.customerId = userCustomerId;
-    } else {
-      // 환경측정기업 사용자: 조직 필터링 (내부 관리 + 연결된 고객사)
-      const userId = (session.user as any).id;
+    } else if (userRole !== "SUPER_ADMIN") {
+      // 일반 환경측정기업 사용자: StackOrganization 또는 CustomerOrganization으로 필터링
       const effectiveOrgId = organizationId || userOrgId;
       
-      if (userRole === "SUPER_ADMIN") {
-        if (organizationId) {
-          where.customer = {
-            OR: [
-              { createdBy: userId },
-              {
-                organizations: {
-                  some: {
-                    organizationId: organizationId,
-                    status: "APPROVED"
-                  }
-                }
-              }
-            ]
-          };
-        }
-      } else {
-        // 일반 환경측정기업 사용자: 내부 관리 + 연결된 고객사
-        where.customer = {
-          OR: [
-            { createdBy: userId },
-            {
-              organizations: {
-                some: {
-                  organizationId: effectiveOrgId,
-                  status: "APPROVED"
-                }
+      where.OR = [
+        // 1. StackOrganization을 통해 직접 연결된 굴뚝
+        {
+          organizations: {
+            some: {
+              organizationId: effectiveOrgId,
+            }
+          }
+        },
+        // 2. CustomerOrganization을 통해 연결된 고객사의 굴뚝
+        {
+          customer: {
+            organizations: {
+              some: {
+                organizationId: effectiveOrgId,
+                status: "APPROVED"
               }
             }
-          ]
-        };
-      }
+          }
+        }
+      ];
     }
+    // SUPER_ADMIN은 필터 없이 모든 굴뚝 조회
 
     const stacks = await prisma.stack.findMany({
       where,
