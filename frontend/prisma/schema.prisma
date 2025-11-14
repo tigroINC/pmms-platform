@@ -578,6 +578,9 @@ model User {
   // 인사이트 보고서
   createdInsightReports    InsightReport[] @relation("InsightReportCreator")
   sharedInsightReports     InsightReport[] @relation("InsightReportSharer")
+  
+  // 비밀번호 재설정 토큰
+  passwordResetTokens      PasswordResetToken[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1393,4 +1396,20 @@ model InsightReport {
   @@index([customerId, itemKey, createdAt])
   @@index([customerId, sharedAt])
   @@map("insight_reports")
+}
+
+// 비밀번호 재설정 토큰
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([token, expiresAt])
+  @@index([userId])
+  @@map("password_reset_tokens")
 }

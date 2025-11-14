@@ -145,13 +145,17 @@ export default function Navbar() {
           <span className="block w-5 h-0.5 bg-white" />
         </button>
 
-        {/* 왼쪽: 회사명 + 메뉴 */}
+        {/* 왼쪽: PMMS 로고 + 회사명 + 메뉴 */}
         <div className="flex items-center gap-6">
+          <Link href="/" className="font-bold text-xl text-blue-400 hover:text-blue-300 whitespace-nowrap">
+            PMMS
+          </Link>
+          
           {isCustomerUser || isViewingAsCustomer ? (
             // 고객사 사용자 또는 고객사 시스템 보기: 고객사명만 표시
-            <Link href="/" className="font-semibold text-lg whitespace-nowrap text-white">
+            <span className="font-semibold text-lg whitespace-nowrap text-white border-l border-gray-700 pl-6">
               {isViewingAsCustomer ? viewAsCustomerName : ((session?.user as any)?.customerName || "고객사")}
-            </Link>
+            </span>
           ) : isSuperAdmin ? (
             // SUPER_ADMIN: 환경측정기업 선택 드롭다운 + 시스템 보기 모드 표시
             <div className="flex items-center gap-2">
