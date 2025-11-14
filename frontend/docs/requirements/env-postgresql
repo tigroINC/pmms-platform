@@ -1,0 +1,36 @@
+# ============================================
+# PMMS 환경변수 (PostgreSQL 버전)
+# ============================================
+
+# PostgreSQL 데이터베이스
+# 로컬 Docker: postgresql://postgres:postgres@postgres:5432/boaz
+# 로컬 호스트: postgresql://postgres:postgres@localhost:5432/boaz
+# Railway: Railway가 제공하는 DATABASE_URL 사용
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/boaz"
+
+# NextAuth 설정
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="local-dev-secret-change-in-production-minimum-32-characters"
+
+# 애플리케이션 URL
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+
+# AutoML API URL
+# Docker 내부: http://localhost:8000
+# 외부 접속: http://localhost:8000
+NEXT_PUBLIC_AUTOML_API_URL="http://localhost:8000"
+
+# Node 환경
+NODE_ENV="development"
+
+# ============================================
+# Railway 배포 시 설정:
+# ============================================
+# 1. Railway Dashboard → Variables
+# 2. DATABASE_URL: Railway PostgreSQL 자동 제공
+# 3. NEXTAUTH_SECRET: 랜덤 32자 이상 생성
+# 4. NEXTAUTH_URL: https://your-app.railway.app
+# 5. NEXT_PUBLIC_APP_URL: https://your-app.railway.app
+# 6. NEXT_PUBLIC_AUTOML_API_URL: http://localhost:8000
+# 7. NODE_ENV: production
+# ============================================

@@ -156,7 +156,18 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white">
+            PMMS 오염물질 측정관리 시스템
+          </h1>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            Pollutant Measurement Management System
+          </p>
+        </div>
+      </div>
+    }>
       <LoginForm />
     </Suspense>
   );
