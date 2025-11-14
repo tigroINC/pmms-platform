@@ -31,8 +31,16 @@ export const authOptions: NextAuthOptions = {
           throw new Error("등록되지 않은 이메일입니다.");
         }
 
+        if (user.status === "PENDING") {
+          throw new Error("승인 대기 중인 계정입니다. 관리자의 승인 후 로그인하실 수 있습니다.");
+        }
+
+        if (user.status === "REJECTED") {
+          throw new Error("가입이 거부된 계정입니다. 관리자에게 문의해주세요.");
+        }
+
         if (user.status !== "APPROVED") {
-          throw new Error("승인 대기 중이거나 거부된 계정입니다.");
+          throw new Error("로그인할 수 없는 상태의 계정입니다. 관리자에게 문의해주세요.");
         }
 
         if (!user.isActive) {

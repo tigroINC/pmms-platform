@@ -29,17 +29,17 @@ async function main() {
   });
   console.log(`✅ SUPER_ADMIN user created/updated: ${adminEmail} / tigrofin1018*`);
 
-  // Create test organization (보아스환경기술)
-  const boazOrg = await prisma.organization.upsert({
+  // Create test organization (PMMS 환경측정기업)
+  const pmmsOrg = await prisma.organization.upsert({
     where: { businessNumber: "123-45-67890" },
     update: {},
     create: {
-      name: "보아스환경기술",
+      name: "PMMS 환경측정기업",
       businessNumber: "123-45-67890",
       businessType: "측정대행업",
       address: "서울특별시 강남구",
       phone: "02-1234-5678",
-      email: "info@boaz.com",
+      email: "info@pmms.com",
       subscriptionPlan: "PREMIUM",
       subscriptionStatus: "ACTIVE",
       maxUsers: 50,
@@ -47,26 +47,26 @@ async function main() {
       maxDataRetention: 365,
     },
   });
-  console.log(`✅ Organization created: ${boazOrg.name}`);
+  console.log(`✅ Organization created: ${pmmsOrg.name}`);
 
-  // Create ORG_ADMIN (보아스환경기술 관리자)
-  const orgAdminPassword = await bcrypt.hash("boaz1234!", 10);
+  // Create ORG_ADMIN (PMMS 환경측정기업 관리자)
+  const orgAdminPassword = await bcrypt.hash("pmms1234!", 10);
   const orgAdmin = await prisma.user.upsert({
-    where: { email: "admin@boaz.com" },
+    where: { email: "admin@pmms.com" },
     update: {
       role: "ORG_ADMIN",
-      organizationId: boazOrg.id,
+      organizationId: pmmsOrg.id,
       status: "APPROVED",
       isActive: true,
     },
     create: {
-      email: "admin@boaz.com",
+      email: "admin@pmms.com",
       password: orgAdminPassword,
       name: "김관리",
       phone: "010-1111-2222",
       role: "ORG_ADMIN",
-      organizationId: boazOrg.id,
-      companyName: "보아스환경기술",
+      organizationId: pmmsOrg.id,
+      companyName: "PMMS 환경측정기업",
       department: "관리팀",
       position: "팀장",
       status: "APPROVED",
@@ -74,26 +74,26 @@ async function main() {
       emailVerified: true,
     },
   });
-  console.log(`✅ ORG_ADMIN created: ${orgAdmin.email} / boaz1234!`);
+  console.log(`✅ ORG_ADMIN created: ${orgAdmin.email} / pmms1234!`);
 
-  // Create OPERATOR (보아스환경기술 실무자)
+  // Create OPERATOR (PMMS 환경측정기업 실무자)
   const operatorPassword = await bcrypt.hash("operator1234!", 10);
   const operator = await prisma.user.upsert({
-    where: { email: "operator@boaz.com" },
+    where: { email: "operator@pmms.com" },
     update: {
       role: "OPERATOR",
-      organizationId: boazOrg.id,
+      organizationId: pmmsOrg.id,
       status: "APPROVED",
       isActive: true,
     },
     create: {
-      email: "operator@boaz.com",
+      email: "operator@pmms.com",
       password: operatorPassword,
       name: "이실무",
       phone: "010-2222-3333",
       role: "OPERATOR",
-      organizationId: boazOrg.id,
-      companyName: "보아스환경기술",
+      organizationId: pmmsOrg.id,
+      companyName: "PMMS 환경측정기업",
       department: "측정팀",
       position: "대리",
       status: "APPROVED",
@@ -104,40 +104,44 @@ async function main() {
   console.log(`✅ OPERATOR created: ${operator.email} / operator1234!`);
 
   // Create test customer (고려아연)
-  const customer = await prisma.customer.upsert({
+  let customer = await prisma.customer.findFirst({
     where: { name: "고려아연" },
-    update: {},
-    create: {
-      name: "고려아연",
-      code: "KZ001",
-      businessNumber: "234-56-78901",
-      fullName: "주식회사 고려아연",
-      address: "충청남도 온양시",
-      industry: "제련업",
-      siteCategory: "1종",
-      createdBy: orgAdmin.id,
-      isPublic: false,
-      status: "CONNECTED",
-    },
   });
+  if (!customer) {
+    customer = await prisma.customer.create({
+      data: {
+        name: "고려아연",
+        code: "KZ001",
+        businessNumber: "234-56-78901",
+        fullName: "주식회사 고려아연",
+        address: "충청남도 온양시",
+        industry: "제련업",
+        siteCategory: "1종",
+        createdBy: orgAdmin.id,
+        isPublic: false,
+        status: "CONNECTED",
+      },
+    });
+  }
   console.log(`✅ Customer created: ${customer.name}`);
 
-  // Create CustomerOrganization relationship
-  await prisma.customerOrganization.upsert({
+  // Create CustomerOrganization relationship (고려아연 ↔ PMMS 환경측정기업)
+  const existingCustomerOrg = await prisma.customerOrganization.findFirst({
     where: {
-      customerId_organizationId: {
-        customerId: customer.id,
-        organizationId: boazOrg.id,
-      },
-    },
-    update: {},
-    create: {
       customerId: customer.id,
-      organizationId: boazOrg.id,
-      status: "APPROVED",
-      requestedBy: "ORGANIZATION",
+      organizationId: pmmsOrg.id,
     },
   });
+  if (!existingCustomerOrg) {
+    await prisma.customerOrganization.create({
+      data: {
+        customerId: customer.id,
+        organizationId: pmmsOrg.id,
+        status: "APPROVED",
+        requestedBy: "ORGANIZATION",
+      },
+    });
+  }
   console.log(`✅ CustomerOrganization relationship created`);
 
   // Create CUSTOMER_ADMIN (고려아연 관리자)
@@ -196,8 +200,8 @@ async function main() {
 
   console.log("\n📋 테스트 계정 목록:");
   console.log("1. 시스템 관리자 (티그로): tigrofin@gmail.com / tigrofin1018*");
-  console.log("2. 환경측정기업 관리자 (보아스): admin@boaz.com / boaz1234!");
-  console.log("3. 환경측정기업 임직원 (보아스): operator@boaz.com / operator1234!");
+  console.log("2. 환경측정기업 관리자 (PMMS): admin@pmms.com / pmms1234!");
+  console.log("3. 환경측정기업 임직원 (PMMS): operator@pmms.com / operator1234!");
   console.log("4. 고객사 관리자 (고려아연): admin@koreazinc.com / customer1234!");
   console.log("5. 고객사 사용자 (고려아연): user@koreazinc.com / user1234!");
 
@@ -232,13 +236,12 @@ async function main() {
     console.log("ℹ️  No mock data found, skipping...");
   }
 
-  // Customers
+  // Customers (mock)
   for (const c of MOCK_CUSTOMERS) {
-    await prisma.customer.upsert({
-      where: { name: c.name },
-      update: {},
-      create: { name: c.name },
-    });
+    const existing = await prisma.customer.findFirst({ where: { name: c.name } });
+    if (!existing) {
+      await prisma.customer.create({ data: { name: c.name } });
+    }
   }
 
   // Items
@@ -286,7 +289,7 @@ async function main() {
         itemKey,
         value: r.value,
         measuredAt: new Date(r.measuredAt),
-        organizationId: boazOrg.id,
+        organizationId: pmmsOrg.id,
       },
     });
   }

@@ -60,72 +60,90 @@ export async function GET(request: Request) {
       
       where.createdBy = { in: userIds };
       where.mergedIntoId = null;
-      where.isPublic = false; // 가입하지 않은 내부 고객만
+      // 연결 안 된 것만 (PENDING, APPROVED, REJECTED 제외, DISCONNECTED는 미연결로 간주)
+      where.NOT = {
+        organizations: {
+          some: { 
+            organizationId: effectiveOrgId,
+            status: { in: ["PENDING", "APPROVED", "REJECTED"] }
+          }
+        }
+      };
     } else if (tab === "connected") {
-      // 연결된 고객사: APPROVED 상태
+      // 연결된 고객사: APPROVED + PENDING + REJECTED 상태
       where.organizations = {
         some: {
           organizationId: effectiveOrgId,
-          status: "APPROVED"
+          status: { in: ["APPROVED", "PENDING", "REJECTED"] }
         }
       };
     } else if (tab === "search") {
-      // 고객사 검색: 가입 고객(항상) + 내 미연결 내부 고객
-      // 가입 고객은 다른 사업장과 연결되어도 검색에 표시 (중복 연결 허용)
-      
+      // 고객사 검색: (관리자계정이 있는 가입 고객사) + (우리 조직이 내부 관리하는 고객사)
       console.log("[SEARCH DEBUG] searchQuery:", searchQuery);
       console.log("[SEARCH DEBUG] effectiveOrgId:", effectiveOrgId);
-      
+
       // 검색어가 있을 때만 결과 표시
       if (searchQuery) {
         // 하이픈 제거한 버전
         const normalizedQuery = searchQuery.replace(/-/g, "");
-        
-        // 조건: (가입 고객 AND 검색어 일치) OR (내부 고객 AND 미연결 AND 검색어 일치)
+
+        // 현재 조직의 사용자 목록 (내부 관리 고객사 createdBy 필터용)
+        const orgUsers = await prisma.user.findMany({
+          where: { organizationId: effectiveOrgId || undefined },
+          select: { id: true },
+        });
+        const userIds = orgUsers.map((u) => u.id);
+
+        const searchCondition = {
+          OR: [
+            { name: { contains: searchQuery } },
+            { fullName: { contains: searchQuery } },
+            { businessNumber: { contains: searchQuery } },
+            { businessNumber: { contains: normalizedQuery } },
+          ],
+        };
+
+        // 조건:
+        // 1) 가입 고객사: 관리자계정(CUSTOMER_ADMIN)이 있는 고객사
+        // 2) 내부 고객사: 우리 조직이 만들었고, 아직 우리 조직과 연결 안 된 고객사
         where.OR = [
-          // 가입 고객 (isPublic=true) - 연결 여부 무관
+          // 가입 고객사 후보: 관리자계정 있음
           {
             AND: [
-              { isPublic: true },
-              { mergedIntoId: null }, // 병합되지 않은 것만
+              { mergedIntoId: null },
               {
-                OR: [
-                  { name: { contains: searchQuery } },
-                  { fullName: { contains: searchQuery } },
-                  { businessNumber: { contains: searchQuery } },
-                  { businessNumber: { contains: normalizedQuery } },
-                ]
-              }
-            ]
+                users: {
+                  some: {
+                    role: "CUSTOMER_ADMIN",
+                  },
+                },
+              },
+              searchCondition,
+            ],
           },
-          // 내부 고객 (isPublic=false) - 미연결만
+          // 내부 관리 고객사 후보: 우리 조직이 만들었고 + 아직 연결 안 됨
           {
             AND: [
-              { isPublic: false },
-              { mergedIntoId: null }, // 병합되지 않은 것만
+              { mergedIntoId: null },
+              userIds.length
+                ? { createdBy: { in: userIds } }
+                : { createdBy: "__no_org_user__" },
               {
                 NOT: {
                   organizations: {
-                    some: { organizationId: effectiveOrgId }
-                  }
-                }
+                    some: { organizationId: effectiveOrgId || undefined },
+                  },
+                },
               },
-              {
-                OR: [
-                  { name: { contains: searchQuery } },
-                  { fullName: { contains: searchQuery } },
-                  { businessNumber: { contains: searchQuery } },
-                  { businessNumber: { contains: normalizedQuery } },
-                ]
-              }
-            ]
-          }
+              searchCondition,
+            ],
+          },
         ];
       } else {
         // 검색어 없으면 빈 결과 (검색 유도)
         where.id = "impossible-search-id";
       }
-      
+
       console.log("[SEARCH DEBUG] Final where:", JSON.stringify(where, null, 2));
     }
     // 레거시 파라미터 지원
@@ -176,6 +194,7 @@ export async function GET(request: Request) {
         isActive: true,
         isPublic: true,
         createdAt: true,
+        createdBy: true,
         _count: { select: { stacks: true, measurements: true, users: true } },
         users: {
           where: { role: "CUSTOMER_ADMIN" },
@@ -185,20 +204,28 @@ export async function GET(request: Request) {
             name: true,
             email: true,
             role: true,
-          }
+          },
         },
         organizations: {
-          where: tab === "connected" 
-            ? { organizationId: effectiveOrgId, status: "APPROVED" }
-            : (organizationId ? { organizationId } : (userOrgId ? { organizationId: userOrgId } : undefined)),
+          where:
+            tab === "connected"
+              ? { organizationId: effectiveOrgId, status: { in: ["APPROVED", "PENDING", "REJECTED"] } }
+              : tab === "all"
+              ? { organizationId: effectiveOrgId }
+              : organizationId
+              ? { organizationId }
+              : userOrgId
+              ? { organizationId: userOrgId }
+              : undefined,
           select: {
             id: true,
             organizationId: true,
             status: true,
+            requestedBy: true,
             customCode: true,
             proposedData: true,
-          }
-        }
+          },
+        },
       },
       orderBy: { name: "asc" },
     });

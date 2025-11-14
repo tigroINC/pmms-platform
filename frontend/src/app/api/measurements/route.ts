@@ -97,35 +97,18 @@ export async function GET(request: Request) {
     if (isCustomerUser && userCustomerId) {
       customerFilter.id = userCustomerId;
     } else {
-      // 환경측정기업 사용자
+      // 환경측정기업 / SUPER_ADMIN 사용자
+      // 1순위: 명시적인 customerId
       if (customerId) {
         customerFilter.id = customerId;
       }
-      if (customerName) {
+      // 2순위: 명시적인 customerName (customerId가 없을 때만 의미 있음)
+      if (!customerId && customerName) {
         customerFilter.name = customerName;
       }
-      
-      // 조직 필터링 (내부 관리 + 연결된 고객사)
-      const userId = (session.user as any).id;
-      
-      if (userRole === "SUPER_ADMIN") {
-        if (organizationId) {
-          customerFilter.OR = [
-            { createdBy: userId },
-            {
-              organizations: {
-                some: {
-                  organizationId: organizationId,
-                  status: "APPROVED"
-                }
-              }
-            }
-          ];
-        }
-      } else if (effectiveOrgId) {
-        // 일반 환경측정기업 사용자: 해당 조직의 측정 데이터만 조회
-        // customerFilter는 설정하지 않고, measurement의 organizationId로 필터링
-      }
+      // SUPER_ADMIN + 시스템 보기 모드에서 "전체"를 선택한 경우에는
+      // customerFilter를 추가로 제한하지 않고 organizationId 필터만 사용한다.
+      // 따라서 여기서는 SUPER_ADMIN에 대한 OR 조건을 더 이상 추가하지 않는다.
     }
     
     where.stack = {
@@ -133,9 +116,19 @@ export async function GET(request: Request) {
       ...(Object.keys(customerFilter).length > 0 ? { customer: customerFilter } : {}),
     };
     
-    // 환경측정기업 사용자는 organizationId로 필터링
-    if (!isCustomerUser && effectiveOrgId) {
-      where.organizationId = effectiveOrgId;
+    // 환경측정기업 사용자는 organizationId로 필터링하되,
+    // SUPER_ADMIN(시스템 보기 모드 포함)은 별도 규칙을 적용
+    if (!isCustomerUser) {
+      if (userRole === "SUPER_ADMIN") {
+        // SUPER_ADMIN + 시스템 보기 + "전체" 선택 시: 해당 조직의 모든 고객 데이터
+        if (organizationId && !customerId && !customerName) {
+          where.organizationId = organizationId;
+        }
+        // 그 외 SUPER_ADMIN 케이스는 organizationId로 추가 제한하지 않음
+      } else if (effectiveOrgId) {
+        // 일반 환경측정기업 사용자: 해당 조직의 측정 데이터만 조회
+        where.organizationId = effectiveOrgId;
+      }
     }
 
   const data = await prisma.measurement.findMany({

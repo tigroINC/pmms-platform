@@ -27,8 +27,16 @@ export default function SearchConnectionModal({
   if (!isOpen) return null;
 
   // 공개/내부 고객사 분리
-  const publicCustomers = searchResults.filter((c) => c.isPublic);
-  const internalCustomers = searchResults.filter((c) => !c.isPublic && c.createdBy);
+  // 고객사(가입): CUSTOMER_ADMIN 관리자계정이 존재하는 고객사
+  const publicCustomers = searchResults.filter(
+    (c) => Array.isArray(c.users) && c.users.length > 0
+  );
+  // 고객사(내부): 우리 조직이 만들었고 AND 아직 우리 조직과 연결 안 된 고객사
+  const internalCustomers = searchResults.filter((c) => {
+    const isCreatedByUs = c.createdBy; // 우리 조직 사용자가 만든 것
+    const isNotConnected = !c.organizations || c.organizations.length === 0; // 아직 연결 안 됨
+    return isCreatedByUs && isNotConnected;
+  });
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
@@ -129,7 +137,7 @@ export default function SearchConnectionModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
             고객사 검색 및 연결
@@ -143,21 +151,20 @@ export default function SearchConnectionModal({
         </div>
 
         <div className="p-6 space-y-4">
+          <div className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-3">
+            검색 → 해당 고객사(가입) 선택 → 내부등록된 고객이 있을 경우 같이 선택 → 연결요청
+          </div>
           <div className="flex gap-2">
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery((e.target as HTMLInputElement).value)}
-              placeholder="회사명 또는 사업자번호 입력"
+              placeholder="회사명 일부 또는 사업자번호(하이픈 유무 무관)로 검색하세요."
               className="flex-1"
               onKeyPress={(e) => e.key === "Enter" && handleSearch()}
             />
             <Button onClick={handleSearch} disabled={searching}>
               {searching ? "검색 중..." : "검색"}
             </Button>
-          </div>
-
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            💡 회사명 일부 또는 사업자번호(하이픈 유무 무관)로 검색하세요.
           </div>
         </div>
 
@@ -231,27 +238,31 @@ export default function SearchConnectionModal({
           )}
         </div>
 
-        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            {selectedPublic && selectedInternal && (
-              <span className="text-blue-600 dark:text-blue-400">
-                💡 병합 연결: 내부 정보가 가입 고객사에 추가됩니다
-              </span>
-            )}
-            {selectedPublic && !selectedInternal && (
-              <span>일반 연결 요청</span>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={handleClose}>
-              닫기
-            </Button>
-            <Button
-              onClick={handleMatchConnect}
-              disabled={!selectedPublic || loading}
-            >
-              {selectedInternal ? "병합 연결" : "연결 요청"}
-            </Button>
+        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex justify-between items-center">
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              {selectedPublic && selectedInternal && (
+                <span>
+                  💡 고객사(가입)과 고객사(내부)를 모두 선택할 경우 해당 정보가 병합 연결됩니다.
+                </span>
+              )}
+              {selectedPublic && !selectedInternal && (
+                <span>
+                  💡 일반 연결: 선택한 가입 고객사에 연결 요청만 전송됩니다.
+                </span>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={handleClose}>
+                닫기
+              </Button>
+              <Button
+                onClick={handleMatchConnect}
+                disabled={!selectedPublic || loading}
+              >
+                연결 요청
+              </Button>
+            </div>
           </div>
         </div>
       </div>

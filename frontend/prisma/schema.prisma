@@ -1,4 +1,4 @@
-// Prisma schema for Boaz environment measurement app
+// Prisma schema for PMMS environment measurement management system
 // Provider: SQLite by default (can switch to PostgreSQL later)
 
 generator client {

@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
       const o2Measured = auxiliaryData.oxygenMeasured || "";
       const o2Standard = auxiliaryData.oxygenStd || "";
       const flowRate = auxiliaryData.flowRate || "";
-      const company = auxiliaryData.company || "보아스환경기술";
+      const company = auxiliaryData.company || "PMMS 환경측정관리시스템";
 
       // 각 측정항목별로 행 생성
       for (const m of measurements) {

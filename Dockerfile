@@ -1,8 +1,13 @@
 # Multi-stage build for Next.js + Python
-FROM node:18-alpine AS deps
+FROM node:18-slim AS deps
 
 # Python 및 필수 패키지 설치
-RUN apk add --no-cache python3 py3-pip python3-dev build-base
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-dev \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -12,12 +17,16 @@ RUN npm ci
 
 # Python 의존성 설치
 COPY backend/requirements.txt ./backend/
-RUN pip3 install --no-cache-dir -r backend/requirements.txt
+RUN pip3 install --break-system-packages --no-cache-dir -r backend/requirements.txt
+
+# Playwright Chromium 설치
+RUN playwright install chromium && \
+    playwright install-deps chromium
 
 # Builder stage
-FROM node:18-alpine AS builder
+FROM node:18-slim AS builder
 
-RUN apk add --no-cache python3 py3-pip
+RUN apt-get update && apt-get install -y python3 python3-pip && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -42,9 +51,13 @@ RUN npx prisma generate
 RUN npm run build
 
 # Production stage
-FROM node:18-alpine AS runner
+FROM node:18-slim AS runner
 
-RUN apk add --no-cache python3 py3-pip
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    chromium \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -59,21 +72,21 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/backend ./backend
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /usr/lib/python3.11 /usr/lib/python3.11
-COPY --from=builder /usr/bin/python3 /usr/bin/python3
-COPY --from=deps /root/.local /root/.local
+COPY --from=deps /usr/local/lib/python3.11 /usr/local/lib/python3.11
+COPY --from=deps /usr/bin/python3 /usr/bin/python3
+COPY --from=deps /usr/local/bin /usr/local/bin
 COPY frontend/start.sh ./start.sh
 
 # Python 패키지 경로 추가
 ENV PATH="/root/.local/bin:$PATH"
-ENV PYTHONPATH="/usr/lib/python3.11/site-packages"
+ENV PYTHONPATH="/usr/local/lib/python3.11/site-packages"
+ENV PLAYWRIGHT_BROWSERS_PATH=/usr/bin/chromium
 
 # 업로드 디렉토리 생성 및 스크립트 실행 권한 부여
 RUN mkdir -p /app/public/uploads && chmod +x /app/start.sh
 
 EXPOSE 3000 8000
 
-ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
 CMD ["sh", "start.sh"]

@@ -19,6 +19,12 @@ export default function MeasureHistoryPage() {
   const { list: customerList } = useCustomers();
   const { items: itemList } = useMeasurementItems();
   const { data: session } = useSession();
+  
+  // 디버깅: itemList 확인
+  useEffect(() => {
+    console.log("[MeasureHistory] itemList:", itemList);
+    console.log("[MeasureHistory] itemList sample:", itemList[0]);
+  }, [itemList]);
   const userRole = (session?.user as any)?.role;
   const isCustomerUser = userRole === "CUSTOMER_ADMIN" || userRole === "CUSTOMER_USER";
   // 기본 조회 기간 계산 함수: 6개월 vs 올해 1월 1일 중 더 긴 기간
@@ -72,11 +78,19 @@ export default function MeasureHistoryPage() {
   }, [isCustomerUser]);
 
   const selectedCustomerId = useMemo(() => {
+    // 고객사 사용자는 자신의 customerId 사용
+    if (isCustomerUser) {
+      return (session?.user as any)?.customerId;
+    }
+    
     if (fc === "선택") return null; // "선택" 상태에서는 데이터 로딩 안 함
     if (fc === "전체") return undefined; // "전체" 선택 시 모든 고객사 데이터 로딩
     return customerList.find((c)=>c.name===fc)?.id;
-  }, [fc, customerList]);
-  const { list: stackList } = useStacks(selectedCustomerId);
+  }, [fc, customerList, isCustomerUser, session]);
+  
+  // 고객사 사용자도 stackList를 가져오기 위해 customerId 전달
+  const stackListCustomerId = isCustomerUser ? (session?.user as any)?.customerId : selectedCustomerId;
+  const { list: stackList } = useStacks(stackListCustomerId);
 
   const selectedStacks = useMemo(() => (fs === "전체" ? undefined : fs), [fs]);
   const selectedItemKey = useMemo(() => (fi === "전체" ? undefined : (itemList.find((it)=>it.name===fi)?.key || fi)), [fi, itemList]);
@@ -161,7 +175,8 @@ export default function MeasureHistoryPage() {
         // 표시용 데이터
         measuredAt: d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` : "",
         customer: r.customer?.name ?? "",
-        stack: r.stack?.name ?? r.stack ?? "",
+        stack: r.stack?.code ?? r.stack?.name ?? r.stack ?? "",
+        stackCode: r.stack?.code ?? "",
         weather: getWeatherValue("weather"),
         temp: getWeatherValue("temperatureC"),
         humidity: getWeatherValue("humidityPct"),
@@ -349,15 +364,15 @@ export default function MeasureHistoryPage() {
             </div>
           )}
           <div className="flex flex-col" style={{ width: '176px', minWidth: '176px' }}>
-            <label className="text-xs text-gray-600 dark:text-gray-400 mb-0.5">굴뚝명</label>
+            <label className="text-xs text-gray-600 dark:text-gray-400 mb-0.5">굴뚝번호</label>
             <Select className="text-sm h-8 w-full" value={fs} onChange={(e)=>{ setFs((e.target as HTMLSelectElement).value); setPage(1); }}>
-              {["전체", ...(selectedCustomerId ? stackList.map(s=>s.name) : Array.from(new Set(rows.map((r:any)=>r.stack))))].map((s)=> (<option key={s}>{s}</option>))}
+              {["전체", ...(selectedCustomerId ? stackList.map(s=>s.code) : Array.from(new Set(rows.map((r:any)=>r.stack))))].map((s)=> (<option key={s}>{s}</option>))}
             </Select>
           </div>
           <div className="flex flex-col" style={{ width: '176px', minWidth: '176px' }}>
             <label className="text-xs text-gray-600 dark:text-gray-400 mb-0.5">오염물질</label>
             <Select className="text-sm h-8 w-full" value={fi} onChange={(e)=>{ setFi((e.target as HTMLSelectElement).value); setPage(1); }}>
-              {["전체", ...itemList.map(i=>i.name)].map((n)=> (<option key={n}>{n}</option>))}
+              {["전체", ...itemList.filter(i => !i.key.startsWith('MENV')).map(i=>i.name)].map((n)=> (<option key={n}>{n}</option>))}
             </Select>
           </div>
           <div className="flex flex-col">

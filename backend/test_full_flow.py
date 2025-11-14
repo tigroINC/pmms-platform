@@ -9,7 +9,7 @@ import sys
 # 경로 추가
 sys.path.insert(0, str(Path(__file__).parent))
 
-from automl_engine import BoazAutoMLPredictor
+from automl_engine import PmmsAutoMLPredictor
 from insight_generator import InsightGenerator
 
 # 데이터베이스 경로
@@ -73,7 +73,7 @@ async def test_full_flow():
         
         # 2. AutoML 예측 수행
         print("\n2. AutoML 예측 수행 중...")
-        predictor = BoazAutoMLPredictor()
+        predictor = PmmsAutoMLPredictor()
         result = await predictor.predict(data=rows, periods=periods)
         print(f"   ✓ 예측 완료: {len(result['predictions'])}일")
         print(f"   ✓ 모델 정확도 - RMSE: {result.get('metrics', {}).get('rmse', 'N/A')}")

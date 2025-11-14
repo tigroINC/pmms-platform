@@ -54,8 +54,16 @@ export async function PATCH(
       );
     }
 
-    const body = await request.json();
-    const { contractStartDate, contractEndDate } = body;
+    let contractStartDate = null;
+    let contractEndDate = null;
+    
+    try {
+      const body = await request.json();
+      contractStartDate = body.contractStartDate;
+      contractEndDate = body.contractEndDate;
+    } catch (error) {
+      // body가 비어있으면 무시
+    }
 
     // Transaction으로 승인 + DRAFT 굴뚝 전환 처리
     const updated = await prisma.$transaction(async (tx) => {

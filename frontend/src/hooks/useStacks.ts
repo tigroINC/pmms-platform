@@ -1,24 +1,38 @@
 import { useEffect, useState } from "react";
 import { useOrganization } from "@/contexts/OrganizationContext";
+import { useSession } from "next-auth/react";
 
 export function useStacks(customerId?: string) {
-  const [list, setList] = useState<Array<{ id: string; name: string; siteCode?: string; customerId: string; isActive: boolean }>>([]);
+  const [list, setList] = useState<Array<{ id: string; name: string; code?: string; siteCode?: string; customerId: string; isActive: boolean }>>([]);
   const { selectedOrg } = useOrganization();
+  const { data: session } = useSession();
+  const userRole = (session?.user as any)?.role;
+  const isCustomerUser = userRole === "CUSTOMER_ADMIN" || userRole === "CUSTOMER_USER";
   
   useEffect(() => {
     let mounted = true;
     
-    if (!selectedOrg?.id) {
+    // customerId가 없으면 데이터 로딩 안 함
+    if (!customerId) {
+      console.log("[useStacks] No customerId, skipping fetch");
+      setList([]);
+      return;
+    }
+    
+    // 고객사 사용자가 아닌 경우에만 selectedOrg 체크
+    if (!isCustomerUser && !selectedOrg?.id) {
       console.log("[useStacks] No selectedOrg, skipping fetch");
       setList([]);
       return;
     }
     
     const params = new URLSearchParams();
-    if (customerId) params.set("customerId", customerId);
-    params.set("organizationId", selectedOrg.id);
+    params.set("customerId", customerId);
+    if (selectedOrg?.id) {
+      params.set("organizationId", selectedOrg.id);
+    }
     
-    console.log("[useStacks] Fetching with organizationId:", selectedOrg.id, "customerId:", customerId);
+    console.log("[useStacks] Fetching with organizationId:", selectedOrg?.id, "customerId:", customerId);
     fetch(`/api/stacks?${params.toString()}`)
       .then((r) => r.json())
       .then((json) => { 
@@ -33,6 +47,6 @@ export function useStacks(customerId?: string) {
         if (mounted) setList([]); 
       });
     return () => { mounted = false; };
-  }, [customerId, selectedOrg]);
+  }, [customerId, selectedOrg, isCustomerUser]);
   return { list };
 }

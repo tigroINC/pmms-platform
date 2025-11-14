@@ -45,11 +45,12 @@ export default function OrganizationRequestModal({
   const searchOrganizations = async () => {
     try {
       setSearching(true);
-      const res = await fetch(`/api/companies/search?q=${encodeURIComponent(searchTerm)}&type=organization`);
+      const customerId = (session?.user as any)?.customerId;
+      const res = await fetch(`/api/companies/search?q=${encodeURIComponent(searchTerm)}&type=organization&customerId=${customerId}`);
       const data = await res.json();
       
       if (res.ok) {
-        setSearchResults(data.results || []);
+        setSearchResults(data.companies || []);
       }
     } catch (error) {
       console.error("Error searching organizations:", error);

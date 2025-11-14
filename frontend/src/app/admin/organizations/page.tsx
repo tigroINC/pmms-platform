@@ -129,9 +129,8 @@ export default function OrganizationsPage() {
   };
 
   const handleViewSystem = (organizationId: string) => {
-    // 세션 스토리지에 임시로 조회할 업체 ID 저장
-    sessionStorage.setItem("viewAsOrganization", organizationId);
-    router.push("/dashboard");
+    // 시스템 보기 모드: URL 파라미터로 조회 대상 조직을 명시적으로 전달
+    router.push(`/dashboard?viewAsOrg=${organizationId}`);
   };
 
   const handleToggleContractManagement = async (id: string, currentValue: boolean) => {

@@ -6,12 +6,12 @@ const prisma = new PrismaClient();
 async function seedBasic() {
   console.log('🌱 Seeding basic data...');
 
-  // 1. 기본 조직 (보아스환경기술)
+  // 1. 기본 조직 (PMMS 환경측정기업)
   const org = await prisma.organization.upsert({
     where: { businessNumber: '123-45-67890' },
     update: {},
     create: {
-      name: '보아스환경기술',
+      name: 'PMMS 환경측정기업',
       businessNumber: '123-45-67890',
       address: '서울시 강남구',
       phone: '02-1234-5678',
@@ -39,12 +39,12 @@ async function seedBasic() {
   console.log(`  ✓ SUPER_ADMIN: ${superAdmin.email}`);
 
   // 3. 환경측정기업 관리자
-  const orgAdminPassword = await bcrypt.hash('boaz1234!', 10);
+  const orgAdminPassword = await bcrypt.hash('pmms1234!', 10);
   const orgAdmin = await prisma.user.upsert({
-    where: { email: 'admin@boaz.com' },
+    where: { email: 'admin@pmms.com' },
     update: {},
     create: {
-      email: 'admin@boaz.com',
+      email: 'admin@pmms.com',
       password: orgAdminPassword,
       name: '김관리',
       role: 'ORG_ADMIN',

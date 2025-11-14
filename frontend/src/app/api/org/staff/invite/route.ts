@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "조직 정보가 없습니다." }, { status: 400 });
     }
 
-    const organizationName = currentUser?.organization?.name || "보아스환경기술";
+    const organizationName = currentUser?.organization?.name || "PMMS 환경측정관리시스템";
 
     // 이메일 중복 체크
     const existingUser = await prisma.user.findUnique({

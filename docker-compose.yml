@@ -1,15 +1,68 @@
 version: '3.8'
+
 services:
+  # PostgreSQL 데이터베이스
   postgres:
     image: postgres:15
+    container_name: pmms-postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: boaz
+      POSTGRES_DB: pmms_local
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pmms-network
+
+  # PMMS 통합 애플리케이션 (Next.js + FastAPI + AutoML)
+  pmms-app:
+    image: pmms-app:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pmms-app
+    ports:
+      - "3000:3000"  # Next.js 프론트엔드
+      - "8000:8000"  # FastAPI 백엔드
+    environment:
+      # PostgreSQL 연결 (내부 네트워크)
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/pmms_local
+      
+      # NextAuth 설정
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=local-dev-secret-change-in-production-minimum-32-characters
+      
+      # 애플리케이션 URL
+      - NEXT_PUBLIC_APP_URL=http://localhost:3000
+      - NEXT_PUBLIC_AUTOML_API_URL=http://localhost:8000
+      
+      # 환경
+      - NODE_ENV=development
+      
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - pmms-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
 volumes:
   postgres_data:
+    driver: local
+
+networks:
+  pmms-network:
+    driver: bridge

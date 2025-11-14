@@ -4,6 +4,9 @@ npm-debug.log
 .npm
 
 # Next.js
+frontend/.next
+frontend/out
+frontend/dist
 .next
 out
 dist
@@ -51,3 +54,21 @@ ENV/
 README.md
 docs/
 *.md
+
+# Build artifacts
+frontend/.next/**
+frontend/out/**
+frontend/dist/**
+frontend/node_modules/**
+backend/__pycache__/**
+backend/*.pyc
+
+# Backup folders
+backup_*/**
+**/backup_*/**
+
+# Test files
+**/*test*.py
+**/*test*.ts
+**/*test*.tsx
+frontend/scripts/**

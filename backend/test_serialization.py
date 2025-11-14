@@ -9,7 +9,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from automl_engine import BoazAutoMLPredictor
+from automl_engine import PmmsAutoMLPredictor
 from insight_generator import InsightGenerator
 
 DB_PATH = Path(__file__).parent.parent / "frontend" / "prisma" / "dev.db"
@@ -62,7 +62,7 @@ async def test_serialization():
         
         # 예측 수행
         print("예측 수행 중...")
-        predictor = BoazAutoMLPredictor()
+        predictor = PmmsAutoMLPredictor()
         result = await predictor.predict(data=rows, periods=30)
         print("예측 완료")
         

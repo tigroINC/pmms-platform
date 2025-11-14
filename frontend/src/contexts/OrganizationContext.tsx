@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 
 interface Organization {
   id: string;
@@ -27,6 +28,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   const [selectedOrg, setSelectedOrgState] = useState<Organization | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
+  const searchParams = useSearchParams();
 
   const isSuperAdmin = (session?.user as any)?.role === "SUPER_ADMIN";
   const userRole = (session?.user as any)?.role;
@@ -46,11 +48,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // 시스템 보기 모드 확인 (SUPER_ADMIN만)
-    const viewAsOrgId = isSuperAdmin ? sessionStorage.getItem("viewAsOrganization") : null;
-    console.log("[OrganizationContext] Initial check - viewAsOrgId:", viewAsOrgId, "isSuperAdmin:", isSuperAdmin);
-
-    // SUPER_ADMIN인 경우 모든 조직 목록 가져오기
+    // SUPER_ADMIN인 경우 모든 조직 목록 가져오기 (실제 조직 정보로 selectedOrg를 덮어씌움)
     if (isSuperAdmin) {
       fetchOrganizations();
     } else if (userOrgId) {
@@ -61,68 +59,52 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     }
   }, [session, status, isSuperAdmin, userOrgId, isCustomerUser]);
 
-  // 세션 스토리지 변경 감지 (시스템 보기 모드)
+  // URL 파라미터의 viewAsOrg를 한 번 반영 (시스템 보기 모드)
   useEffect(() => {
     if (!isSuperAdmin) return;
 
-    // 페이지 로드 시 즉시 확인
-    const viewAsOrgId = sessionStorage.getItem("viewAsOrganization");
-    if (viewAsOrgId && selectedOrg?.id !== viewAsOrgId) {
-      fetchOrganizations();
-    }
+    const viewAsOrgId = searchParams.get("viewAsOrg");
+    if (!viewAsOrgId) return;
 
-    // 주기적으로 확인
-    const interval = setInterval(() => {
-      const currentViewAsOrgId = sessionStorage.getItem("viewAsOrganization");
-      if (currentViewAsOrgId && selectedOrg?.id !== currentViewAsOrgId) {
-        fetchOrganizations();
-      } else if (!currentViewAsOrgId && selectedOrg) {
-        // viewAsOrganization이 제거되었으면 일반 모드로 복귀
-        const savedOrgId = localStorage.getItem("selectedOrgId");
-        if (savedOrgId && selectedOrg.id !== savedOrgId) {
-          fetchOrganizations();
-        }
+    // 이미 동일 조직이 선택되어 있으면 변경 없음
+    if (selectedOrg?.id === viewAsOrgId) return;
+
+    // 조직 목록이 로드되어 있다면, 실제 조직 정보로 selectedOrg를 맞춤
+    if (organizations.length) {
+      const viewOrg = organizations.find((o) => o.id === viewAsOrgId);
+      if (viewOrg) {
+        setSelectedOrgState(viewOrg);
       }
-    }, 500); // 500ms로 더 빠르게 체크
-
-    return () => clearInterval(interval);
-  }, [isSuperAdmin, selectedOrg]);
+    }
+  }, [isSuperAdmin, selectedOrg?.id, organizations.length, searchParams]);
 
   const fetchOrganizations = async () => {
     try {
       const response = await fetch("/api/organizations?status=APPROVED");
+
+      if (!response.ok) {
+        console.error("[OrganizationContext] /api/organizations error:", response.status);
+        setOrganizations([]);
+        return;
+      }
+
       const data = await response.json();
-      if (response.ok) {
-        const orgs = data.organizations || [];
-        setOrganizations(orgs);
-        
-        // 시스템 관리자의 "시스템 보기" 모드 확인
-        const viewAsOrgId = sessionStorage.getItem("viewAsOrganization");
-        console.log("[OrganizationContext] viewAsOrgId:", viewAsOrgId);
-        if (viewAsOrgId) {
-          const viewOrg = orgs.find((o: Organization) => o.id === viewAsOrgId);
-          console.log("[OrganizationContext] viewOrg found:", viewOrg);
-          if (viewOrg) {
-            console.log("[OrganizationContext] Setting selectedOrg to:", viewOrg.name);
-            setSelectedOrgState(viewOrg);
-            return;
-          }
-        }
-        
-        // 로컬 스토리지에서 마지막 선택 조직 복원
-        const savedOrgId = localStorage.getItem("selectedOrgId");
-        if (savedOrgId) {
-          const savedOrg = orgs.find((o: Organization) => o.id === savedOrgId);
-          if (savedOrg) {
-            setSelectedOrgState(savedOrg);
-          } else if (orgs.length > 0) {
-            // 저장된 조직이 없으면 첫 번째 조직 선택
-            setSelectedOrgState(orgs[0]);
-          }
+      const orgs = data.organizations || [];
+      setOrganizations(orgs);
+
+      // 로컬 스토리지에서 마지막 선택 조직 복원 (일반 SUPER_ADMIN용)
+      const savedOrgId = localStorage.getItem("selectedOrgId");
+      if (savedOrgId) {
+        const savedOrg = orgs.find((o: Organization) => o.id === savedOrgId);
+        if (savedOrg) {
+          setSelectedOrgState(savedOrg);
         } else if (orgs.length > 0) {
           // 저장된 조직이 없으면 첫 번째 조직 선택
           setSelectedOrgState(orgs[0]);
         }
+      } else if (!selectedOrg && orgs.length > 0) {
+        // 선택된 조직이 아직 없으면 첫 번째 조직 선택
+        setSelectedOrgState(orgs[0]);
       }
     } catch (error) {
       console.error("Fetch organizations error:", error);

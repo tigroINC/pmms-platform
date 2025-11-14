@@ -26,21 +26,21 @@ async function main() {
 
   console.log(`✅ 고객사 발견: ${customer.name} (${customer.id})`);
 
-  // 2. 보아스환경기술 조직 찾기
+  // 2. PMMS 환경측정기업 조직 찾기
   const organization = await prisma.organization.findFirst({
     where: {
       name: {
-        contains: '보아스'
+        contains: 'PMMS'
       }
     }
   });
 
   if (!organization) {
-    console.log('❌ 보아스환경기술 조직을 찾을 수 없습니다.');
+    console.log('❌ PMMS 환경측정기업 조직을 찾을 수 없습니다.');
     return;
   }
 
-  console.log(`✅ 환경측정기업 발견: ${organization.name} (${organization.id})`);
+  console.log(`✅ 환경측정기업 발견: PMMS (${organization.id})`);
 
   // 3. 기존 CONFIRMED 굴뚝 하나를 PENDING_REVIEW로 변경
   const existingStack = await prisma.stack.findFirst({
@@ -97,15 +97,21 @@ async function main() {
   // 5. StackCode 생성 (내부 코드)
   await prisma.stackCode.create({
     data: {
-      stackId: newStack.id,
-      organizationId: organization.id,
-      internalCode: 'BOAZ-TEST-001',
-      internalName: '보아스 테스트 굴뚝',
-      isPrimary: true
+      stack: {
+        connect: { id: newStack.id }
+      },
+      organization: {
+        connect: { id: organization.id }
+      },
+      internalCode: 'PMMS-TEST-001',
+      internalName: 'PMMS 테스트 굴뚝',
+      isPrimary: true,
+      isActive: true,
+      createdBy: 'SYSTEM',
     }
   });
 
-  console.log(`   내부코드: BOAZ-TEST-001`);
+  console.log(`   내부코드: PMMS-TEST-001`);
 
   // 6. 결과 확인
   const pendingCount = await prisma.stack.count({

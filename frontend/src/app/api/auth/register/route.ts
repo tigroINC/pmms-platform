@@ -31,7 +31,10 @@ export async function POST(request: NextRequest) {
 
     if (existingUser) {
       return NextResponse.json(
-        { error: "이미 등록된 이메일입니다." },
+        {
+          error:
+            "이미 등록된 이메일입니다. 직전 화면에서 소속 고객사 검색을 통해 해당 회사를 선택하신 후 가입을 진행해주세요.",
+        },
         { status: 400 }
       );
     }
@@ -43,7 +46,7 @@ export async function POST(request: NextRequest) {
     let customer = null;
     let isPendingCompany = false;
     if (businessNumber) {
-      customer = await prisma.customer.findUnique({
+      customer = await prisma.customer.findFirst({
         where: { businessNumber },
       });
       isPendingCompany = customer ? !customer.isActive : false;

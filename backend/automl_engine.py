@@ -1,5 +1,5 @@
 """
-보아스 AutoML 예측 엔진
+PMMS AutoML 예측 엔진
 - Prophet 기반 시계열 예측
 - Optuna 자동 하이퍼파라미터 튜닝
 - 자동 모델 선택 및 최적화
@@ -20,9 +20,9 @@ logger = logging.getLogger(__name__)
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 
-class BoazAutoMLPredictor:
+class PmmsAutoMLPredictor:
     """
-    보아스 환경 AutoML 예측기
+    PMMS 환경 AutoML 예측기
     
     Features:
     - 자동 하이퍼파라미터 튜닝 (Optuna)

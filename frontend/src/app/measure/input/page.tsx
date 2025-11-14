@@ -69,7 +69,7 @@ export default function MeasureInputPage() {
   const { list: stacks } = useStacks(selectedCustomerId);
   const [stackSel, setStackSel] = useState("");
   const selectedStackId = useMemo(() => stacks.find((s)=>s.name===stackSel)?.id, [stacks, stackSel]);
-  const [companySel, setCompanySel] = useState("보아스환경기술");
+  const [companySel, setCompanySel] = useState("PMMS 환경측정관리시스템");
   const { items: apiItems } = useMeasurementItems();
   
   // 굴뚝별 측정 대상 항목
@@ -155,7 +155,7 @@ export default function MeasureInputPage() {
     "굴뚝번호","측정일자","측정시간","기상","기온℃","습도％","기압mmHg","풍향","풍속m／sec","가스속도m／s","가스온도℃","수분함량％","실측산소농도％","표준산소농도％","배출가스유량S㎥／min","오염물질","농도","배출허용기준농도","배출허용기준체크","측정업체"
   ];
   const bulkUploadExample = [
-    "C-ST01001","2025-09-04","10:52","맑음","4.0","33","769.9","북서","3.0","26.63","12","1.97","0","0","1713.8","먼지","0.7","30","","보아스환경기술"
+    "C-ST01001","2025-09-04","10:52","맑음","4.0","33","769.9","북서","3.0","26.63","12","1.97","0","0","1713.8","먼지","0.7","30","","PMMS 환경측정관리시스템"
   ];
   const handleBulkUpload = async (file: File): Promise<{ success: boolean; message: string; count?: number }> => {
     try {
@@ -949,7 +949,7 @@ export default function MeasureInputPage() {
             <div className="space-y-2">
               <label className="block text-xs sm:text-sm">측정업체</label>
               <Select className="w-full text-xs sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-gray-700" value={companySel} onChange={(e)=>setCompanySel((e.target as HTMLSelectElement).value)} disabled={role === "customer"}>
-                <option value="보아스환경기술">보아스환경기술</option>
+                <option value="PMMS 환경측정관리시스템">PMMS 환경측정관리시스템</option>
               </Select>
             </div>
             <div className="space-y-2">

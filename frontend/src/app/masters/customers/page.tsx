@@ -13,7 +13,7 @@ import ContractManagementModal from "@/components/modals/ContractManagementModal
 import SearchConnectionModal from "@/components/modals/SearchConnectionModal";
 import CustomerManagementHelpModal from "@/components/modals/CustomerManagementHelpModal";
 
-type TabType = "all" | "internal" | "connected";
+type TabType = "all" | "internal" | "connected" | "search";
 
 // 고객사 행 컴포넌트
 function CustomerRow({ 
@@ -106,18 +106,86 @@ function CustomerRow({
         : "border-l-4 border-l-blue-300"
     : "";
 
+  // 연결 상태 확인
+  const connectionStatus = customer.organizations?.[0]?.status;
+  const requestedBy = customer.organizations?.[0]?.requestedBy;
+  const isPending = connectionStatus === "PENDING";
+  const isRejected = connectionStatus === "REJECTED";
+  
+  // 연결 상태 뱃지 결정
+  const getConnectionBadge = () => {
+    // 내부 탭이거나, 연결 정보가 없거나, DISCONNECTED 상태인 경우
+    if (activeTab === "internal" || !customer.organizations || customer.organizations.length === 0 || connectionStatus === "DISCONNECTED") {
+      return (
+        <span className="inline-block px-2 py-0.5 rounded bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 text-xs">
+          내부
+        </span>
+      );
+    }
+    
+    if (connectionStatus === "APPROVED") {
+      return (
+        <span className="inline-block px-2 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 text-xs">
+          연결
+        </span>
+      );
+    }
+    
+    if (isPending && requestedBy === "ORGANIZATION") {
+      return (
+        <span 
+          className="inline-flex flex-col items-center justify-center px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300 text-xs leading-tight cursor-help"
+          title="우리가 연결요청을 보낸 상태"
+        >
+          <div>연결</div>
+          <div>요청</div>
+        </span>
+      );
+    }
+    
+    if (isPending && requestedBy === "CUSTOMER") {
+      return (
+        <span 
+          className="inline-flex flex-col items-center justify-center px-2 py-0.5 rounded bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 text-xs leading-tight cursor-help"
+          title="고객사가 연결요청을 한 상태"
+        >
+          <div>승인</div>
+          <div>대기</div>
+        </span>
+      );
+    }
+    
+    if (connectionStatus === "REJECTED" && requestedBy === "ORGANIZATION") {
+      return (
+        <span 
+          className="inline-flex flex-col items-center justify-center px-2 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 text-xs leading-tight cursor-help"
+          title="우리 요청이 거절당한 상태"
+        >
+          <div>거절</div>
+          <div>됨</div>
+        </span>
+      );
+    }
+    
+    if (connectionStatus === "REJECTED" && requestedBy === "CUSTOMER") {
+      return (
+        <span 
+          className="inline-flex flex-col items-center justify-center px-2 py-0.5 rounded bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 text-xs leading-tight cursor-help"
+          title="우리가 거절한 상태"
+        >
+          <div>거절</div>
+          <div>함</div>
+        </span>
+      );
+    }
+    
+    return null;
+  };
+  
   return (
-    <Tr className={`${!isActive ? "opacity-50 bg-gray-50 dark:bg-gray-900/20" : ""} ${groupBorderClass}`}>
+    <Tr className={`${!isActive || isRejected ? "opacity-50 bg-gray-50 dark:bg-gray-900/20" : ""} ${groupBorderClass}`}>
       <Td>
-        {isActive ? (
-          <span className="inline-block px-2 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 text-xs">
-            활성
-          </span>
-        ) : (
-          <span className="inline-block px-2 py-0.5 rounded bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 text-xs">
-            비활성
-          </span>
-        )}
+        {getConnectionBadge()}
       </Td>
       <Td className="font-mono text-xs break-words">
         {customer.code || "-"}
@@ -139,63 +207,229 @@ function CustomerRow({
       {!isReadOnly && (
         <Td>
           <div className="flex gap-2">
-            {/* 권한 체크는 부모 컴포넌트에서 전달받은 isReadOnly로 처리 */}
-            <button
-              onClick={() => onEdit(customer)}
-              disabled={loading}
-              className="text-xs text-green-600 hover:underline disabled:opacity-50"
-            >
-              수정
-            </button>
-            <button
-              onClick={toggleActive}
-              disabled={loading}
-              className="text-xs text-blue-600 hover:underline disabled:opacity-50"
-            >
-              {isActive ? "비활성화" : "활성화"}
-            </button>
-            {!isActive && !customer._count?.measurements && (
-              <button
-                onClick={handleDelete}
-                disabled={loading}
-                className="text-xs text-red-600 hover:underline disabled:opacity-50"
-              >
-                삭제
-              </button>
-            )}
-            {activeTab === "internal" && onCreateInvitation && (
-              <button
-                onClick={() => onCreateInvitation(customer)}
-                disabled={loading}
-                className="text-xs text-purple-600 hover:underline disabled:opacity-50"
-              >
-                초대 링크
-              </button>
-            )}
-            {activeTab === "connected" && customer.organizations?.[0] && (
-              <button
-                onClick={async () => {
-                  if (!confirm("연결을 해제하시겠습니까?")) return;
-                  try {
-                    const res = await fetch(`/api/customer-organizations/${customer.organizations[0].id}`, {
-                      method: "DELETE",
-                    });
-                    if (res.ok) {
-                      alert("연결이 해제되었습니다.");
-                      onRefetch();
-                    } else {
-                      const data = await res.json();
-                      alert(data.error || "연결 해제 실패");
-                    }
-                  } catch (error) {
-                    alert("연결 해제 중 오류가 발생했습니다.");
-                  }
-                }}
-                disabled={loading}
-                className="text-xs text-orange-600 hover:underline disabled:opacity-50"
-              >
-                연결 해제
-              </button>
+            {isPending ? (
+              // PENDING 상태: 연결 탭에서만 액션 표시
+              activeTab === "connected" ? (
+                requestedBy === "ORGANIZATION" ? (
+                  // 우리가 요청한 경우: 요청 취소
+                  <button
+                    onClick={async () => {
+                      if (!confirm("연결 요청을 취소하시겠습니까?")) return;
+                      try {
+                        const res = await fetch(`/api/customer-organizations/${customer.organizations[0].id}`, {
+                          method: "DELETE",
+                        });
+                        if (res.ok) {
+                          alert("연결 요청이 취소되었습니다.");
+                          onRefetch();
+                        } else {
+                          const data = await res.json();
+                          alert(data.error || "요청 취소 실패");
+                        }
+                      } catch (error) {
+                        alert("요청 취소 중 오류가 발생했습니다.");
+                      }
+                    }}
+                    disabled={loading}
+                    className="text-xs text-red-600 hover:underline disabled:opacity-50"
+                  >
+                    요청 취소
+                  </button>
+                ) : (
+                  // 고객사가 요청한 경우: 승인/거부
+                  <div className="flex gap-2">
+                    <button
+                      onClick={async () => {
+                        if (!confirm("연결 요청을 승인하시겠습니까?")) return;
+                        try {
+                          const res = await fetch(`/api/customer-organizations/${customer.organizations[0].id}/approve`, {
+                            method: "PATCH",
+                          });
+                          if (res.ok) {
+                            alert("연결이 승인되었습니다.");
+                            onRefetch();
+                          } else {
+                            const data = await res.json();
+                            alert(data.error || "승인 실패");
+                          }
+                        } catch (error) {
+                          alert("승인 중 오류가 발생했습니다.");
+                        }
+                      }}
+                      disabled={loading}
+                      className="text-xs text-green-600 hover:underline disabled:opacity-50"
+                    >
+                      승인
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!confirm("연결 요청을 거부하시겠습니까?")) return;
+                        try {
+                          const res = await fetch(`/api/customer-organizations/${customer.organizations[0].id}/reject`, {
+                            method: "PATCH",
+                          });
+                          if (res.ok) {
+                            alert("연결이 거부되었습니다.");
+                            onRefetch();
+                          } else {
+                            const data = await res.json();
+                            alert(data.error || "거부 실패");
+                          }
+                        } catch (error) {
+                          alert("거부 중 오류가 발생했습니다.");
+                        }
+                      }}
+                      disabled={loading}
+                      className="text-xs text-red-600 hover:underline disabled:opacity-50"
+                    >
+                      거부
+                    </button>
+                  </div>
+                )
+              ) : null
+            ) : isRejected ? (
+              // REJECTED 상태: 연결 탭에서만 액션 표시
+              activeTab === "connected" ? (
+                requestedBy === "ORGANIZATION" ? (
+                  // 우리 요청이 거절당함: 재요청, 내부상태로 전환
+                  <div className="flex gap-2">
+                    <button
+                      onClick={async () => {
+                        if (!confirm("연결을 재요청하시겠습니까?")) return;
+                        try {
+                          const res = await fetch(`/api/customer-organizations/${customer.organizations[0].id}`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ status: "PENDING" }),
+                          });
+                          if (res.ok) {
+                            alert("연결 요청을 다시 보냈습니다.");
+                            onRefetch();
+                          } else {
+                            const data = await res.json();
+                            alert(data.error || "재요청 실패");
+                          }
+                        } catch (error) {
+                          alert("재요청 중 오류가 발생했습니다.");
+                        }
+                      }}
+                      disabled={loading}
+                      className="text-xs text-blue-600 hover:underline disabled:opacity-50"
+                    >
+                      재요청
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!confirm("내부 상태로 전환하시겠습니까?")) return;
+                        try {
+                          const res = await fetch(`/api/customer-organizations/${customer.organizations[0].id}`, {
+                            method: "DELETE",
+                          });
+                          if (res.ok) {
+                            alert("내부 상태로 전환되었습니다.");
+                            onRefetch();
+                          } else {
+                            const data = await res.json();
+                            alert(data.error || "전환 실패");
+                          }
+                        } catch (error) {
+                          alert("전환 중 오류가 발생했습니다.");
+                        }
+                      }}
+                      disabled={loading}
+                      className="text-xs text-gray-600 hover:underline disabled:opacity-50"
+                    >
+                      내부상태로 전환
+                    </button>
+                  </div>
+                ) : (
+                  // 우리가 거절함: 삭제
+                  <button
+                    onClick={async () => {
+                      if (!confirm("거절 기록을 삭제하시겠습니까?")) return;
+                      try {
+                        const res = await fetch(`/api/customer-organizations/${customer.organizations[0].id}`, {
+                          method: "DELETE",
+                        });
+                        if (res.ok) {
+                          alert("삭제되었습니다.");
+                          onRefetch();
+                        } else {
+                          const data = await res.json();
+                          alert(data.error || "삭제 실패");
+                        }
+                      } catch (error) {
+                        alert("삭제 중 오류가 발생했습니다.");
+                      }
+                    }}
+                    disabled={loading}
+                    className="text-xs text-red-600 hover:underline disabled:opacity-50"
+                  >
+                    삭제
+                  </button>
+                )
+              ) : null
+            ) : (
+              // APPROVED 또는 연결 안 된 상태: 기존 버튼들 표시
+              <>
+                <button
+                  onClick={() => onEdit(customer)}
+                  disabled={loading}
+                  className="text-xs text-green-600 hover:underline disabled:opacity-50"
+                >
+                  수정
+                </button>
+                <button
+                  onClick={toggleActive}
+                  disabled={loading}
+                  className="text-xs text-blue-600 hover:underline disabled:opacity-50"
+                >
+                  {isActive ? "비활성화" : "활성화"}
+                </button>
+                {!isActive && !customer._count?.measurements && (
+                  <button
+                    onClick={handleDelete}
+                    disabled={loading}
+                    className="text-xs text-red-600 hover:underline disabled:opacity-50"
+                  >
+                    삭제
+                  </button>
+                )}
+                {activeTab === "internal" && onCreateInvitation && (
+                  <button
+                    onClick={() => onCreateInvitation(customer)}
+                    disabled={loading}
+                    className="text-xs text-purple-600 hover:underline disabled:opacity-50"
+                  >
+                    초대 링크
+                  </button>
+                )}
+                {activeTab === "connected" && customer.organizations?.[0] && connectionStatus === "APPROVED" && (
+                  <button
+                    onClick={async () => {
+                      if (!confirm("연결을 해제하시겠습니까?")) return;
+                      try {
+                        const res = await fetch(`/api/customer-organizations/${customer.organizations[0].id}`, {
+                          method: "DELETE",
+                        });
+                        if (res.ok) {
+                          alert("연결이 해제되었습니다.");
+                          onRefetch();
+                        } else {
+                          const data = await res.json();
+                          alert(data.error || "연결 해제 실패");
+                        }
+                      } catch (error) {
+                        alert("연결 해제 중 오류가 발생했습니다.");
+                      }
+                    }}
+                    disabled={loading}
+                    className="text-xs text-orange-600 hover:underline disabled:opacity-50"
+                  >
+                    연결 해제
+                  </button>
+                )}
+              </>
             )}
           </div>
         </Td>
@@ -538,7 +772,7 @@ export default function CustomersPage() {
         <Table className="w-full table-fixed">
           <Thead className="bg-gray-50 dark:bg-white/10 sticky top-0 z-10">
               <Tr>
-                <Th className="bg-gray-50 dark:bg-gray-800 w-[3%]">상태</Th>
+                <Th className="bg-gray-50 dark:bg-gray-800 w-[3%]">연결상태</Th>
                 <Th className="bg-gray-50 dark:bg-gray-800 w-[6%]">고객사코드</Th>
                 <Th className="bg-gray-50 dark:bg-gray-800 w-[7%]">고객사명(약칭)</Th>
                 <Th className="bg-gray-50 dark:bg-gray-800 w-[5%]">사업자번호</Th>

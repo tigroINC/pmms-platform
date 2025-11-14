@@ -145,9 +145,9 @@ export default function ReportDetailPage() {
     }
   };
 
-  const handleMeasurementsChange = (index: number, field: string, value: any) => {
+  const handleMeasurementsChange = (originalIndex: number, field: string, value: any) => {
     const allMeasurements = JSON.parse(formData.measurements || "[]");
-    allMeasurements[index][field] = value;
+    allMeasurements[originalIndex][field] = value;
     setFormData((prev) => ({ ...prev, measurements: JSON.stringify(allMeasurements) }));
   };
 
@@ -159,9 +159,11 @@ export default function ReportDetailPage() {
     return <div className="p-6 text-center">보고서를 찾을 수 없습니다.</div>;
   }
 
-  const measurements = JSON.parse(formData.measurements || "[]").filter(
-    (m: any) => m.value !== null && m.value !== undefined && m.value !== "" && m.value !== 0
-  );
+  const measurements = JSON.parse(formData.measurements || "[]")
+    .map((m: any, index: number) => ({ ...m, __index: index }))
+    .filter(
+      (m: any) => m.value !== null && m.value !== undefined && m.value !== "" && m.value !== 0
+    );
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -533,7 +535,7 @@ export default function ReportDetailPage() {
                     <Input
                       type="number"
                       value={m.limit || ""}
-                      onChange={(e) => handleMeasurementsChange(idx, "limit", parseFloat(e.target.value))}
+                      onChange={(e) => handleMeasurementsChange(m.__index, "limit", parseFloat(e.target.value))}
                       disabled={isReadOnly}
                       className="text-sm w-full"
                     />
@@ -542,7 +544,7 @@ export default function ReportDetailPage() {
                     <Input
                       type="number"
                       value={m.value || ""}
-                      onChange={(e) => handleMeasurementsChange(idx, "value", parseFloat(e.target.value))}
+                      onChange={(e) => handleMeasurementsChange(m.__index, "value", parseFloat(e.target.value))}
                       disabled={isReadOnly}
                       className="text-sm w-full"
                     />
@@ -551,7 +553,7 @@ export default function ReportDetailPage() {
                   <td className="border p-2">
                     <textarea
                       value={m.method || ""}
-                      onChange={(e) => handleMeasurementsChange(idx, "method", e.target.value)}
+                      onChange={(e) => handleMeasurementsChange(m.__index, "method", e.target.value)}
                       disabled={isReadOnly}
                       rows={2}
                       className="text-sm w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none disabled:opacity-50"
@@ -561,7 +563,7 @@ export default function ReportDetailPage() {
                     <Input
                       type="time"
                       value={m.startTime || ""}
-                      onChange={(e) => handleMeasurementsChange(idx, "startTime", e.target.value)}
+                      onChange={(e) => handleMeasurementsChange(m.__index, "startTime", e.target.value)}
                       disabled={isReadOnly}
                       className="text-sm w-full"
                     />
@@ -570,7 +572,7 @@ export default function ReportDetailPage() {
                     <Input
                       type="time"
                       value={m.endTime || ""}
-                      onChange={(e) => handleMeasurementsChange(idx, "endTime", e.target.value)}
+                      onChange={(e) => handleMeasurementsChange(m.__index, "endTime", e.target.value)}
                       disabled={isReadOnly}
                       className="text-sm w-full"
                     />
@@ -578,7 +580,7 @@ export default function ReportDetailPage() {
                   <td className="border p-2">
                     <textarea
                       value={m.note || ""}
-                      onChange={(e) => handleMeasurementsChange(idx, "note", e.target.value)}
+                      onChange={(e) => handleMeasurementsChange(m.__index, "note", e.target.value)}
                       disabled={isReadOnly}
                       rows={2}
                       placeholder="비고"
@@ -602,7 +604,7 @@ export default function ReportDetailPage() {
                   <Input
                     type="number"
                     value={m.limit || ""}
-                    onChange={(e) => handleMeasurementsChange(idx, "limit", parseFloat(e.target.value))}
+                    onChange={(e) => handleMeasurementsChange(m.__index, "limit", parseFloat(e.target.value))}
                     disabled={isReadOnly}
                     className="text-sm w-full"
                   />
@@ -612,7 +614,7 @@ export default function ReportDetailPage() {
                   <Input
                     type="number"
                     value={m.value || ""}
-                    onChange={(e) => handleMeasurementsChange(idx, "value", parseFloat(e.target.value))}
+                    onChange={(e) => handleMeasurementsChange(m.__index, "value", parseFloat(e.target.value))}
                     disabled={isReadOnly}
                     className="text-sm w-full"
                   />
@@ -625,7 +627,7 @@ export default function ReportDetailPage() {
                   <label className="text-xs text-gray-600 dark:text-gray-400">측정분석방법</label>
                   <Input
                     value={m.method || ""}
-                    onChange={(e) => handleMeasurementsChange(idx, "method", e.target.value)}
+                    onChange={(e) => handleMeasurementsChange(m.__index, "method", e.target.value)}
                     disabled={isReadOnly}
                     className="text-sm"
                   />
@@ -635,7 +637,7 @@ export default function ReportDetailPage() {
                   <Input
                     type="time"
                     value={m.startTime || ""}
-                    onChange={(e) => handleMeasurementsChange(idx, "startTime", e.target.value)}
+                    onChange={(e) => handleMeasurementsChange(m.__index, "startTime", e.target.value)}
                     disabled={isReadOnly}
                     className="text-sm"
                   />
@@ -645,7 +647,7 @@ export default function ReportDetailPage() {
                   <Input
                     type="time"
                     value={m.endTime || ""}
-                    onChange={(e) => handleMeasurementsChange(idx, "endTime", e.target.value)}
+                    onChange={(e) => handleMeasurementsChange(m.__index, "endTime", e.target.value)}
                     disabled={isReadOnly}
                     className="text-sm"
                   />
@@ -654,7 +656,7 @@ export default function ReportDetailPage() {
                   <label className="text-xs text-gray-600 dark:text-gray-400">비고</label>
                   <Input
                     value={m.note || ""}
-                    onChange={(e) => handleMeasurementsChange(idx, "note", e.target.value)}
+                    onChange={(e) => handleMeasurementsChange(m.__index, "note", e.target.value)}
                     disabled={isReadOnly}
                     className="text-sm"
                     placeholder="비고"

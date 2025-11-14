@@ -1,6 +1,6 @@
 "use client";
 import StatCard from "@/components/ui/StatCard";
-import BoazTrendChart from "@/components/charts/BoazTrendChart";
+import PmmsTrendChart from "@/components/charts/PmmsTrendChart";  // ✅
 import { useEffect, useMemo, useRef, useState } from "react";
 // Button removed: auto-apply filters, no manual 조회/초기화
 import Input from "@/components/ui/Input";
@@ -612,7 +612,7 @@ export default function DashboardPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `boaz-data-${applied.item}-${applied.start}-${applied.end}.csv`;
+      a.download = `pmms-data-${applied.item}-${applied.start}-${applied.end}.csv`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {}
@@ -1017,7 +1017,7 @@ export default function DashboardPage() {
               표시할 데이터가 없습니다. 기간과 항목을 조정해 보세요.
             </div>
           ) : (
-            <BoazTrendChart
+            <PmmsTrendChart
               labels={chartData.labels}
               data={chartData.data}
               limit={chartData.limit}

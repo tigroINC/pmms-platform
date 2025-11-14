@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { useState, useEffect } from "react";
 import { useOrganization } from "@/contexts/OrganizationContext";
@@ -13,6 +13,16 @@ interface NavItem {
   readOnly?: string[];
   children?: NavItem[];
 }
+
+const SYSTEM_VIEW_PAGES = [
+  "/dashboard",
+  "/measure/input",
+  "/measure/history",
+  "/reports",
+  "/masters/customers",
+  "/communications",
+  "/masters/stacks",
+];
 
 const navItems: NavItem[] = [
   // 측정 업무
@@ -57,6 +67,7 @@ const navItems: NavItem[] = [
 export default function Navbar() {
   const pathname = usePathname();
   const { data: session, status } = useSession();
+  const searchParams = useSearchParams();
   
   // 세션 로딩 중에는 렌더링하지 않음
   if (status === "loading") {
@@ -106,6 +117,19 @@ export default function Navbar() {
     effectiveRole = "CUSTOMER_ADMIN";
   }
   const items = navItems.filter((i) => i.roles.includes(effectiveRole));
+
+  const getHrefWithParams = (href: string) => {
+    const viewAsOrg = searchParams.get("viewAsOrg");
+    if (
+      isSuperAdmin &&
+      viewAsOrg &&
+      SYSTEM_VIEW_PAGES.some((page) => href.startsWith(page))
+    ) {
+      return `${href}?viewAsOrg=${viewAsOrg}`;
+    }
+    return href;
+  };
+
   return (
     <>
     <header className="h-16 border-b border-gray-800 bg-gray-900 text-white sticky top-0 z-40">
@@ -235,7 +259,7 @@ export default function Navbar() {
                             {item.children.map((child) => (
                               <Link
                                 key={child.href}
-                                href={child.href}
+                                href={getHrefWithParams(child.href)}
                                 onClick={() => setSystemMenuOpen(false)}
                                 className={`block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
                                   pathname?.startsWith(child.href)
@@ -256,7 +280,7 @@ export default function Navbar() {
               
               // 일반 메뉴
               return (
-                <Link key={item.href} href={item.href} className={`text-sm px-3 py-1 rounded hover:bg-white/10 relative ${active ? "font-medium bg-white/10" : "text-gray-200"}`}>
+                <Link key={item.href} href={getHrefWithParams(item.href)} className={`text-sm px-3 py-1 rounded hover:bg-white/10 relative ${active ? "font-medium bg-white/10" : "text-gray-200"}`}>
                   {item.label}
                 </Link>
               );
@@ -386,7 +410,7 @@ export default function Navbar() {
                 return (
                   <Link
                     key={item.href}
-                    href={item.href}
+                    href={getHrefWithParams(item.href)}
                     onClick={() => setOpen(false)}
                     className={`text-sm px-3 py-2 rounded hover:bg-white/10 relative ${active ? "font-medium bg-white/10" : "text-gray-200"}`}
                   >

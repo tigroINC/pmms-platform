@@ -8,9 +8,9 @@ async function main() {
     where: { name: '고려아연' }
   });
 
-  // 보아스환경기술 찾기
-  const boaz = await prisma.organization.findFirst({
-    where: { name: '보아스환경기술' }
+  // PMMS 환경측정기업 찾기
+  const pmms = await prisma.organization.findFirst({
+    where: { name: 'PMMS 환경측정기업' }
   });
 
   if (!koreazinc) {
@@ -18,19 +18,19 @@ async function main() {
     return;
   }
 
-  if (!boaz) {
-    console.error('보아스환경기술을 찾을 수 없습니다.');
+  if (!pmms) {
+    console.error('PMMS 환경측정기업을 찾을 수 없습니다.');
     return;
   }
 
   console.log(`고려아연 ID: ${koreazinc.id}`);
-  console.log(`보아스환경기술 ID: ${boaz.id}`);
+  console.log(`PMMS 환경측정기업 ID: ${pmms.id}`);
 
   // 기존 연결 확인
   const existing = await prisma.customerOrganization.findFirst({
     where: {
       customerId: koreazinc.id,
-      organizationId: boaz.id
+      organizationId: pmms.id
     }
   });
 
@@ -43,14 +43,22 @@ async function main() {
   const connection = await prisma.customerOrganization.create({
     data: {
       customerId: koreazinc.id,
-      organizationId: boaz.id,
+      organizationId: pmms.id,
       status: 'APPROVED',
-      nickname: null,
+      requestedBy: 'ORGANIZATION',
       contractStartDate: null,
       contractEndDate: null,
-      notificationEnabled: true,
-      notificationEmail: null,
-      notificationPhone: null,
+      customCode: null,
+      nickname: null,
+      proposedData: null,
+      notified30Days: false,
+      notified21Days: false,
+      notified14Days: false,
+      notified7Days: false,
+      notifiedExpiry: false,
+      isActive: true,
+      approvedAt: null,
+      approvedBy: null,
     }
   });
 
@@ -70,7 +78,7 @@ async function main() {
     const existingConn = await prisma.customerOrganization.findFirst({
       where: {
         customerId: customer.id,
-        organizationId: boaz.id
+        organizationId: pmms.id
       }
     });
 
@@ -78,15 +86,22 @@ async function main() {
       await prisma.customerOrganization.create({
         data: {
           customerId: customer.id,
-          organizationId: boaz.id,
+          organizationId: pmms.id,
           status: 'APPROVED',
-          nickname: null,
+          requestedBy: 'ORGANIZATION',
           contractStartDate: null,
           contractEndDate: null,
-          secondCode: null,
-          notificationEnabled: true,
-          notificationEmail: null,
-          notificationPhone: null,
+          customCode: null,
+          nickname: null,
+          proposedData: null,
+          notified30Days: false,
+          notified21Days: false,
+          notified14Days: false,
+          notified7Days: false,
+          notifiedExpiry: false,
+          isActive: true,
+          approvedAt: null,
+          approvedBy: null,
         }
       });
       console.log(`${customer.name} 연결 완료`);

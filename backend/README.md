@@ -1,4 +1,4 @@
-# 보아스 AutoML 예측 API 서버
+# PMMS AutoML 예측 API 서버
 
 ## 개요
 Prophet 기반 AutoML 시계열 예측 시스템

@@ -1,21 +1,18 @@
 """
-보아스 환경 AutoML 예측 API 서버
+PMMS 환경 AutoML 예측 API 서버
 - Prophet 기반 시계열 예측
+- PostgreSQL 연동
 """
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel
-import aiosqlite
-from pathlib import Path
+import asyncpg
 from typing import Optional, List, Dict
 import logging
 import base64
 import os
-# from weasyprint import HTML, CSS  # Windows에서 GTK 의존성 문제로 주석 처리
 from dotenv import load_dotenv
-import logging
-from pathlib import Path
 
 # 로깅 설정
 logging.basicConfig(
@@ -28,52 +25,64 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 app = FastAPI(
-    title="보아스 AutoML 예측 API",
+    title="PMMS AutoML 예측 API",
     description="AutoML 기반 대기오염물질 농도 예측 시스템",
     version="1.0.0"
 )
 
-# CORS 설정 - 개발 환경에서 모든 origin 허용
+# CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001",
-        "http://127.0.0.1:50010",  # Browser preview
-        "*"  # 개발 환경에서 모든 origin 허용
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 데이터베이스 경로
-DB_PATH = Path(__file__).parent.parent / "frontend" / "prisma" / "dev.db"
+# ✅ PostgreSQL 연결 설정
+DATABASE_URL = os.getenv(
+    'DATABASE_URL',
+    'postgresql://postgres:postgres@localhost:5432/boaz'
+)
+
+logger.info(f"Database URL: {DATABASE_URL}")
+
+# Connection pool
+db_pool: Optional[asyncpg.Pool] = None
 
 @app.on_event("startup")
 async def startup():
-    if not DB_PATH.exists():
-        logger.error(f"Database file not found: {DB_PATH}")
-    else:
-        logger.info(f"Database file found: {DB_PATH}")
+    global db_pool
+    try:
+        db_pool = await asyncpg.create_pool(
+            DATABASE_URL,
+            min_size=2,
+            max_size=10,
+            command_timeout=60
+        )
+        logger.info("Database connection pool created")
+    except Exception as e:
+        logger.error(f"Failed to create database pool: {e}")
+        raise
 
 @app.on_event("shutdown")
 async def shutdown():
-    logger.info("Server shutdown")
+    global db_pool
+    if db_pool:
+        await db_pool.close()
+        logger.info("Database connection pool closed")
 
 # Request/Response 모델
 class PredictionRequest(BaseModel):
     customer_id: str
     stack: str
     item_key: str
-    item_name: str = None  # 항목명 (인사이트 보고서용)
-    periods: int = 30  # 예측 기간 (일)
+    item_name: str = None
+    periods: int = 30
     include_history: bool = True
-    chart_image: str = None  # Base64 차트 이미지 (인사이트 보고서용)
-    user_id: str = None  # 생성한 사용자 ID (인사이트 보고서용)
-    value: float = None  # 검증할 측정값 (이상치 검증용)
+    chart_image: str = None
+    user_id: str = None
+    value: float = None
 
 class PredictionResponse(BaseModel):
     predictions: List[Dict]
@@ -84,20 +93,38 @@ class PredictionResponse(BaseModel):
 @app.get("/")
 async def root():
     return {
-        "service": "보아스 AutoML 예측 API",
+        "service": "PMMS AutoML 예측 API",
         "version": "1.0.0",
-        "status": "running"
+        "status": "running",
+        "database": "PostgreSQL"
     }
 
 @app.get("/health")
 async def health_check():
     """헬스 체크"""
-    db_status = "connected" if DB_PATH.exists() else "disconnected"
-    return {
-        "status": "healthy",
-        "database": db_status,
-        "db_path": str(DB_PATH)
-    }
+    global db_pool
+    
+    if not db_pool:
+        return {
+            "status": "unhealthy",
+            "database": "disconnected"
+        }
+    
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.fetchval('SELECT 1')
+        return {
+            "status": "healthy",
+            "database": "connected",
+            "database_url": DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else 'N/A'
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return {
+            "status": "unhealthy",
+            "database": "disconnected",
+            "error": str(e)
+        }
 
 @app.post("/api/predict", response_model=PredictionResponse)
 async def predict(request: PredictionRequest):
@@ -107,42 +134,37 @@ async def predict(request: PredictionRequest):
     - Optuna 하이퍼파라미터 최적화
     - 30일 예측
     """
-    if not DB_PATH.exists():
+    global db_pool
+    
+    if not db_pool:
         raise HTTPException(status_code=500, detail="Database not connected")
     
     try:
-        # AutoML 예측 엔진 import
-        from automl_engine import BoazAutoMLPredictor
+        from automl_engine import PmmsAutoMLPredictor
         
-        # 데이터베이스에서 학습 데이터 가져오기
-        async with aiosqlite.connect(DB_PATH) as db:
-            db.row_factory = aiosqlite.Row
+        # PostgreSQL에서 학습 데이터 가져오기
+        async with db_pool.acquire() as conn:
             # 고객사 전체 굴뚝 데이터를 사용하여 충분한 학습 데이터 확보
-            # (특정 굴뚝만 사용하면 데이터가 부족할 수 있음)
             query = """
                 SELECT 
-                    m.measuredAt as measured_at,
+                    m."measuredAt" as measured_at,
                     m.value,
-                    m.temperatureC as temp,
-                    m.humidityPct as humidity,
-                    m.windSpeedMs as wind_speed,
-                    m.gasTempC as gas_temp,
-                    m.oxygenMeasuredPct as o2_measured,
-                    m.stackId as stack_id,
+                    m."temperatureC" as temp,
+                    m."humidityPct" as humidity,
+                    m."windSpeedMs" as wind_speed,
+                    m."gasTempC" as gas_temp,
+                    m."oxygenMeasuredPct" as o2_measured,
+                    m."stackId" as stack_id,
                     s.name as stack_name
-                FROM Measurement m
-                LEFT JOIN Stack s ON m.stackId = s.id
-                WHERE m.customerId = ? 
-                  AND m.itemKey = ?
+                FROM "Measurement" m
+                LEFT JOIN "Stack" s ON m."stackId" = s.id
+                WHERE m."customerId" = $1
+                  AND m."itemKey" = $2
                   AND m.value IS NOT NULL
-                ORDER BY m.measuredAt
+                ORDER BY m."measuredAt"
             """
             
-            cursor = await db.execute(
-                query,
-                (request.customer_id, request.item_key)
-            )
-            rows = await cursor.fetchall()
+            rows = await conn.fetch(query, request.customer_id, request.item_key)
             
             logger.info(f"Found {len(rows)} measurements for customer {request.customer_id}, item {request.item_key}")
         
@@ -153,7 +175,7 @@ async def predict(request: PredictionRequest):
             )
         
         # AutoML 예측 수행
-        predictor = BoazAutoMLPredictor()
+        predictor = PmmsAutoMLPredictor()
         result = await predictor.predict(
             data=rows,
             periods=request.periods
@@ -176,61 +198,53 @@ async def predict(request: PredictionRequest):
 async def generate_insight_report(request: PredictionRequest):
     """
     예측 결과 + AI 인사이트 보고서 생성
-    - 예측 수행
-    - 트렌드 분석
-    - 위험도 평가
-    - 자연어 보고서 생성
     """
-    if not DB_PATH.exists():
+    global db_pool
+    
+    if not db_pool:
         raise HTTPException(status_code=500, detail="Database not connected")
     
     try:
         from automl_engine import BoazAutoMLPredictor
         from insight_generator import InsightGenerator
         
-        # 데이터베이스에서 학습 데이터 가져오기
-        async with aiosqlite.connect(DB_PATH) as db:
-            db.row_factory = aiosqlite.Row
-            
-            # 측정 데이터 조회 (굴뚝별 분석을 위해 stackId와 stack_name 포함)
+        async with db_pool.acquire() as conn:
+            # 측정 데이터 조회
             query = """
                 SELECT 
-                    m.measuredAt as measured_at,
+                    m."measuredAt" as measured_at,
                     m.value,
-                    m.stackId as stack_id,
+                    m."stackId" as stack_id,
                     s.name as stack_name,
-                    m.temperatureC as temp,
-                    m.humidityPct as humidity,
-                    m.windSpeedMs as wind_speed,
-                    m.gasTempC as gas_temp,
-                    m.oxygenMeasuredPct as o2_measured
-                FROM Measurement m
-                LEFT JOIN Stack s ON m.stackId = s.id
-                WHERE m.customerId = ? 
-                  AND m.itemKey = ?
+                    m."temperatureC" as temp,
+                    m."humidityPct" as humidity,
+                    m."windSpeedMs" as wind_speed,
+                    m."gasTempC" as gas_temp,
+                    m."oxygenMeasuredPct" as o2_measured
+                FROM "Measurement" m
+                LEFT JOIN "Stack" s ON m."stackId" = s.id
+                WHERE m."customerId" = $1
+                  AND m."itemKey" = $2
                   AND m.value IS NOT NULL
-                ORDER BY m.measuredAt
+                ORDER BY m."measuredAt"
             """
             
-            cursor = await db.execute(query, (request.customer_id, request.item_key))
-            rows = await cursor.fetchall()
+            rows = await conn.fetch(query, request.customer_id, request.item_key)
             
             # 고객사 이름 조회
-            customer_cursor = await db.execute(
-                "SELECT name FROM Customer WHERE id = ?",
-                (request.customer_id,)
+            customer_row = await conn.fetchrow(
+                'SELECT name FROM "Customer" WHERE id = $1',
+                request.customer_id
             )
-            customer_row = await customer_cursor.fetchone()
-            customer_name = customer_row[0] if customer_row else "Unknown"
+            customer_name = customer_row['name'] if customer_row else "Unknown"
             
             # 항목 이름 및 허용기준 조회
-            item_cursor = await db.execute(
-                'SELECT name, "limit" FROM Item WHERE key = ?',
-                (request.item_key,)
+            item_row = await conn.fetchrow(
+                'SELECT name, "limit" FROM "Item" WHERE key = $1',
+                request.item_key
             )
-            item_row = await item_cursor.fetchone()
-            item_name = item_row[0] if item_row else "Unknown"
-            limit_value = item_row[1] if item_row else None
+            item_name = item_row['name'] if item_row else "Unknown"
+            limit_value = item_row['limit'] if item_row else None
         
         if len(rows) < 10:
             raise HTTPException(
@@ -246,8 +260,8 @@ async def generate_insight_report(request: PredictionRequest):
         insight_gen = InsightGenerator()
         report = insight_gen.generate_report(
             predictions=result['predictions'],
-            historical_data=predictor.training_data,  # 전처리된 데이터 사용
-            raw_data=rows,  # 굴뚝별 분석을 위한 원본 데이터
+            historical_data=predictor.training_data,
+            raw_data=rows,
             model_info=result['model_info'],
             accuracy_metrics=result.get('metrics', {}),
             customer_name=customer_name,
@@ -256,23 +270,16 @@ async def generate_insight_report(request: PredictionRequest):
             chart_image=request.chart_image
         )
         
-        # PDF 생성 (Playwright 사용) - 필수 기능
-        # ⚠️ CRITICAL: PDF 생성은 필수입니다. 실패 시 에러를 반환합니다.
-        # HTML fallback은 지원하지 않습니다.
+        # PDF 생성 (Playwright)
         try:
             logger.info("Starting PDF generation...")
             from playwright.async_api import async_playwright
-            logger.info("Playwright imported successfully")
             
             async with async_playwright() as p:
                 logger.info("Launching browser...")
                 browser = await p.chromium.launch()
-                logger.info("Browser launched")
-                
                 page = await browser.new_page()
-                logger.info("Page created")
                 
-                # HTML 콘텐츠 설정
                 html_with_style = f"""
                 <!DOCTYPE html>
                 <html>
@@ -296,48 +303,38 @@ async def generate_insight_report(request: PredictionRequest):
                 </html>
                 """
                 
-                logger.info("Setting HTML content...")
                 await page.set_content(html_with_style)
-                logger.info("HTML content set")
-                
-                logger.info("Generating PDF...")
                 pdf_bytes = await page.pdf(
                     format='A4',
                     margin={'top': '25mm', 'right': '20mm', 'bottom': '25mm', 'left': '20mm'},
                     print_background=True
                 )
-                logger.info(f"PDF generated: {len(pdf_bytes)} bytes")
                 
                 await browser.close()
-                logger.info("Browser closed")
+                logger.info(f"PDF generated: {len(pdf_bytes)} bytes")
                 
                 pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
-                logger.info(f"PDF encoded to base64: {len(pdf_base64)} chars")
                 
-                # PDF 생성 검증
                 if not pdf_base64 or len(pdf_base64) < 100:
                     raise ValueError("PDF generation failed: Empty or invalid PDF data")
                     
         except Exception as pdf_error:
             logger.error(f"PDF generation error: {pdf_error}", exc_info=True)
-            import traceback
-            logger.error(f"Traceback: {traceback.format_exc()}")
-            # PDF 생성 실패 시 명확한 에러 반환
             raise HTTPException(
                 status_code=500,
-                detail=f"PDF 생성 실패: {str(pdf_error)}. Playwright가 올바르게 설치되었는지 확인하세요."
+                detail=f"PDF 생성 실패: {str(pdf_error)}"
             )
         
-        # DB에 인사이트 보고서 저장 (24시간 캐싱용)
+        # DB에 인사이트 보고서 저장
         try:
             import json
-            async with aiosqlite.connect(DB_PATH) as db:
-                await db.execute("""
-                    INSERT INTO insight_reports 
-                    (id, customerId, itemKey, itemName, periods, reportData, chartImage, pdfBase64, createdBy, createdAt)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-                """, (
-                    base64.b64encode(os.urandom(12)).decode('utf-8'),  # 간단한 ID 생성
+            async with db_pool.acquire() as conn:
+                await conn.execute("""
+                    INSERT INTO "InsightReport" 
+                    (id, "customerId", "itemKey", "itemName", periods, "reportData", "chartImage", "pdfBase64", "createdBy", "createdAt")
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+                """, 
+                    base64.b64encode(os.urandom(12)).decode('utf-8'),
                     request.customer_id,
                     request.item_key,
                     request.item_name or item_name,
@@ -346,16 +343,13 @@ async def generate_insight_report(request: PredictionRequest):
                     request.chart_image,
                     pdf_base64,
                     request.user_id or 'system'
-                ))
-                await db.commit()
+                )
                 logger.info("Insight report saved to database")
         except Exception as save_error:
-            logger.warning(f"Failed to save insight report to DB: {save_error}")
-            # 저장 실패해도 응답은 반환
+            logger.warning(f"Failed to save insight report: {save_error}")
         
-        # NaN 값을 None으로 변환하여 JSON 직렬화 가능하게 만듦
+        # NaN 값 처리
         def sanitize_for_json(obj):
-            """NaN, Infinity 값을 JSON 호환 값으로 변환"""
             import math
             if isinstance(obj, dict):
                 return {k: sanitize_for_json(v) for k, v in obj.items()}
@@ -382,57 +376,37 @@ async def generate_insight_report(request: PredictionRequest):
         raise
     except Exception as e:
         import traceback
-        error_detail = traceback.format_exc()
-        logger.error(f"Insight generation error: {e}\n{error_detail}")
-        # 에러 메시지를 문자열로 반환
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Error: {str(e)}"
-        )
+        logger.error(f"Insight generation error: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/validate-measurement")
 async def validate_measurement(request: PredictionRequest):
-    """
-    측정 데이터 이상치 검증
-    Prophet 예측값과 비교하여 신뢰구간 벗어나면 워닝
-    """
+    """측정 데이터 이상치 검증"""
+    global db_pool
+    
     try:
-        from automl_engine import AutoMLPredictor
-        import pandas as pd
-        from datetime import datetime, timedelta
+        from automl_engine import PmmsAutoMLPredictor
+        from datetime import datetime
         
-        # DB 경로
-        DB_PATH = Path(__file__).parent.parent / "frontend" / "prisma" / "dev.db"
-        
-        # 고객사 전체 굴뚝 데이터 조회 (학습용)
-        async with aiosqlite.connect(DB_PATH) as db:
-            cursor = await db.execute("""
-                SELECT m.measuredAt, m.value
-                FROM measurements m
-                JOIN stacks s ON m.stackId = s.id
-                WHERE s.customerId = ? AND m.itemKey = ?
-                ORDER BY m.measuredAt ASC
-            """, (request.customer_id, request.item_key))
-            
-            rows = await cursor.fetchall()
+        async with db_pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT m."measuredAt", m.value
+                FROM "Measurement" m
+                JOIN "Stack" s ON m."stackId" = s.id
+                WHERE s."customerId" = $1 AND m."itemKey" = $2
+                ORDER BY m."measuredAt" ASC
+            """, request.customer_id, request.item_key)
         
         if len(rows) < 10:
-            # 데이터 부족 시 검증 스킵
             return {
                 "anomaly_detected": False,
                 "skip_reason": "insufficient_data",
                 "message": "데이터가 부족하여 검증을 건너뜁니다."
             }
         
-        # Prophet 학습 및 예측
         predictor = AutoMLPredictor()
-        result = await predictor.predict(
-            data=rows,
-            periods=30,
-            include_history=True
-        )
+        result = await predictor.predict(data=rows, periods=30, include_history=True)
         
-        # 오늘 날짜의 예측값 찾기
         today = datetime.now().date()
         prediction_for_today = None
         
@@ -449,13 +423,9 @@ async def validate_measurement(request: PredictionRequest):
                 "message": "예측값을 찾을 수 없습니다."
             }
         
-        # 신뢰구간 비교
         lower = prediction_for_today['yhat_lower']
         upper = prediction_for_today['yhat_upper']
         predicted = prediction_for_today['yhat']
-        
-        # 입력값이 request에 없으므로 별도 필드 추가 필요
-        # 임시로 value 필드 사용
         input_value = getattr(request, 'value', None)
         
         if input_value is None:
@@ -485,7 +455,6 @@ async def validate_measurement(request: PredictionRequest):
         
     except Exception as e:
         logger.error(f"Validation error: {e}")
-        # 검증 실패 시에도 저장은 허용
         return {
             "anomaly_detected": False,
             "skip_reason": "validation_error",

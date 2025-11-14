@@ -217,7 +217,7 @@ export async function sendPasswordResetEmail(
 
   try {
     await transporter.sendMail({
-      from: `"보아스환경기술" <${process.env.EMAIL_USER}>`,
+      from: `"PMMS 환경측정관리시스템" <${process.env.EMAIL_USER}>`,
       replyTo: process.env.EMAIL_NOREPLY || process.env.EMAIL_USER,
       to,
       subject: '비밀번호 재설정',

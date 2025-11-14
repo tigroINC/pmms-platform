@@ -9,7 +9,7 @@ interface PredictionData {
   trend: number;
 }
 
-export default function BoazTrendChart({
+export default function PmmsTrendChart({
   labels,
   data,
   limit,
@@ -54,7 +54,7 @@ export default function BoazTrendChart({
   }, [exportRef, labels, data, chartType]);
 
   useEffect(() => {
-    console.log("[BoazTrendChart] useEffect triggered", {
+    console.log("[PmmsTrendChart] useEffect triggered", {
       hasLabels: !!labels,
       labelsLength: labels?.length,
       hasData: !!data,
@@ -74,15 +74,15 @@ export default function BoazTrendChart({
         setReady(true);
         
         if (!canvasRef.current) {
-          console.log("[BoazTrendChart] ❌ No canvas ref!");
+          console.log("[PmmsTrendChart] ❌ No canvas ref!");
           return;
         }
         
-        console.log("[BoazTrendChart] ✅ Canvas ref exists, proceeding...");
+        console.log("[PmmsTrendChart] ✅ Canvas ref exists, proceeding...");
         
         const ctx = canvasRef.current?.getContext("2d");
         if (!ctx) {
-          console.log("[BoazTrendChart] ❌ No canvas context!");
+          console.log("[PmmsTrendChart] ❌ No canvas context!");
           return;
         }
         // destroy previous
@@ -502,7 +502,7 @@ export default function BoazTrendChart({
 
         chartRef.current = new ChartCtor(ctx, chartConfig);
         
-        console.log("[BoazTrendChart] ✅ Chart created successfully!");
+        console.log("[PmmsTrendChart] ✅ Chart created successfully!");
       } catch (e) {
         // Chart.js not installed yet; keep placeholder
         setReady(false);

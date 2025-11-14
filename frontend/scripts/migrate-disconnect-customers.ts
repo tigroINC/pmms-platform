@@ -17,9 +17,9 @@ async function main() {
   console.log('🔄 기존 고객사 연결 해제 마이그레이션 시작...\n');
 
   try {
-    // 1. 보아스환경기술 조직 찾기
+    // 1. PMMS 환경측정기업 조직 찾기
     const organization = await prisma.organization.findFirst({
-      where: { name: '보아스환경기술' },
+      where: { name: 'PMMS 환경측정기업' },
       include: {
         users: {
           where: { role: 'ORG_ADMIN' },
@@ -29,13 +29,13 @@ async function main() {
     });
 
     if (!organization) {
-      console.error('❌ 보아스환경기술 조직을 찾을 수 없습니다.');
+      console.error('❌ PMMS 환경측정기업 조직을 찾을 수 없습니다.');
       return;
     }
 
     const adminUser = organization.users[0];
     if (!adminUser) {
-      console.error('❌ 보아스환경기술 관리자를 찾을 수 없습니다.');
+      console.error('❌ PMMS 환경측정기업 관리자를 찾을 수 없습니다.');
       return;
     }
 

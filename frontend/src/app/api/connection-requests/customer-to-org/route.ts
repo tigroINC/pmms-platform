@@ -43,12 +43,10 @@ export async function POST(request: NextRequest) {
     }
 
     // 이미 연결 요청이 있는지 확인
-    const existing = await prisma.customerOrganization.findUnique({
+    const existing = await prisma.customerOrganization.findFirst({
       where: {
-        customerId_organizationId: {
-          customerId: customerId,
-          organizationId: organizationId,
-        },
+        customerId: customerId,
+        organizationId: organizationId,
       },
     });
 
@@ -63,6 +61,57 @@ export async function POST(request: NextRequest) {
           { error: "이미 연결 요청이 진행 중입니다." },
           { status: 400 }
         );
+      } else if (existing.status === "REJECTED") {
+        return NextResponse.json(
+          { error: "거절된 연결 요청이 있습니다. 관리자에게 문의하세요." },
+          { status: 400 }
+        );
+      } else if (existing.status === "DISCONNECTED") {
+        // DISCONNECTED 상태면 재연결 가능 - 기존 레코드 업데이트
+        const reconnection = await prisma.customerOrganization.update({
+          where: { id: existing.id },
+          data: {
+            status: "PENDING",
+            requestedBy: "CUSTOMER",
+            contractStartDate: contractStartDate ? new Date(contractStartDate) : null,
+            contractEndDate: contractEndDate ? new Date(contractEndDate) : null,
+          },
+          include: {
+            organization: {
+              select: {
+                id: true,
+                name: true,
+                businessNumber: true,
+              },
+            },
+            customer: {
+              select: {
+                id: true,
+                name: true,
+                businessNumber: true,
+              },
+            },
+          },
+        });
+
+        await prisma.activityLog.create({
+          data: {
+            userId: userId,
+            action: "REQUEST_RECONNECTION",
+            target: "CustomerOrganization",
+            targetId: reconnection.id,
+            details: JSON.stringify({
+              customerId: customerId,
+              organizationId: organizationId,
+              organizationName: organization.name,
+            }),
+          },
+        });
+
+        return NextResponse.json({
+          message: "재연결 요청이 전송되었습니다.",
+          connection: reconnection,
+        });
       }
     }
 
