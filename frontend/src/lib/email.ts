@@ -34,7 +34,7 @@ const transporter = isSendGridConfigured
   : null;
 
 // 발신자 정보
-const emailFrom = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@pmms.info';
+const emailFrom = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'no-reply@pmms.info';
 const emailFromName = process.env.EMAIL_FROM_NAME || 'PMMS 환경측정관리시스템';
 
 // 직원 초대 이메일 발송
