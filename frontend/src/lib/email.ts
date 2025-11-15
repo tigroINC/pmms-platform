@@ -18,10 +18,10 @@ export async function sendStaffInviteEmail(
   role: string,
   inviteToken: string
 ) {
-  // 이메일 설정 확인
-  if (!isEmailConfigured || !transporter) {
-    console.warn('이메일 설정이 없습니다. EMAIL_USER와 EMAIL_PASSWORD 환경변수를 설정해주세요.');
-    return { success: false, error: '이메일 설정이 필요합니다.' };
+  // SendGrid 설정 확인
+  if (!isSendGridConfigured) {
+    console.warn('SendGrid API 키가 설정되지 않았습니다.');
+    return { success: false, error: 'SendGrid 설정이 필요합니다.' };
   }
 
   const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL}/auth/accept-invite?token=${inviteToken}`;
