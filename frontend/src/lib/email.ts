@@ -1,40 +1,13 @@
-import nodemailer from 'nodemailer';
+import sgMail from '@sendgrid/mail';
 
-// 이메일 설정 확인
+// SendGrid API 키 설정
 const isSendGridConfigured = !!process.env.SENDGRID_API_KEY;
-const isGmailConfigured = !!(process.env.EMAIL_USER && process.env.EMAIL_PASSWORD);
-const isEmailConfigured = isSendGridConfigured || isGmailConfigured;
-
-// 디버깅 로그
-console.log('=== 이메일 설정 확인 ===');
-console.log('SENDGRID_API_KEY:', process.env.SENDGRID_API_KEY ? '설정됨' : '없음');
-console.log('EMAIL_USER:', process.env.EMAIL_USER ? '설정됨' : '없음');
-console.log('isSendGridConfigured:', isSendGridConfigured);
-console.log('isGmailConfigured:', isGmailConfigured);
-console.log('======================');
-
-// SendGrid 설정 우선 사용
-const transporter = isSendGridConfigured
-  ? nodemailer.createTransport({
-      host: 'smtp.sendgrid.net',
-      port: 587,
-      auth: {
-        user: 'apikey',
-        pass: process.env.SENDGRID_API_KEY,
-      },
-    })
-  : isGmailConfigured
-  ? nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD,
-      },
-    })
-  : null;
+if (isSendGridConfigured) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
+}
 
 // 발신자 정보
-const emailFrom = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'no-reply@pmms.info';
+const emailFrom = process.env.EMAIL_FROM || 'no-reply@pmms.info';
 const emailFromName = process.env.EMAIL_FROM_NAME || 'PMMS 환경측정관리시스템';
 
 // 직원 초대 이메일 발송
@@ -161,9 +134,11 @@ export async function sendStaffInviteEmail(
   `;
 
   try {
-    await transporter.sendMail({
-      from: `"${emailFromName}" <${emailFrom}>`,
-      replyTo: process.env.EMAIL_NOREPLY || emailFrom,
+    await sgMail.send({
+      from: {
+        email: emailFrom,
+        name: emailFromName,
+      },
       to,
       subject: `[${organizationName}] 직원 초대`,
       html: htmlContent,
@@ -182,10 +157,10 @@ export async function sendPasswordResetEmail(
   name: string,
   resetUrl: string
 ) {
-  // 이메일 설정 확인
-  if (!isEmailConfigured || !transporter) {
-    console.warn('이메일 설정이 없습니다. EMAIL_USER와 EMAIL_PASSWORD 환경변수를 설정해주세요.');
-    return { success: false, error: '이메일 설정이 필요합니다.' };
+  // SendGrid 설정 확인
+  if (!isSendGridConfigured) {
+    console.warn('SendGrid API 키가 설정되지 않았습니다.');
+    return { success: false, error: 'SendGrid 설정이 필요합니다.' };
   }
 
   const htmlContent = `
@@ -288,9 +263,11 @@ export async function sendPasswordResetEmail(
   `;
 
   try {
-    await transporter.sendMail({
-      from: `"${emailFromName}" <${emailFrom}>`,
-      replyTo: process.env.EMAIL_NOREPLY || emailFrom,
+    await sgMail.send({
+      from: {
+        email: emailFrom,
+        name: emailFromName,
+      },
       to,
       subject: '[PMMS] 비밀번호 재설정 요청',
       html: htmlContent,
