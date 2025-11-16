@@ -424,9 +424,10 @@ export default function PmmsTrendChart({
                         lines.push(`🤖 AI 예측값: ${val?.toFixed(2) || 'N/A'} mg/S㎥`);
                         lines.push('');
                         lines.push('📊 예측 정보:');
-                        lines.push('• Prophet AutoML 모델 기반');
+                        lines.push('• Auto-ARIMA 모델 기반');
                         lines.push('• 고객사 전체 굴뚝 데이터 학습');
                         lines.push('• 과거 패턴 및 계절성 반영');
+                        lines.push('• 최근 1년 데이터 활용');
                         lines.push('• 30일 미래 예측');
                         return lines;
                       }
@@ -512,7 +513,7 @@ export default function PmmsTrendChart({
       mounted = false;
       if (chartRef.current) chartRef.current.destroy();
     };
-  }, [labels, data, limit, title, chartType, showLimit30, showPrediction, showAverage]);
+  }, [labels, data, limit, title, chartType, showLimit30, showPrediction, showAverage, aiPredictions]);
 
   return (
     <div className="w-full rounded-lg border bg-white/50 dark:bg-white/5 p-3" style={{ height: (height ?? 256) + "px" }}>

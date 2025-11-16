@@ -105,8 +105,11 @@ class InsightGenerator:
         """과거 데이터 분석"""
         values = df['y'].values
         
+        # 인덱스가 날짜인 경우 처리
+        dates = df.index if df.index.name == 'ds' or isinstance(df.index, pd.DatetimeIndex) else df['ds']
+        
         return {
-            "period": f"{df['ds'].min().strftime('%Y-%m-%d')} ~ {df['ds'].max().strftime('%Y-%m-%d')}",
+            "period": f"{dates.min().strftime('%Y-%m-%d')} ~ {dates.max().strftime('%Y-%m-%d')}",
             "data_count": len(values),
             "average": round(float(np.mean(values)), 2),
             "std_dev": round(float(np.std(values)), 2),
@@ -1226,7 +1229,7 @@ class InsightGenerator:
 <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0; text-align: center; color: #666;">
 
 <p><strong>보고서 생성 시각</strong>: {datetime.now().strftime("%Y년 %m월 %d일 %H시 %M분")}<br>
-<strong>분석 모델</strong>: Prophet AutoML (Meta Research)<br>
+<strong>분석 모델</strong>: Auto-ARIMA (pmdarima)<br>
 <strong>자동 생성</strong>: 보아스 환경 AI 예측 시스템</p>
 
 </div>

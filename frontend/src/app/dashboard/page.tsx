@@ -882,6 +882,10 @@ export default function DashboardPage() {
                   try {
                     setIsAutoMLRunning(true);
                     
+                    // 로딩 모달 표시
+                    setPredictionMessage('🤖 AI 모델 학습 중...\n\n과거 데이터를 분석하여 최적의 예측 모델을 생성하고 있습니다.\n\n⏱️ 최대 30초 소요될 수 있습니다.\n잠시만 기다려주세요!');
+                    setShowPredictionModal(true);
+                    
                     // 고객사 전체 굴뚝 데이터를 사용하여 예측 (데이터 충분성 확보)
                     const result = await predict({
                       customer_id: selectedCustomerId,
@@ -893,8 +897,23 @@ export default function DashboardPage() {
                     if (result) {
                       setAiPredictions(result.predictions);
                       
-                      // 예측 완료 메시지 설정 - 차트 툴팁과 동일한 형식
-                      const message = `🤖 AI 예측 완료\n\n📊 예측 정보:\n• Prophet AutoML 모델 기반\n• 고객사 전체 굴뚝 데이터 학습\n• 과거 패턴 및 계절성 반영\n• 30일 미래 예측\n\n📈 모델 상세 정보:\n• 모델: ${result.model_info.model_type} (Meta Research)\n• 학습 데이터: ${result.training_samples}건\n• 예측 기간: 30일\n\n🎯 모델 정확도:\n• RMSE: ${result.accuracy_metrics?.rmse?.toFixed(2) || 'N/A'} mg/S㎥\n• MAE: ${result.accuracy_metrics?.mae?.toFixed(2) || 'N/A'} mg/S㎥\n• R²: ${result.accuracy_metrics?.r2?.toFixed(3) || 'N/A'}\n\n💡 설명:\nR² 값이 높을수록 모델의 설명력이 높으며,\nRMSE와 MAE는 예측 오차를 나타냅니다.\n\n✨ 차트의 초록색 예측선에 마우스를 올려\n각 예측 포인트의 상세 정보를 확인하세요!`;
+                      // 예측 결과 분석
+                      const avgPrediction = result.predictions.reduce((sum: number, p: any) => sum + p.predicted_value, 0) / result.predictions.length;
+                      const minPrediction = Math.min(...result.predictions.map((p: any) => p.predicted_value));
+                      const maxPrediction = Math.max(...result.predictions.map((p: any) => p.predicted_value));
+                      const historicalAvg = result.historical_avg || avgPrediction;
+                      const diff = ((avgPrediction - historicalAvg) / historicalAvg) * 100;
+                      
+                      let interpretation = "";
+                      if (Math.abs(diff) < 10) {
+                        interpretation = "현재와 비슷한 수준이 유지될 것으로 보입니다.";
+                      } else if (diff >= 10) {
+                        interpretation = "최근 대비 상승 추세가 예상됩니다.";
+                      } else {
+                        interpretation = "최근 대비 하락 추세가 예상됩니다.";
+                      }
+                      
+                      const message = `🤖 AI 예측 완료!\n\n📊 예측 결과 요약:\n향후 30일간 평균 ${avgPrediction.toFixed(2)} mg/S㎥ 수준이 예상됩니다.\n(변동 범위: ${minPrediction.toFixed(2)}~${maxPrediction.toFixed(2)} mg/S㎥)\n\n${interpretation}\n\n📈 아래 차트에서 초록색 예측선을 확인하세요!\n\n💡 본 예측 결과는 참고용으로만 활용하세요.\n\n────────────────────────\n학습 데이터: ${result.training_samples}건  |  예측 기간: 30일  |  분석 방법: AutoML`;
                       
                       setPredictionMessage(message);
                       setShowPredictionModal(true);
@@ -970,10 +989,10 @@ export default function DashboardPage() {
                     setAiPredictions(data.predictions);
                     
                     // 완료 메시지 표시
-                    setInsightMessage('✅ 보고서 생성 완료!\n\n새 탭에서 PDF 보고서를 여시겠습니까?');
+                    setInsightMessage('✅ 보고서 생성 완료!\n\n새 탭에서 PDF 보고서를 여시겠습니까?\n\n📋 보고서 메뉴 > 인사이트 보고서 탭에서도 확인 가능합니다.');
                     
                     // PDF 표시 (백엔드에서 생성된 PDF만 지원)
-                    if (confirm('📊 보고서가 생성되었습니다.\n\nPDF를 새 탭에서 여시겠습니까?')) {
+                    if (confirm('📊 보고서가 생성되었습니다.\n\nPDF를 새 탭에서 여시겠습니까?\n\n💡 보고서 메뉴 > 인사이트 보고서 탭에서도 확인 가능합니다.')) {
                       try {
                         // Base64를 Blob으로 변환
                         const byteCharacters = atob(data.pdf_base64);

@@ -1,6 +1,6 @@
 """
 PMMS 환경 AutoML 예측 API 서버
-- Prophet 기반 시계열 예측
+- Auto-ARIMA 기반 시계열 예측
 - PostgreSQL 연동
 """
 from fastapi import FastAPI, HTTPException
@@ -130,7 +130,7 @@ async def health_check():
 async def predict(request: PredictionRequest):
     """
     AutoML 기반 예측 수행
-    - Prophet 자동 학습
+    - Auto-ARIMA 자동 학습
     - Optuna 하이퍼파라미터 최적화
     - 30일 예측
     """
@@ -205,7 +205,7 @@ async def generate_insight_report(request: PredictionRequest):
         raise HTTPException(status_code=500, detail="Database not connected")
     
     try:
-        from automl_engine import BoazAutoMLPredictor
+        from automl_engine import PmmsAutoMLPredictor
         from insight_generator import InsightGenerator
         
         async with db_pool.acquire() as conn:
@@ -253,7 +253,7 @@ async def generate_insight_report(request: PredictionRequest):
             )
         
         # AutoML 예측 수행
-        predictor = BoazAutoMLPredictor()
+        predictor = PmmsAutoMLPredictor()
         result = await predictor.predict(data=rows, periods=request.periods)
         
         # 인사이트 보고서 생성
@@ -330,7 +330,7 @@ async def generate_insight_report(request: PredictionRequest):
             import json
             async with db_pool.acquire() as conn:
                 await conn.execute("""
-                    INSERT INTO "InsightReport" 
+                    INSERT INTO "insight_reports" 
                     (id, "customerId", "itemKey", "itemName", periods, "reportData", "chartImage", "pdfBase64", "createdBy", "createdAt")
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
                 """, 
@@ -381,19 +381,19 @@ async def generate_insight_report(request: PredictionRequest):
 
 @app.post("/api/validate-measurement")
 async def validate_measurement(request: PredictionRequest):
-    """측정 데이터 이상치 검증"""
+    """측정 데이터 이상치 검증 (통계 기반)"""
     global db_pool
     
     try:
-        from automl_engine import PmmsAutoMLPredictor
-        from datetime import datetime
+        import numpy as np
         
         async with db_pool.acquire() as conn:
             rows = await conn.fetch("""
-                SELECT m."measuredAt", m.value
+                SELECT m.value
                 FROM "Measurement" m
                 JOIN "Stack" s ON m."stackId" = s.id
                 WHERE s."customerId" = $1 AND m."itemKey" = $2
+                  AND m.value IS NOT NULL
                 ORDER BY m."measuredAt" ASC
             """, request.customer_id, request.item_key)
         
@@ -404,30 +404,8 @@ async def validate_measurement(request: PredictionRequest):
                 "message": "데이터가 부족하여 검증을 건너뜁니다."
             }
         
-        predictor = AutoMLPredictor()
-        result = await predictor.predict(data=rows, periods=30, include_history=True)
-        
-        today = datetime.now().date()
-        prediction_for_today = None
-        
-        for pred in result['predictions']:
-            pred_date = datetime.fromisoformat(pred['date'].replace('Z', '+00:00')).date()
-            if pred_date == today:
-                prediction_for_today = pred
-                break
-        
-        if not prediction_for_today:
-            return {
-                "anomaly_detected": False,
-                "skip_reason": "no_prediction",
-                "message": "예측값을 찾을 수 없습니다."
-            }
-        
-        lower = prediction_for_today['yhat_lower']
-        upper = prediction_for_today['yhat_upper']
-        predicted = prediction_for_today['yhat']
+        # 입력값 확인
         input_value = getattr(request, 'value', None)
-        
         if input_value is None:
             return {
                 "anomaly_detected": False,
@@ -435,16 +413,27 @@ async def validate_measurement(request: PredictionRequest):
                 "message": "검증할 값이 없습니다."
             }
         
-        if input_value < lower or input_value > upper:
+        # 통계 기반 이상치 탐지
+        values = [float(row['value']) for row in rows]
+        mean = np.mean(values)
+        std = np.std(values)
+        
+        # 평균 ± 2 표준편차 (95% 신뢰구간)
+        lower_bound = max(0, mean - 2 * std)  # 음수 방지
+        upper_bound = mean + 2 * std
+        
+        # 이상치 판정
+        if input_value < lower_bound or input_value > upper_bound:
             return {
                 "anomaly_detected": True,
                 "severity": "warning",
-                "message": f"입력하신 값({input_value:.2f})이 예상 범위({lower:.2f}~{upper:.2f})를 벗어났습니다.",
+                "message": f"입력값({input_value:.2f})이 과거 데이터 범위({lower_bound:.2f}~{upper_bound:.2f})를 벗어났습니다.",
                 "details": {
                     "input_value": input_value,
-                    "predicted_value": predicted,
-                    "lower_bound": lower,
-                    "upper_bound": upper
+                    "historical_mean": round(mean, 2),
+                    "lower_bound": round(lower_bound, 2),
+                    "upper_bound": round(upper_bound, 2),
+                    "data_count": len(values)
                 }
             }
         
@@ -467,7 +456,7 @@ async def list_models():
     return {
         "models": [
             {
-                "name": "Prophet",
+                "name": "Auto-ARIMA",
                 "type": "AutoML Time Series",
                 "features": [
                     "자동 계절성 탐지",

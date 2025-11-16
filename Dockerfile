@@ -57,6 +57,26 @@ RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     chromium \
+    chromium-driver \
+    fonts-liberation \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libatspi2.0-0 \
+    libcups2 \
+    libdbus-1-3 \
+    libdrm2 \
+    libgbm1 \
+    libgtk-3-0 \
+    libnspr4 \
+    libnss3 \
+    libwayland-client0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxkbcommon0 \
+    libxrandr2 \
+    xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -80,7 +100,13 @@ COPY frontend/start.sh ./start.sh
 # Python 패키지 경로 추가
 ENV PATH="/root/.local/bin:$PATH"
 ENV PYTHONPATH="/usr/local/lib/python3.11/site-packages"
-ENV PLAYWRIGHT_BROWSERS_PATH=/usr/bin/chromium
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=0
+
+# Playwright 브라우저 설치 (runner 단계에서)
+RUN pip3 install --break-system-packages playwright && \
+    playwright install chromium && \
+    playwright install-deps chromium
 
 # 업로드 디렉토리 생성 및 스크립트 실행 권한 부여
 RUN mkdir -p /app/public/uploads && chmod +x /app/start.sh
