@@ -4,7 +4,13 @@
 npx prisma migrate deploy || echo "Migration skipped"
 
 # 백엔드 API 서버 시작 (백그라운드)
-cd /app/backend && python3 main.py &
-
-# 프론트엔드 서버 시작 (standalone 모드)
-cd /app && node server.js
+# Railway: 루트 디렉토리 기준
+if [ -d "/app/backend" ]; then
+  # Docker 환경
+  cd /app/backend && python3 main.py &
+  cd /app && node server.js
+else
+  # Railway 환경
+  cd backend && python3 main.py &
+  cd .. && node server.js
+fi
