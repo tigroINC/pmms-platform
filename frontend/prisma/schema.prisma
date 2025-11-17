@@ -1413,3 +1413,15 @@ model PasswordResetToken {
   @@index([userId])
   @@map("password_reset_tokens")
 }
+
+model Prediction {
+  id              String   @id @default(cuid())
+  customerId      String
+  itemKey         String
+  periods         Int
+  predictionData  String   // JSON 예측 결과
+  createdAt       DateTime @default(now())
+  
+  @@index([customerId, itemKey, createdAt])
+  @@map("predictions")
+}

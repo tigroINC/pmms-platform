@@ -126,10 +126,10 @@ async def health_check():
             "error": str(e)
         }
 
-@app.post("/api/predict", response_model=PredictionResponse)
+@app.post("/api/predict")
 async def predict(request: PredictionRequest):
     """
-    AutoML 기반 예측 수행
+    AutoML 기반 예측 수행 (신규 데이터 기준 캐싱)
     - Auto-ARIMA 자동 학습
     - Optuna 하이퍼파라미터 최적화
     - 30일 예측
@@ -141,9 +141,53 @@ async def predict(request: PredictionRequest):
     
     try:
         from automl_engine import PmmsAutoMLPredictor
+        import json
+        import math
         
         # PostgreSQL에서 학습 데이터 가져오기
         async with db_pool.acquire() as conn:
+            # 최신 측정 데이터 시간 조회
+            latest_measurement = await conn.fetchrow("""
+                SELECT MAX("measuredAt") as latest_time
+                FROM "Measurement"
+                WHERE "customerId" = $1
+                  AND "itemKey" = $2
+                  AND value IS NOT NULL
+            """, request.customer_id, request.item_key)
+            
+            latest_measurement_time = latest_measurement['latest_time'] if latest_measurement else None
+            
+            # 캐시 확인: 최신 측정 데이터 이후 생성된 예측이 있으면 재사용
+            if latest_measurement_time:
+                cached_prediction = await conn.fetchrow("""
+                    SELECT "predictionData", "createdAt"
+                    FROM "predictions"
+                    WHERE "customerId" = $1
+                      AND "itemKey" = $2
+                      AND periods = $3
+                      AND "createdAt" > $4
+                    ORDER BY "createdAt" DESC
+                    LIMIT 1
+                """, request.customer_id, request.item_key, request.periods, latest_measurement_time)
+                
+                if cached_prediction:
+                    logger.info(f"Using cached prediction for {request.customer_id}/{request.item_key}")
+                    prediction_data = json.loads(cached_prediction['predictionData'])
+                    
+                    # NaN/Infinity 값 정리
+                    def clean_float_values(obj):
+                        if isinstance(obj, dict):
+                            return {k: clean_float_values(v) for k, v in obj.items()}
+                        elif isinstance(obj, list):
+                            return [clean_float_values(item) for item in obj]
+                        elif isinstance(obj, float):
+                            if math.isnan(obj) or math.isinf(obj):
+                                return None
+                            return obj
+                        return obj
+                    
+                    return clean_float_values(prediction_data)
+            
             # 고객사 전체 굴뚝 데이터를 사용하여 충분한 학습 데이터 확보
             query = """
                 SELECT 
@@ -181,12 +225,33 @@ async def predict(request: PredictionRequest):
             periods=request.periods
         )
         
-        return PredictionResponse(
-            predictions=result['predictions'],
-            model_info=result['model_info'],
-            training_samples=len(rows),
-            accuracy_metrics=result.get('metrics')
-        )
+        response_data = {
+            'predictions': result['predictions'],
+            'model_info': result['model_info'],
+            'training_samples': len(rows),
+            'accuracy_metrics': result.get('metrics'),
+            'historical_avg': result.get('historical_avg')
+        }
+        
+        # DB에 예측 결과 저장 (캐싱용)
+        try:
+            async with db_pool.acquire() as conn:
+                await conn.execute("""
+                    INSERT INTO "predictions" 
+                    (id, "customerId", "itemKey", periods, "predictionData", "createdAt")
+                    VALUES ($1, $2, $3, $4, $5, NOW())
+                """, 
+                    base64.b64encode(os.urandom(12)).decode('utf-8'),
+                    request.customer_id,
+                    request.item_key,
+                    request.periods,
+                    json.dumps(response_data)
+                )
+                logger.info("Prediction saved to database for caching")
+        except Exception as save_error:
+            logger.warning(f"Failed to save prediction: {save_error}")
+        
+        return response_data
         
     except HTTPException:
         raise
