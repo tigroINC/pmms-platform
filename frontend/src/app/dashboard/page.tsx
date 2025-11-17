@@ -210,9 +210,12 @@ export default function DashboardPage() {
   const { list: stackList } = useStacks(currentCustomerId);
 
   // 항목 목록을 현재 고객사/스택 선택에 종속(드롭다운용)
-  // 보조항목 제외 (오염물질만 표시)
+  // 권한에 따라 오염물질만 표시 또는 전체 표시
   const AUXILIARY_ITEM_KEYS = ['weather', 'temp', 'humidity', 'pressure', 'wind_dir', 'wind_speed', 'gas_velocity', 'gas_temp', 'moisture', 'o2_measured', 'o2_standard', 'flow_rate'];
   const [availableItems, setAvailableItems] = useState(items);
+  const { hasPermission } = usePermissions();
+  const showPollutantsOnly = hasPermission('dashboard.pollutants_only');
+  
   useEffect(() => {
     const params = new URLSearchParams();
     if (currentCustomerId) params.set("customerId", currentCustomerId);
@@ -221,16 +224,20 @@ export default function DashboardPage() {
       .then((r) => r.json())
       .then((json) => {
         const allItems = Array.isArray(json.data) ? json.data : [];
-        // 보조항목 제외
-        const pollutants = allItems.filter((item: any) => !AUXILIARY_ITEM_KEYS.includes(item.key));
-        setAvailableItems(pollutants);
+        // 권한에 따라 필터링
+        const filteredItems = showPollutantsOnly 
+          ? allItems.filter((item: any) => !AUXILIARY_ITEM_KEYS.includes(item.key))
+          : allItems;
+        setAvailableItems(filteredItems);
       })
       .catch(() => {
-        // 에러 시에도 보조항목 제외
-        const pollutants = items.filter((item: any) => !AUXILIARY_ITEM_KEYS.includes(item.key));
-        setAvailableItems(pollutants);
+        // 에러 시에도 권한에 따라 필터링
+        const filteredItems = showPollutantsOnly
+          ? items.filter((item: any) => !AUXILIARY_ITEM_KEYS.includes(item.key))
+          : items;
+        setAvailableItems(filteredItems);
       });
-  }, [currentCustomerId, stacksSel, items]);
+  }, [currentCustomerId, stacksSel, items, showPollutantsOnly]);
 
   // 고객사 사용자: 환경측정기업 목록 로드
   useEffect(() => {
