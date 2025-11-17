@@ -31,6 +31,7 @@ const PERMISSIONS: Permission[] = [
   { code: "dashboard.view", name: "대시보드 조회", category: "대시보드" },
   { code: "dashboard.automl", name: "AutoML 예측", category: "대시보드" },
   { code: "dashboard.insight", name: "인사이트 보고서 생성", category: "대시보드" },
+  { code: "dashboard.pollutants_only", name: "측정항목 오염물질만 표시", category: "대시보드" },
   
   // 고객사 관리 - 탭
   { code: "customer.tab.all", name: "전체탭 보기", category: "고객사 관리" },

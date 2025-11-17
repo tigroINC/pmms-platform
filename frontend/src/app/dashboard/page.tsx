@@ -15,6 +15,7 @@ import { usePrediction, PredictionData } from "@/hooks/usePrediction";
 import Button from "@/components/ui/Button";
 import { InsightReportResponse, isValidPdfResponse, validatePdfBase64 } from "@/types/insight";
 import { useSession } from "next-auth/react";
+import { usePermissions } from "@/hooks/usePermissions";
 
 // 카테고리형 필터 체크박스 컴포넌트
 function CategoryCheckboxes({ itemKey, selected, onChange, items }: { itemKey: string; selected: string[]; onChange: (cats: string[]) => void; items: any[] }) {
