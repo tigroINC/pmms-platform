@@ -457,31 +457,30 @@ export default function CustomersPage() {
   const [showContractModal, setShowContractModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
-  const [orgRefreshed, setOrgRefreshed] = useState(false);
+  const [currentOrgData, setCurrentOrgData] = useState<any>(null);
 
-  // 조직 정보 새로고침 (계약관리 기능 활성화 상태 반영)
+  // 조직 정보 직접 로드 (Context 우회)
   useEffect(() => {
-    const refreshOrganization = async () => {
-      if (!selectedOrg?.id || orgRefreshed) return;
+    const loadOrgData = async () => {
+      if (!selectedOrg?.id) return;
       try {
-        console.log("[고객사관리] 조직 정보 새로고침 시작:", selectedOrg.id);
+        console.log("[고객사관리] 조직 정보 로드 시작:", selectedOrg.id);
         const res = await fetch(`/api/organizations/${selectedOrg.id}`);
         const data = await res.json();
         if (res.ok && data.organization) {
-          console.log("[고객사관리] 조직 정보 업데이트:", {
+          console.log("[고객사관리] 조직 정보 로드 완료:", {
             hasContractManagement: data.organization.hasContractManagement,
             name: data.organization.name
           });
-          setSelectedOrg(data.organization);
-          setOrgRefreshed(true);
+          setCurrentOrgData(data.organization);
         }
       } catch (error) {
-        console.error("조직 정보 새로고침 실패:", error);
+        console.error("조직 정보 로드 실패:", error);
       }
     };
 
-    refreshOrganization();
-  }, [selectedOrg?.id, setSelectedOrg]);
+    loadOrgData();
+  }, [selectedOrg?.id]);
 
   useEffect(() => {
     if (selectedOrg) {
@@ -778,9 +777,14 @@ export default function CustomersPage() {
                   <Button size="sm" variant="secondary" onClick={() => setShowBulkUploadModal(true)}>일괄업로드</Button>
                 )}
                 {(() => {
-                  const hasContract = selectedOrg?.hasContractManagement;
+                  const hasContract = currentOrgData?.hasContractManagement;
                   const hasPermissionView = hasPermission('contract.view');
-                  console.log("[계약관리 버튼]", { hasContract, hasPermissionView, selectedOrg: selectedOrg?.name });
+                  console.log("[계약관리 버튼]", { 
+                    hasContract, 
+                    hasPermissionView, 
+                    orgName: currentOrgData?.name,
+                    contextOrg: selectedOrg?.name 
+                  });
                   return hasContract && hasPermissionView ? (
                     <Button size="sm" variant="secondary" onClick={() => setShowContractModal(true)}>계약관리</Button>
                   ) : null;
