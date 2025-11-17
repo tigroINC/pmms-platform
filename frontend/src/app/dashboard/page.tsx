@@ -955,8 +955,6 @@ export default function DashboardPage() {
                   if (!confirmed) return;
                   
                   setInsightLoading(true);
-                  setInsightMessage('🔄 인사이트 보고서 생성 중...\n\n예상 소요 시간: 약 30초\n\nAI 모델 학습 및 분석을 진행하고 있습니다.');
-                  setShowInsightModal(true);
                   
                   try {
                     // 차트 이미지 캡처
@@ -1000,8 +998,7 @@ export default function DashboardPage() {
                     // 예측 데이터 저장
                     setAiPredictions(data.predictions);
                     
-                    // 모달 닫기
-                    setShowInsightModal(false);
+                    // 로딩 종료
                     setInsightLoading(false);
                     
                     // PDF 자동 표시
@@ -1029,7 +1026,6 @@ export default function DashboardPage() {
                       }
                     }
                   } catch (err: any) {
-                    setShowInsightModal(false);
                     setInsightLoading(false);
                     alert(`❌ 보고서 생성 실패\n\n${err.message}`);
                   }
