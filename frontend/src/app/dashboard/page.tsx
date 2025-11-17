@@ -378,13 +378,45 @@ export default function DashboardPage() {
     })();
   }, [JSON.stringify(conds), selectedCustomerId, applied.stack, applied.start, applied.end]);
 
+  // 채취환경 항목의 실제 값 추출 헬퍼 함수
+  const getItemValue = (record: any, itemKey?: string): number | null => {
+    // 일반 오염물질은 value 필드 사용
+    if (record.value !== undefined && record.value !== null) {
+      return Number(record.value);
+    }
+    
+    // 채취환경 항목은 필드명 매핑 필요
+    const fieldMap: Record<string, string> = {
+      'MENV0001': 'weather',
+      'MENV0002': 'temperatureC',
+      'MENV0003': 'humidityPct',
+      'MENV0004': 'pressureMmHg',
+      'MENV0005': 'windDirection',
+      'MENV0006': 'windSpeedMs',
+      'MENV0007': 'gasVelocityMs',
+      'MENV0008': 'gasTempC',
+      'MENV0009': 'moisturePct',
+      'MENV0010': 'oxygenMeasuredPct',
+      'MENV0011': 'oxygenStdPct',
+      'MENV0012': 'flowSm3Min',
+    };
+    
+    const key = itemKey || record.itemKey || record.item?.key;
+    const fieldName = fieldMap[key];
+    if (fieldName && record[fieldName] !== undefined && record[fieldName] !== null) {
+      return Number(record[fieldName]);
+    }
+    
+    return null;
+  };
+
   // Numeric value range filtering (applies to all chart types and CSV)
   const filteredHistory = useMemo(() => {
     const min = valueMin !== "" ? Number(valueMin) : undefined;
     const max = valueMax !== "" ? Number(valueMax) : undefined;
     const base = (history as any[]).filter((r) => {
-      const v = Number(r.value);
-      if (!Number.isFinite(v)) return false;
+      const v = getItemValue(r, selectedItem?.key);
+      if (v === null || !Number.isFinite(v)) return false;
       if (min !== undefined && v < min) return false;
       if (max !== undefined && v > max) return false;
       return true;
@@ -480,12 +512,12 @@ export default function DashboardPage() {
       const mi = String(dt.getMinutes()).padStart(2, '0');
       return `${mm}/${dd} ${hh}:${mi}`;
     });
-    const values = uniq.map((r) => Number(r.value));
+    const values = uniq.map((r) => getItemValue(r, selectedItem?.key) ?? 0);
     const times = uniq.map((r) => r.measuredAt);
     const stacks = uniq.map((r) => r.stack?.name || "");
     console.log("[Dashboard] Chart data:", { labels: labels.length, values: values.length, labelsample: labels[0], valuesample: values[0] });
     return { labels, values, times, stacks, payloads: uniq };
-  }, [filteredHistory, chartType]);
+  }, [filteredHistory, chartType, selectedItem?.key]);
 
   const chartData = useMemo(() => {
     // 실제 적용된 배출허용기준 가져오기 (우선순위: 굴뚝별 > 고객사별 > 전체)
@@ -512,7 +544,8 @@ export default function DashboardPage() {
       for (const r of filteredHistory as any[]) {
         const dt = new Date(r.measuredAt);
         const key = `${dt.getFullYear()}-${(dt.getMonth() + 1).toString().padStart(2, "0")}`;
-        if (key in buckets) buckets[key].push(Number(r.value));
+        const v = getItemValue(r, selectedItem?.key);
+        if (key in buckets && v !== null) buckets[key].push(v);
       }
       const data = Object.keys(buckets).map((k) => {
         const arr = buckets[k];
@@ -543,14 +576,19 @@ export default function DashboardPage() {
   }, [filteredHistory, applied.start, applied.end, selectedItem?.limit, chartType]);
 
   const summary = useMemo(() => {
-    const values = (filteredHistory as any[]).map((r) => Number(r.value));
+    const values = (filteredHistory as any[])
+      .map((r) => getItemValue(r, selectedItem?.key))
+      .filter((v): v is number => v !== null);
     const totalCount = values.length;
     const now = new Date();
     const monthCount = (filteredHistory as any[]).filter((r) => {
       const dt = new Date(r.measuredAt);
       return dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth();
     }).length;
-    const exceed = (filteredHistory as any[]).filter((r) => selectedItem && Number(r.value) > (selectedItem.limit ?? Infinity)).length;
+    const exceed = (filteredHistory as any[]).filter((r) => {
+      const v = getItemValue(r, selectedItem?.key);
+      return selectedItem && v !== null && v > (selectedItem.limit ?? Infinity);
+    }).length;
     const avg = values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
     return { totalCount, monthCount, exceed, avg: Number(avg.toFixed(1)) };
   }, [filteredHistory, selectedItem]);
