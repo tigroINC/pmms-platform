@@ -159,34 +159,37 @@ async def predict(request: PredictionRequest):
             
             # 캐시 확인: 최신 측정 데이터 이후 생성된 예측이 있으면 재사용
             if latest_measurement_time:
-                cached_prediction = await conn.fetchrow("""
-                    SELECT "predictionData", "createdAt"
-                    FROM "predictions"
-                    WHERE "customerId" = $1
-                      AND "itemKey" = $2
-                      AND periods = $3
-                      AND "createdAt" > $4
-                    ORDER BY "createdAt" DESC
-                    LIMIT 1
-                """, request.customer_id, request.item_key, request.periods, latest_measurement_time)
-                
-                if cached_prediction:
-                    logger.info(f"Using cached prediction for {request.customer_id}/{request.item_key}")
-                    prediction_data = json.loads(cached_prediction['predictionData'])
+                try:
+                    cached_prediction = await conn.fetchrow("""
+                        SELECT "predictionData", "createdAt"
+                        FROM "predictions"
+                        WHERE "customerId" = $1
+                          AND "itemKey" = $2
+                          AND periods = $3
+                          AND "createdAt" > $4
+                        ORDER BY "createdAt" DESC
+                        LIMIT 1
+                    """, request.customer_id, request.item_key, request.periods, latest_measurement_time)
                     
-                    # NaN/Infinity 값 정리
-                    def clean_float_values(obj):
-                        if isinstance(obj, dict):
-                            return {k: clean_float_values(v) for k, v in obj.items()}
-                        elif isinstance(obj, list):
-                            return [clean_float_values(item) for item in obj]
-                        elif isinstance(obj, float):
-                            if math.isnan(obj) or math.isinf(obj):
-                                return None
+                    if cached_prediction:
+                        logger.info(f"Using cached prediction for {request.customer_id}/{request.item_key}")
+                        prediction_data = json.loads(cached_prediction['predictionData'])
+                        
+                        # NaN/Infinity 값 정리
+                        def clean_float_values(obj):
+                            if isinstance(obj, dict):
+                                return {k: clean_float_values(v) for k, v in obj.items()}
+                            elif isinstance(obj, list):
+                                return [clean_float_values(item) for item in obj]
+                            elif isinstance(obj, float):
+                                if math.isnan(obj) or math.isinf(obj):
+                                    return None
+                                return obj
                             return obj
-                        return obj
-                    
-                    return clean_float_values(prediction_data)
+                        
+                        return clean_float_values(prediction_data)
+                except Exception as cache_error:
+                    logger.warning(f"Prediction cache lookup failed (table may not exist): {cache_error}")
             
             # 고객사 전체 굴뚝 데이터를 사용하여 충분한 학습 데이터 확보
             query = """
