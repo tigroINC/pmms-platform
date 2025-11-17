@@ -442,14 +442,13 @@ export default function CustomersPage() {
   const { user } = useAuth();
   const role = user?.role;
   const isReadOnly = role === "OPERATOR"; // OPERATOR는 읽기 전용
-  const { selectedOrg, loading: orgLoading } = useOrganization();
+  const { selectedOrg, setSelectedOrg, loading: orgLoading } = useOrganization();
   const { hasPermission, loading: permissionsLoading } = usePermissions();
   const [activeTab, setActiveTab] = useState<TabType>("all");
   const [customers, setCustomers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [q, setQ] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [showInactive, setShowInactive] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<any>(null);
   const [showInvitationModal, setShowInvitationModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
@@ -458,11 +457,26 @@ export default function CustomersPage() {
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
 
+  // 조직 정보 새로고침 (계약관리 기능 활성화 상태 반영)
+  const refreshOrganization = async () => {
+    if (!selectedOrg?.id) return;
+    try {
+      const res = await fetch(`/api/organizations/${selectedOrg.id}`);
+      const data = await res.json();
+      if (res.ok && data.organization) {
+        setSelectedOrg(data.organization);
+      }
+    } catch (error) {
+      console.error("조직 정보 새로고침 실패:", error);
+    }
+  };
+
   useEffect(() => {
     if (selectedOrg) {
+      refreshOrganization();
       fetchCustomers();
     }
-  }, [activeTab, selectedOrg]);
+  }, [activeTab, selectedOrg?.id]);
 
 
   const fetchCustomers = async () => {
