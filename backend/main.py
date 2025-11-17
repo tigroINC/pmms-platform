@@ -239,9 +239,10 @@ async def generate_insight_report(request: PredictionRequest):
                     import json
                     import math
                     
-                    report_data = json.loads(cached_report['reportData'])
+                    # reportData에 전체 응답이 저장되어 있음
+                    full_response = json.loads(cached_report['reportData'])
                     
-                    # NaN/Infinity 값 정리 (JSON 직렬화 오류 방지)
+                    # NaN/Infinity 값 정리
                     def clean_float_values(obj):
                         if isinstance(obj, dict):
                             return {k: clean_float_values(v) for k, v in obj.items()}
@@ -253,13 +254,9 @@ async def generate_insight_report(request: PredictionRequest):
                             return obj
                         return obj
                     
-                    cleaned_data = clean_float_values(report_data)
-                    
-                    return {
-                        **cleaned_data,
-                        'pdf_base64': cached_report['pdfBase64'],
-                        'cached': True
-                    }
+                    return clean_float_values(full_response)
+            else:
+                cached_report = None
             
             # 캐시 없음 또는 신규 데이터 있음 - 새로 생성
             # 측정 데이터 조회
@@ -391,10 +388,20 @@ async def generate_insight_report(request: PredictionRequest):
                 return obj
             return obj
         
-        # DB에 인사이트 보고서 저장 (NaN 값 정리 후)
+        # 전체 응답 데이터 구성
+        response_data = {
+            "predictions": result['predictions'],
+            "model_info": result['model_info'],
+            "training_samples": len(rows),
+            "accuracy_metrics": result.get('metrics'),
+            "insight_report": report,
+            "pdf_base64": pdf_base64
+        }
+        
+        # DB에 인사이트 보고서 저장 (전체 응답 구조 저장)
         try:
             import json
-            cleaned_report = sanitize_for_json(report)
+            cleaned_response = sanitize_for_json(response_data)
             
             async with db_pool.acquire() as conn:
                 await conn.execute("""
@@ -407,23 +414,14 @@ async def generate_insight_report(request: PredictionRequest):
                     request.item_key,
                     request.item_name or item_name,
                     request.periods,
-                    json.dumps(cleaned_report),
+                    json.dumps(cleaned_response),  # 전체 응답 저장
                     request.chart_image,
                     pdf_base64,
                     request.user_id or 'system'
                 )
-                logger.info("Insight report saved to database")
+                logger.info("Insight report saved to database (full response)")
         except Exception as save_error:
             logger.warning(f"Failed to save insight report: {save_error}")
-        
-        response_data = {
-            "predictions": result['predictions'],
-            "model_info": result['model_info'],
-            "training_samples": len(rows),
-            "accuracy_metrics": result.get('metrics'),
-            "insight_report": report,
-            "pdf_base64": pdf_base64
-        }
         
         return sanitize_for_json(response_data)
         

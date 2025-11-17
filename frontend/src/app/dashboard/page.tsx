@@ -942,20 +942,23 @@ export default function DashboardPage() {
                     return;
                   }
                   
-                  // 사용자 확인
-                  const confirmed = confirm(
+                  // 안내 메시지를 모달에 표시
+                  setInsightLoading(false);
+                  setInsightMessage(
                     '📊 인사이트 보고서 생성\n\n' +
                     '⚠️ 동일한 데이터에 대해 이미 생성된 보고서가 있다면\n' +
                     '   "보고서 메뉴 > 인사이트 보고서"에서 확인하세요.\n\n' +
                     '💡 신규 측정 데이터가 없으면 기존 보고서를 재사용합니다.\n\n' +
-                    '계속 진행하시겠습니까?'
+                    '⏱️ 예상 소요 시간: 약 30초\n\n' +
+                    '확인을 누르면 보고서 생성을 시작합니다.'
                   );
+                  setShowInsightModal(true);
                   
-                  if (!confirmed) return;
+                  // 잠시 대기 후 자동 시작
+                  await new Promise(resolve => setTimeout(resolve, 3000));
                   
                   setInsightLoading(true);
                   setInsightMessage('🔄 인사이트 보고서 생성 중...\n\n예상 소요 시간: 약 30초\n\nAI 모델 학습 및 분석을 진행하고 있습니다.\n\n💡 생성된 보고서는 "보고서 메뉴 > 인사이트 보고서"에 저장되므로\n반복 생성하지 말고 해당 메뉴에서 확인하세요.');
-                  setShowInsightModal(true);
                   
                   try {
                     // 차트 이미지 캡처
