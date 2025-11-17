@@ -212,7 +212,7 @@ export async function GET(req: NextRequest) {
       const measurements = JSON.parse(temp.measurements);
       const auxiliaryData = temp.auxiliaryData ? JSON.parse(temp.auxiliaryData) : {};
 
-      // 측정일시 포맷팅
+      // 측정일시 포맷팅 (한국 시간대로 변환)
       const measurementDate = new Date(temp.measurementDate);
       const measuredAt = measurementDate.toLocaleString("ko-KR", {
         year: "numeric",
@@ -220,6 +220,7 @@ export async function GET(req: NextRequest) {
         day: "2-digit",
         hour: "2-digit",
         minute: "2-digit",
+        timeZone: "Asia/Seoul"
       }).replace(/\. /g, "-").replace(".", "");
 
       // 고객사명

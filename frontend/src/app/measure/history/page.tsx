@@ -172,8 +172,15 @@ export default function MeasureHistoryPage() {
         itemKey: r.itemKey,
         isActive: r.isActive,
         originalData: r, // 전체 원본 데이터 보존
-        // 표시용 데이터
-        measuredAt: d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` : "",
+        // 표시용 데이터 (한국 시간대로 변환)
+        measuredAt: d ? d.toLocaleString("ko-KR", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: "Asia/Seoul"
+        }).replace(/\. /g, "-").replace(".", "") : "",
         customer: r.customer?.name ?? "",
         stack: r.stack?.code ?? r.stack?.name ?? r.stack ?? "",
         stackCode: r.stack?.code ?? "",
