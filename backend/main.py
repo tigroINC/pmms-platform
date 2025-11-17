@@ -197,7 +197,7 @@ async def predict(request: PredictionRequest):
 @app.post("/api/predict/insight")
 async def generate_insight_report(request: PredictionRequest):
     """
-    예측 결과 + AI 인사이트 보고서 생성
+    예측 결과 + AI 인사이트 보고서 생성 (24시간 캐싱)
     """
     global db_pool
     
@@ -207,8 +207,44 @@ async def generate_insight_report(request: PredictionRequest):
     try:
         from automl_engine import PmmsAutoMLPredictor
         from insight_generator import InsightGenerator
+        from datetime import datetime, timedelta
         
         async with db_pool.acquire() as conn:
+            # 최신 측정 데이터 시간 조회
+            latest_measurement = await conn.fetchrow("""
+                SELECT MAX("measuredAt") as latest_time
+                FROM "Measurement"
+                WHERE "customerId" = $1
+                  AND "itemKey" = $2
+                  AND value IS NOT NULL
+            """, request.customer_id, request.item_key)
+            
+            latest_measurement_time = latest_measurement['latest_time'] if latest_measurement else None
+            
+            # 캐시 확인: 최신 측정 데이터 이후 생성된 보고서가 있으면 재사용
+            if latest_measurement_time:
+                cached_report = await conn.fetchrow("""
+                    SELECT id, "reportData", "pdfBase64", "createdAt"
+                    FROM "insight_reports"
+                    WHERE "customerId" = $1
+                      AND "itemKey" = $2
+                      AND periods = $3
+                      AND "createdAt" > $4
+                    ORDER BY "createdAt" DESC
+                    LIMIT 1
+                """, request.customer_id, request.item_key, request.periods, latest_measurement_time)
+                
+                if cached_report:
+                    logger.info(f"Using cached insight report (ID: {cached_report['id']}, created after latest data)")
+                    import json
+                    report_data = json.loads(cached_report['reportData'])
+                    return {
+                        **report_data,
+                        'pdf_base64': cached_report['pdfBase64'],
+                        'cached': True
+                    }
+            
+            # 캐시 없음 또는 신규 데이터 있음 - 새로 생성
             # 측정 데이터 조회
             query = """
                 SELECT 

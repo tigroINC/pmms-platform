@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-# 시스템 의존성 설치
+# 시스템 의존성 및 한글 폰트 설치
 RUN apt-get update && apt-get install -y \
     libnss3 \
     libnspr4 \
@@ -17,6 +17,8 @@ RUN apt-get update && apt-get install -y \
     libasound2 \
     libpango-1.0-0 \
     libcairo2 \
+    fonts-noto-cjk \
+    fonts-noto-cjk-extra \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

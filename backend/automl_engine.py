@@ -3,6 +3,7 @@ PMMS AutoML 예측 엔진
 - pmdarima (Auto-ARIMA) 기반 시계열 예측
 - Optuna 자동 하이퍼파라미터 튜닝
 - 최근 1년 데이터만 사용
+- 재현성을 위한 랜덤 시드 고정
 """
 import pandas as pd
 import numpy as np
@@ -21,6 +22,10 @@ logger = logging.getLogger(__name__)
 
 # Optuna 로그 레벨 조정
 optuna.logging.set_verbosity(optuna.logging.WARNING)
+
+# 재현성을 위한 랜덤 시드 고정
+RANDOM_SEED = 42
+np.random.seed(RANDOM_SEED)
 
 
 class PmmsAutoMLPredictor:
@@ -148,7 +153,7 @@ class PmmsAutoMLPredictor:
     
     def _auto_tune_hyperparameters(self, df: pd.DataFrame) -> Dict:
         """
-        Optuna를 사용한 자동 하이퍼파라미터 튜닝
+        Optuna를 사용한 자동 하이퍼파라미터 튜닝 (재현성 보장)
         """
         def objective(trial):
             # 하이퍼파라미터 탐색 공간
@@ -197,8 +202,9 @@ class PmmsAutoMLPredictor:
                 logger.warning(f"Trial failed: {e}")
                 return float('inf')
         
-        # Optuna 최적화 (10회 시도로 빠르게)
-        study = optuna.create_study(direction='minimize')
+        # Optuna 최적화 (10회 시도로 빠르게, 재현성 보장)
+        sampler = optuna.samplers.TPESampler(seed=RANDOM_SEED)
+        study = optuna.create_study(direction='minimize', sampler=sampler)
         study.optimize(objective, n_trials=10, show_progress_bar=False)
         
         self.best_params = study.best_params

@@ -406,6 +406,27 @@ export default function ReportsPage() {
                           고객공유
                         </button>
                       )}
+                      {(role === "SUPER_ADMIN" || role === "ORG_ADMIN") && (
+                        <button
+                          onClick={async () => {
+                            if (!confirm("이 인사이트 보고서를 삭제하시겠습니까?")) return;
+                            try {
+                              const res = await fetch(`/api/insight-reports/${report.id}`, { method: "DELETE" });
+                              if (res.ok) {
+                                alert("삭제되었습니다.");
+                                fetchInsightReports();
+                              } else {
+                                alert("삭제 실패");
+                              }
+                            } catch (error) {
+                              alert("삭제 중 오류가 발생했습니다.");
+                            }
+                          }}
+                          className="text-xs text-red-600 hover:underline"
+                        >
+                          삭제
+                        </button>
+                      )}
                     </div>
                   </Td>
                 </Tr>
