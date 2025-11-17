@@ -33,6 +33,23 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', 'chart.js'],
   },
+  
+  // Railway 도메인 리다이렉트
+  async redirects() {
+    return [
+      {
+        source: '/:path*',
+        has: [
+          {
+            type: 'host',
+            value: '(.*)\\.railway\\.app',
+          },
+        ],
+        destination: 'https://pmms.info/:path*',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
