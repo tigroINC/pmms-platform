@@ -942,23 +942,21 @@ export default function DashboardPage() {
                     return;
                   }
                   
-                  // 안내 메시지를 모달에 표시
-                  setInsightLoading(false);
-                  setInsightMessage(
+                  // confirm으로 안내 및 확인
+                  const confirmed = confirm(
                     '📊 인사이트 보고서 생성\n\n' +
                     '⚠️ 동일한 데이터에 대해 이미 생성된 보고서가 있다면\n' +
                     '   "보고서 메뉴 > 인사이트 보고서"에서 확인하세요.\n\n' +
-                    '💡 신규 측정 데이터가 없으면 기존 보고서를 재사용합니다.\n\n' +
+                    '💡 신규 측정 데이터가 없으면 기존 보고서를 재사용합니다.\n' +
                     '⏱️ 예상 소요 시간: 약 30초\n\n' +
-                    '확인을 누르면 보고서 생성을 시작합니다.'
+                    '계속 진행하시겠습니까?'
                   );
-                  setShowInsightModal(true);
                   
-                  // 잠시 대기 후 자동 시작
-                  await new Promise(resolve => setTimeout(resolve, 3000));
+                  if (!confirmed) return;
                   
                   setInsightLoading(true);
-                  setInsightMessage('🔄 인사이트 보고서 생성 중...\n\n예상 소요 시간: 약 30초\n\nAI 모델 학습 및 분석을 진행하고 있습니다.\n\n💡 생성된 보고서는 "보고서 메뉴 > 인사이트 보고서"에 저장되므로\n반복 생성하지 말고 해당 메뉴에서 확인하세요.');
+                  setInsightMessage('🔄 인사이트 보고서 생성 중...\n\n예상 소요 시간: 약 30초\n\nAI 모델 학습 및 분석을 진행하고 있습니다.');
+                  setShowInsightModal(true);
                   
                   try {
                     // 차트 이미지 캡처
@@ -1002,11 +1000,12 @@ export default function DashboardPage() {
                     // 예측 데이터 저장
                     setAiPredictions(data.predictions);
                     
-                    // 완료 메시지 표시
-                    setInsightMessage('✅ 보고서 생성 완료!\n\n📋 보고서 메뉴 > 인사이트 보고서 탭에 저장되었습니다.\n\n지금 PDF를 확인하시겠습니까?');
+                    // 모달 닫기
+                    setShowInsightModal(false);
+                    setInsightLoading(false);
                     
-                    // PDF 표시 (백엔드에서 생성된 PDF만 지원)
-                    if (confirm('📊 보고서가 생성되었습니다!\n\n📋 "보고서 메뉴 > 인사이트 보고서"에 저장되었습니다.\n\n지금 PDF를 새 탭에서 여시겠습니까?')) {
+                    // PDF 자동 표시
+                    if (true) {
                       try {
                         // Base64를 Blob으로 변환
                         const byteCharacters = atob(data.pdf_base64);
@@ -1030,9 +1029,9 @@ export default function DashboardPage() {
                       }
                     }
                   } catch (err: any) {
-                    alert(`❌ 보고서 생성 실패\n\n${err.message}`);
-                  } finally {
+                    setShowInsightModal(false);
                     setInsightLoading(false);
+                    alert(`❌ 보고서 생성 실패\n\n${err.message}`);
                   }
                 }}
                 disabled={insightLoading}
