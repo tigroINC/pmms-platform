@@ -457,11 +457,12 @@ export default function CustomersPage() {
   const [showContractModal, setShowContractModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [orgRefreshed, setOrgRefreshed] = useState(false);
 
   // 조직 정보 새로고침 (계약관리 기능 활성화 상태 반영)
   useEffect(() => {
     const refreshOrganization = async () => {
-      if (!selectedOrg?.id) return;
+      if (!selectedOrg?.id || orgRefreshed) return;
       try {
         console.log("[고객사관리] 조직 정보 새로고침 시작:", selectedOrg.id);
         const res = await fetch(`/api/organizations/${selectedOrg.id}`);
@@ -472,16 +473,15 @@ export default function CustomersPage() {
             name: data.organization.name
           });
           setSelectedOrg(data.organization);
+          setOrgRefreshed(true);
         }
       } catch (error) {
         console.error("조직 정보 새로고침 실패:", error);
       }
     };
 
-    if (selectedOrg?.id) {
-      refreshOrganization();
-    }
-  }, [selectedOrg?.id]);
+    refreshOrganization();
+  }, [selectedOrg?.id, setSelectedOrg]);
 
   useEffect(() => {
     if (selectedOrg) {
