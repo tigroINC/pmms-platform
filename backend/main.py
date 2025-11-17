@@ -235,26 +235,36 @@ async def generate_insight_report(request: PredictionRequest):
                 """, request.customer_id, request.item_key, request.periods, latest_measurement_time)
                 
                 if cached_report:
-                    logger.info(f"Using cached insight report (ID: {cached_report['id']}, created after latest data)")
+                    logger.info(f"Found cached insight report (ID: {cached_report['id']}, created after latest data)")
                     import json
                     import math
                     
-                    # reportData에 전체 응답이 저장되어 있음
-                    full_response = json.loads(cached_report['reportData'])
-                    
-                    # NaN/Infinity 값 정리
-                    def clean_float_values(obj):
-                        if isinstance(obj, dict):
-                            return {k: clean_float_values(v) for k, v in obj.items()}
-                        elif isinstance(obj, list):
-                            return [clean_float_values(item) for item in obj]
-                        elif isinstance(obj, float):
-                            if math.isnan(obj) or math.isinf(obj):
-                                return None
-                            return obj
-                        return obj
-                    
-                    return clean_float_values(full_response)
+                    try:
+                        # reportData에 전체 응답이 저장되어 있음
+                        full_response = json.loads(cached_report['reportData'])
+                        
+                        # 응답 구조 검증 (predictions, model_info, pdf_base64 필수)
+                        if not all(key in full_response for key in ['predictions', 'model_info', 'pdf_base64']):
+                            logger.warning(f"Cached report {cached_report['id']} has invalid structure, regenerating...")
+                            cached_report = None
+                        else:
+                            # NaN/Infinity 값 정리
+                            def clean_float_values(obj):
+                                if isinstance(obj, dict):
+                                    return {k: clean_float_values(v) for k, v in obj.items()}
+                                elif isinstance(obj, list):
+                                    return [clean_float_values(item) for item in obj]
+                                elif isinstance(obj, float):
+                                    if math.isnan(obj) or math.isinf(obj):
+                                        return None
+                                    return obj
+                                return obj
+                            
+                            logger.info(f"Using cached insight report (ID: {cached_report['id']})")
+                            return clean_float_values(full_response)
+                    except Exception as cache_error:
+                        logger.warning(f"Failed to load cached report: {cache_error}, regenerating...")
+                        cached_report = None
             else:
                 cached_report = None
             
