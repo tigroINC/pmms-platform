@@ -259,8 +259,8 @@ export default function DashboardPage() {
   }, [customers, isCustomerUser, userCustomerId]);
 
   useEffect(() => {
-    // 고객사와 항목이 모두 선택되면 자동으로 적용 상태 반영
-    if (customer && customer !== "전체" && item) {
+    // 측정항목이 선택되면 자동으로 적용 상태 반영 (고객사는 선택 사항)
+    if (item) {
       const next = { customer, stack: stacksSel.join(","), item, start, end };
       const same =
         applied.customer === next.customer &&
@@ -278,8 +278,8 @@ export default function DashboardPage() {
     [applied.stack]
   );
 
-  // 고객사와 항목이 모두 선택되어야만 데이터 로딩
-  const shouldLoadData = applied.customer && applied.item;
+  // 측정항목이 선택되면 데이터 로딩 (고객사는 선택 사항)
+  const shouldLoadData = applied.item;
   
   const { data: history } = useMeasurementHistory({
     customerId: shouldLoadData ? selectedCustomerId : null,
