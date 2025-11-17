@@ -26,7 +26,8 @@ const nextConfig = {
   // 성능 최적화
   swcMinify: true,
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
+    // 디버깅을 위해 임시로 비활성화
+    // removeConsole: process.env.NODE_ENV === 'production',
   },
   // 개발 서버 최적화
   experimental: {
