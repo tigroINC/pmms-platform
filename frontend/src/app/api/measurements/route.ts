@@ -30,11 +30,23 @@ export async function GET(request: Request) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
     
-    // 보조항목 키 목록
-    const auxItemKeys = ['weather', 'temp', 'humidity', 'pressure', 'wind_dir', 'wind_speed', 'gas_velocity', 'gas_temp', 'moisture', 'o2_measured', 'o2_standard', 'flow_rate', 'temperature', 'wind_direction', 'oxygen_measured', 'oxygen_std'];
+    // 보조항목 키 목록 (실제 Item 테이블의 키 사용)
+    const auxItemKeys = ['MENV0001', 'MENV0002', 'MENV0003', 'MENV0004', 'MENV0005', 'MENV0006', 'MENV0007', 'MENV0008', 'MENV0009', 'MENV0010', 'MENV0011', 'MENV0012', 'weather', 'temp', 'humidity', 'pressure', 'wind_dir', 'wind_speed', 'gas_velocity', 'gas_temp', 'moisture', 'o2_measured', 'o2_standard', 'flow_rate', 'temperature', 'wind_direction', 'oxygen_measured', 'oxygen_std'];
     
     // 보조항목 키 → DB 컬럼 매핑
     const auxKeyToColumn: Record<string, string> = {
+      'MENV0001': 'weather',
+      'MENV0002': 'temperatureC',
+      'MENV0003': 'humidityPct',
+      'MENV0004': 'pressureMmHg',
+      'MENV0005': 'windDirection',
+      'MENV0006': 'windSpeedMs',
+      'MENV0007': 'gasVelocityMs',
+      'MENV0008': 'gasTempC',
+      'MENV0009': 'moisturePct',
+      'MENV0010': 'oxygenMeasuredPct',
+      'MENV0011': 'oxygenStdPct',
+      'MENV0012': 'flowSm3Min',
       'weather': 'weather',
       'temp': 'temperatureC',
       'temperature': 'temperatureC',
