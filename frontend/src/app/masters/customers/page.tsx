@@ -459,25 +459,35 @@ export default function CustomersPage() {
   const [showHelpModal, setShowHelpModal] = useState(false);
 
   // 조직 정보 새로고침 (계약관리 기능 활성화 상태 반영)
-  const refreshOrganization = async () => {
-    if (!selectedOrg?.id) return;
-    try {
-      const res = await fetch(`/api/organizations/${selectedOrg.id}`);
-      const data = await res.json();
-      if (res.ok && data.organization) {
-        setSelectedOrg(data.organization);
+  useEffect(() => {
+    const refreshOrganization = async () => {
+      if (!selectedOrg?.id) return;
+      try {
+        console.log("[고객사관리] 조직 정보 새로고침 시작:", selectedOrg.id);
+        const res = await fetch(`/api/organizations/${selectedOrg.id}`);
+        const data = await res.json();
+        if (res.ok && data.organization) {
+          console.log("[고객사관리] 조직 정보 업데이트:", {
+            hasContractManagement: data.organization.hasContractManagement,
+            name: data.organization.name
+          });
+          setSelectedOrg(data.organization);
+        }
+      } catch (error) {
+        console.error("조직 정보 새로고침 실패:", error);
       }
-    } catch (error) {
-      console.error("조직 정보 새로고침 실패:", error);
+    };
+
+    if (selectedOrg?.id) {
+      refreshOrganization();
     }
-  };
+  }, [selectedOrg?.id]);
 
   useEffect(() => {
     if (selectedOrg) {
-      refreshOrganization();
       fetchCustomers();
     }
-  }, [activeTab, selectedOrg?.id]);
+  }, [activeTab, selectedOrg]);
 
 
   const fetchCustomers = async () => {
@@ -767,9 +777,14 @@ export default function CustomersPage() {
                 {hasPermission('customer.bulk_upload') && (
                   <Button size="sm" variant="secondary" onClick={() => setShowBulkUploadModal(true)}>일괄업로드</Button>
                 )}
-                {selectedOrg?.hasContractManagement && hasPermission('contract.view') && (
-                  <Button size="sm" variant="secondary" onClick={() => setShowContractModal(true)}>계약관리</Button>
-                )}
+                {(() => {
+                  const hasContract = selectedOrg?.hasContractManagement;
+                  const hasPermissionView = hasPermission('contract.view');
+                  console.log("[계약관리 버튼]", { hasContract, hasPermissionView, selectedOrg: selectedOrg?.name });
+                  return hasContract && hasPermissionView ? (
+                    <Button size="sm" variant="secondary" onClick={() => setShowContractModal(true)}>계약관리</Button>
+                  ) : null;
+                })()}
                 {activeTab === "connected" && hasPermission('customer.create') && (
                   <Button size="sm" onClick={() => setShowSearchModal(true)}>🔍 신규검색연결</Button>
                 )}
