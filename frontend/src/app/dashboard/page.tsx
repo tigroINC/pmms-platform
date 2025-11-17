@@ -196,12 +196,13 @@ export default function DashboardPage() {
     if (isCustomerUser) {
       return viewAsCustomerId || userCustomerId;
     }
-    // 환경측정기업 사용자는 선택된 고객사 ID 사용
-    if (!applied.customer || !applied.item) {
-      console.log("[Dashboard] No customer or item selected, returning null");
-      return null; // 초기 상태: 데이터 로딩 안 함
+    // 환경측정기업 사용자: 측정항목만 선택되어도 조회 가능
+    if (!applied.item) {
+      console.log("[Dashboard] No item selected, returning null");
+      return null; // 측정항목 미선택 시 데이터 로딩 안 함
     }
-    if (applied.customer === "전체") return undefined;
+    // 고객사 미선택 또는 "전체" 선택 시 전체 데이터 조회
+    if (!applied.customer || applied.customer === "전체") return undefined;
     const found = customers.find((c) => c.name === applied.customer);
     console.log("[Dashboard] Found customer ID:", found?.id);
     return found?.id;
@@ -217,28 +218,20 @@ export default function DashboardPage() {
   const { hasPermission } = usePermissions();
   const showPollutantsOnly = hasPermission('dashboard.pollutants_only');
   
+  console.log('[Dashboard] showPollutantsOnly:', showPollutantsOnly);
+  
   useEffect(() => {
-    const params = new URLSearchParams();
-    if (currentCustomerId) params.set("customerId", currentCustomerId);
-    if (stacksSel.length) stacksSel.forEach((s) => params.append("stack", s));
-    fetch(`/api/items?${params.toString()}`)
-      .then((r) => r.json())
-      .then((json) => {
-        const allItems = Array.isArray(json.data) ? json.data : [];
-        // 권한에 따라 필터링
-        const filteredItems = showPollutantsOnly 
-          ? allItems.filter((item: any) => !AUXILIARY_ITEM_KEYS.includes(item.key))
-          : allItems;
-        setAvailableItems(filteredItems);
-      })
-      .catch(() => {
-        // 에러 시에도 권한에 따라 필터링
-        const filteredItems = showPollutantsOnly
-          ? items.filter((item: any) => !AUXILIARY_ITEM_KEYS.includes(item.key))
-          : items;
-        setAvailableItems(filteredItems);
-      });
-  }, [currentCustomerId, stacksSel, items, showPollutantsOnly]);
+    // 고객사/스택 선택 여부와 관계없이 전체 항목 표시
+    // 권한에 따라서만 필터링
+    const filteredItems = showPollutantsOnly 
+      ? items.filter((item: any) => !AUXILIARY_ITEM_KEYS.includes(item.key))
+      : items;
+    
+    console.log('[Dashboard] Available items count:', filteredItems.length);
+    console.log('[Dashboard] showPollutantsOnly:', showPollutantsOnly);
+    
+    setAvailableItems(filteredItems);
+  }, [items, showPollutantsOnly]);
 
   // 고객사 사용자: 환경측정기업 목록 로드
   useEffect(() => {
