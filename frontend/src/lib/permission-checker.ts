@@ -83,7 +83,8 @@ async function checkSystemRolePermission(
     SUPER_ADMIN: ['*'], // 모든 권한
     ORG_ADMIN: [
       'customer.*', 'user.*', 'measurement.*', 'report.*',
-      'stack.*', 'item.*', 'limit.*', 'connection.*', 'organization.*', 'assignment.*'
+      'stack.*', 'item.*', 'limit.*', 'connection.*', 'organization.*', 'assignment.*',
+      'contract.*'
     ],
     OPERATOR: [
       'customer.read', 'measurement.create', 'measurement.update',
