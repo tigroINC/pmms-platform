@@ -439,10 +439,23 @@ function CustomerRow({
 }
 
 export default function CustomersPage() {
+  console.log("=== CustomersPage 렌더링 시작 ===");
+  
   const { user } = useAuth();
   const role = user?.role;
   const isReadOnly = role === "OPERATOR"; // OPERATOR는 읽기 전용
+  
+  console.log("=== 사용자 정보 ===", { role, isReadOnly });
+  
   const { selectedOrg, setSelectedOrg, loading: orgLoading } = useOrganization();
+  
+  console.log("=== 조직 정보 ===", { 
+    hasSelectedOrg: !!selectedOrg, 
+    orgId: selectedOrg?.id,
+    orgName: selectedOrg?.name,
+    orgLoading 
+  });
+  
   const { hasPermission, loading: permissionsLoading } = usePermissions();
   const [activeTab, setActiveTab] = useState<TabType>("all");
   const [customers, setCustomers] = useState<any[]>([]);
@@ -461,21 +474,38 @@ export default function CustomersPage() {
 
   // 조직 정보 직접 로드 (Context 우회)
   useEffect(() => {
+    console.log("[useEffect] 조직 정보 로드 트리거", { 
+      hasOrgId: !!selectedOrg?.id,
+      orgId: selectedOrg?.id 
+    });
+    
     const loadOrgData = async () => {
-      if (!selectedOrg?.id) return;
+      if (!selectedOrg?.id) {
+        console.log("[useEffect] selectedOrg.id가 없어서 조기 종료");
+        return;
+      }
+      
       try {
         console.log("[고객사관리] 조직 정보 로드 시작:", selectedOrg.id);
         const res = await fetch(`/api/organizations/${selectedOrg.id}`);
         const data = await res.json();
+        
+        console.log("[고객사관리] API 응답:", { 
+          ok: res.ok, 
+          status: res.status,
+          data 
+        });
+        
         if (res.ok && data.organization) {
           console.log("[고객사관리] 조직 정보 로드 완료:", {
             hasContractManagement: data.organization.hasContractManagement,
-            name: data.organization.name
+            name: data.organization.name,
+            전체데이터: data.organization
           });
           setCurrentOrgData(data.organization);
         }
       } catch (error) {
-        console.error("조직 정보 로드 실패:", error);
+        console.error("[고객사관리] 조직 정보 로드 실패:", error);
       }
     };
 
@@ -768,35 +798,62 @@ export default function CustomersPage() {
           
           <div className="flex gap-1.5 ml-auto mb-1.5">
             <Button size="sm" variant="secondary" onClick={() => setShowHelpModal(true)}>❓ 도움말</Button>
-            {!isReadOnly && (
-              <>
-                {hasPermission('customer.export') && (
-                  <Button size="sm" variant="secondary" onClick={onExport}>Excel</Button>
-                )}
-                {hasPermission('customer.bulk_upload') && (
-                  <Button size="sm" variant="secondary" onClick={() => setShowBulkUploadModal(true)}>일괄업로드</Button>
-                )}
-                {(() => {
-                  const hasContract = currentOrgData?.hasContractManagement;
-                  const hasPermissionView = hasPermission('contract.view');
-                  console.log("[계약관리 버튼]", { 
-                    hasContract, 
-                    hasPermissionView, 
-                    orgName: currentOrgData?.name,
-                    contextOrg: selectedOrg?.name 
-                  });
-                  return hasContract && hasPermissionView ? (
-                    <Button size="sm" variant="secondary" onClick={() => setShowContractModal(true)}>계약관리</Button>
-                  ) : null;
-                })()}
-                {activeTab === "connected" && hasPermission('customer.create') && (
-                  <Button size="sm" onClick={() => setShowSearchModal(true)}>🔍 신규검색연결</Button>
-                )}
-                {activeTab !== "connected" && hasPermission('customer.create') && (
-                  <Button size="sm" onClick={() => setIsModalOpen(true)}>+ 신규 추가</Button>
-                )}
-              </>
-            )}
+            {(() => {
+              console.log("=== isReadOnly 체크 ===", isReadOnly);
+              if (isReadOnly) {
+                console.log(">>> isReadOnly=true, 버튼들 숨김");
+                return null;
+              }
+              console.log(">>> isReadOnly=false, 버튼들 표시");
+              return (
+                <>
+                  {hasPermission('customer.export') && (
+                    <Button size="sm" variant="secondary" onClick={onExport}>Excel</Button>
+                  )}
+                  {hasPermission('customer.bulk_upload') && (
+                    <Button size="sm" variant="secondary" onClick={() => setShowBulkUploadModal(true)}>일괄업로드</Button>
+                  )}
+                  {(() => {
+                    const hasContract = currentOrgData?.hasContractManagement;
+                    const hasPermissionView = hasPermission('contract.view');
+                    
+                    console.log("=== 계약관리 버튼 조건 체크 ===", { 
+                      hasContract, 
+                      hasPermissionView,
+                      currentOrgData: currentOrgData ? "있음" : "없음",
+                      hasContractManagement값: currentOrgData?.hasContractManagement,
+                      orgName: currentOrgData?.name,
+                      contextOrg: selectedOrg?.name,
+                      전체currentOrgData: currentOrgData
+                    });
+                    
+                    if (hasContract && hasPermissionView) {
+                      console.log(">>> 계약관리 버튼 표시!");
+                      return (
+                        <Button 
+                          size="sm" 
+                          variant="secondary" 
+                          onClick={() => setShowContractModal(true)}
+                        >
+                          계약관리
+                        </Button>
+                      );
+                    } else {
+                      console.log(">>> 계약관리 버튼 숨김", {
+                        이유: !hasContract ? "hasContractManagement=false" : "권한없음"
+                      });
+                      return null;
+                    }
+                  })()}
+                  {activeTab === "connected" && hasPermission('customer.create') && (
+                    <Button size="sm" onClick={() => setShowSearchModal(true)}>🔍 신규검색연결</Button>
+                  )}
+                  {activeTab !== "connected" && hasPermission('customer.create') && (
+                    <Button size="sm" onClick={() => setIsModalOpen(true)}>+ 신규 추가</Button>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>
