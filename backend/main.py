@@ -237,9 +237,26 @@ async def generate_insight_report(request: PredictionRequest):
                 if cached_report:
                     logger.info(f"Using cached insight report (ID: {cached_report['id']}, created after latest data)")
                     import json
+                    import math
+                    
                     report_data = json.loads(cached_report['reportData'])
+                    
+                    # NaN/Infinity 값 정리 (JSON 직렬화 오류 방지)
+                    def clean_float_values(obj):
+                        if isinstance(obj, dict):
+                            return {k: clean_float_values(v) for k, v in obj.items()}
+                        elif isinstance(obj, list):
+                            return [clean_float_values(item) for item in obj]
+                        elif isinstance(obj, float):
+                            if math.isnan(obj) or math.isinf(obj):
+                                return None
+                            return obj
+                        return obj
+                    
+                    cleaned_data = clean_float_values(report_data)
+                    
                     return {
-                        **report_data,
+                        **cleaned_data,
                         'pdf_base64': cached_report['pdfBase64'],
                         'cached': True
                     }
@@ -361,30 +378,7 @@ async def generate_insight_report(request: PredictionRequest):
                 detail=f"PDF 생성 실패: {str(pdf_error)}"
             )
         
-        # DB에 인사이트 보고서 저장
-        try:
-            import json
-            async with db_pool.acquire() as conn:
-                await conn.execute("""
-                    INSERT INTO "insight_reports" 
-                    (id, "customerId", "itemKey", "itemName", periods, "reportData", "chartImage", "pdfBase64", "createdBy", "createdAt")
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
-                """, 
-                    base64.b64encode(os.urandom(12)).decode('utf-8'),
-                    request.customer_id,
-                    request.item_key,
-                    request.item_name or item_name,
-                    request.periods,
-                    json.dumps(report),
-                    request.chart_image,
-                    pdf_base64,
-                    request.user_id or 'system'
-                )
-                logger.info("Insight report saved to database")
-        except Exception as save_error:
-            logger.warning(f"Failed to save insight report: {save_error}")
-        
-        # NaN 값 처리
+        # NaN 값 처리 함수 (먼저 정의)
         def sanitize_for_json(obj):
             import math
             if isinstance(obj, dict):
@@ -396,6 +390,31 @@ async def generate_insight_report(request: PredictionRequest):
                     return None
                 return obj
             return obj
+        
+        # DB에 인사이트 보고서 저장 (NaN 값 정리 후)
+        try:
+            import json
+            cleaned_report = sanitize_for_json(report)
+            
+            async with db_pool.acquire() as conn:
+                await conn.execute("""
+                    INSERT INTO "insight_reports" 
+                    (id, "customerId", "itemKey", "itemName", periods, "reportData", "chartImage", "pdfBase64", "createdBy", "createdAt")
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+                """, 
+                    base64.b64encode(os.urandom(12)).decode('utf-8'),
+                    request.customer_id,
+                    request.item_key,
+                    request.item_name or item_name,
+                    request.periods,
+                    json.dumps(cleaned_report),
+                    request.chart_image,
+                    pdf_base64,
+                    request.user_id or 'system'
+                )
+                logger.info("Insight report saved to database")
+        except Exception as save_error:
+            logger.warning(f"Failed to save insight report: {save_error}")
         
         response_data = {
             "predictions": result['predictions'],
