@@ -21,6 +21,7 @@ export interface PredictionResult {
     auto_tuned: boolean;
   };
   training_samples: number;
+  historical_avg?: number;
   accuracy_metrics?: {
     rmse: number;
     mae: number;
@@ -36,7 +37,7 @@ export interface PredictionRequest {
   periods?: number;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_AUTOML_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_AUTOML_API_URL || 'http://localhost:8000';
 
 export function usePrediction() {
   const [loading, setLoading] = useState(false);

@@ -957,7 +957,7 @@ export default function DashboardPage() {
                       }
                     }
                     
-                    const res = await fetch('http://localhost:8000/api/predict/insight', {
+                    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_AUTOML_API_URL || 'http://localhost:8000'}/api/predict/insight`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({

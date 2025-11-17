@@ -578,7 +578,7 @@ export default function MeasureInputPage() {
       // 이상치 검증 (skipValidation이 false일 때만)
       if (!skipValidation) {
         try {
-          const validationRes = await fetch('http://localhost:8000/api/validate-measurement', {
+          const validationRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_AUTOML_API_URL || 'http://localhost:8000'}/api/validate-measurement`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

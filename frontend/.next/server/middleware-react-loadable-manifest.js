@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST="{}"
+self.__REACT_LOADABLE_MANIFEST="{\"components\\\\charts\\\\PmmsTrendChart.tsx -> chart.js/auto\":{\"id\":\"components\\\\charts\\\\PmmsTrendChart.tsx -> chart.js/auto\",\"files\":[\"static/chunks/_app-pages-browser_node_modules_chart_js_auto_auto_js.js\"]}}"
