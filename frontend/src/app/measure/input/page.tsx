@@ -495,7 +495,8 @@ export default function MeasureInputPage() {
     // 채취환경 항목인 경우
     if (isAuxiliary) {
       try {
-        const dt = new Date(date + "T" + (time || "00:00") + ":00");
+        // 한국 시간대로 날짜 생성 (UTC+9)
+        const dt = new Date(date + "T" + (time || "00:00") + ":00+09:00");
         const value = (item?.inputType === "select" || item?.inputType === "text") ? v : Number(v);
         
         // itemKey를 실제 필드명으로 매핑
@@ -611,7 +612,8 @@ export default function MeasureInputPage() {
     }
 
     try {
-      const dt = new Date(date + "T" + (time || "00:00") + ":00");
+      // 한국 시간대로 날짜 생성 (UTC+9)
+      const dt = new Date(date + "T" + (time || "00:00") + ":00+09:00");
       
       // select/text 타입은 문자열 그대로, 아니면 숫자로 변환
       const value = (item?.inputType === "select" || item?.inputType === "text") ? v : Number(v);
