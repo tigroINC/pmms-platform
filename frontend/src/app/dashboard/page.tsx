@@ -227,10 +227,41 @@ export default function DashboardPage() {
       ? items.filter((item: any) => !AUXILIARY_ITEM_KEYS.includes(item.key))
       : items;
     
-    console.log('[Dashboard] Available items count:', filteredItems.length);
+    // 정렬: 1순위 카테고리(오염물질 > 채취환경), 2순위 order(숫자), 3순위 order(0/null) + 이름순
+    const sortedItems = [...filteredItems].sort((a: any, b: any) => {
+      // 채취환경 항목 판별
+      const aIsAux = a.key?.startsWith('MENV') || AUXILIARY_ITEM_KEYS.includes(a.key);
+      const bIsAux = b.key?.startsWith('MENV') || AUXILIARY_ITEM_KEYS.includes(b.key);
+      
+      // 1순위: 오염물질(false) < 채취환경(true)
+      if (aIsAux !== bIsAux) {
+        return aIsAux ? 1 : -1;
+      }
+      
+      // 2순위: order 값 처리
+      const aOrder = a.order ?? 0;
+      const bOrder = b.order ?? 0;
+      const aHasOrder = aOrder > 0;
+      const bHasOrder = bOrder > 0;
+      
+      // order가 있는 것이 우선
+      if (aHasOrder !== bHasOrder) {
+        return aHasOrder ? -1 : 1;
+      }
+      
+      // 둘 다 order가 있으면 order 오름차순
+      if (aHasOrder && bHasOrder) {
+        return aOrder - bOrder;
+      }
+      
+      // 3순위: 둘 다 order가 0/null이면 이름순
+      return (a.name || '').localeCompare(b.name || '', 'ko-KR');
+    });
+    
+    console.log('[Dashboard] Available items count:', sortedItems.length);
     console.log('[Dashboard] showPollutantsOnly:', showPollutantsOnly);
     
-    setAvailableItems(filteredItems);
+    setAvailableItems(sortedItems);
   }, [items, showPollutantsOnly]);
 
   // 고객사 사용자: 환경측정기업 목록 로드
