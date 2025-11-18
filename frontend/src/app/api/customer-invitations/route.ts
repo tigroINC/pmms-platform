@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
             { status: "APPROVED" }
           ],
           proposedData: siteType ? {
-            path: "siteType",
+            path: ["siteType"],
             equals: siteType
           } : undefined,
         },
