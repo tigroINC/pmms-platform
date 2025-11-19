@@ -30,8 +30,8 @@ export async function GET(request: Request) {
     const where: any = {};
     const effectiveOrgId = organizationId || userOrgId;
     
-    // 비활성 고객사 제외 (고객사 관리 메뉴 제외)
-    if (tab !== "internal" && tab !== "connected" && tab !== "all") {
+    // 비활성 고객사 제외 (고객사 관리 메뉴만 제외)
+    if (tab !== "internal" && tab !== "connected") {
       where.isActive = true;
     }
 
