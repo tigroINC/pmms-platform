@@ -245,6 +245,30 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
       );
     }
 
+    // 계약 확인
+    const contractCount = await prisma.contract.count({
+      where: { customerId: id },
+    });
+
+    if (contractCount > 0) {
+      return NextResponse.json(
+        { error: "계약이 있는 고객사는 삭제할 수 없습니다" },
+        { status: 400 }
+      );
+    }
+
+    // 사용자 확인
+    const userCount = await prisma.user.count({
+      where: { customerId: id },
+    });
+
+    if (userCount > 0) {
+      return NextResponse.json(
+        { error: "사용자가 있는 고객사는 삭제할 수 없습니다" },
+        { status: 400 }
+      );
+    }
+
     // 굴뚝 별칭 삭제
     const stacks = await prisma.stack.findMany({
       where: { customerId: id },
@@ -259,6 +283,11 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
 
     // 굴뚝 삭제
     await prisma.stack.deleteMany({
+      where: { customerId: id },
+    });
+
+    // CustomerOrganization 삭제
+    await prisma.customerOrganization.deleteMany({
       where: { customerId: id },
     });
 

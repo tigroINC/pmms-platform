@@ -25,9 +25,17 @@ export async function GET(request: Request) {
       where.customerId = customerId;
     }
 
+    // 비활성 고객사의 굴뚝 제외
+    where.customer = {
+      isActive: true
+    };
+
     // 고객사 사용자: 자사 굴뚝만 조회
     if (userRole === "CUSTOMER_ADMIN" || userRole === "CUSTOMER_USER") {
-      where.customerId = userCustomerId;
+      where.customer = {
+        ...where.customer,
+        id: userCustomerId
+      };
     } else if (userRole !== "SUPER_ADMIN") {
       // 일반 환경측정기업 사용자: StackOrganization 또는 CustomerOrganization으로 필터링
       const effectiveOrgId = organizationId || userOrgId;
@@ -39,11 +47,15 @@ export async function GET(request: Request) {
             some: {
               organizationId: effectiveOrgId,
             }
+          },
+          customer: {
+            isActive: true
           }
         },
         // 2. CustomerOrganization을 통해 연결된 고객사의 굴뚝
         {
           customer: {
+            isActive: true,
             organizations: {
               some: {
                 organizationId: effectiveOrgId,

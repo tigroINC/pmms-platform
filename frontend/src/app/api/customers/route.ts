@@ -29,6 +29,11 @@ export async function GET(request: Request) {
     // 필터 조건
     const where: any = {};
     const effectiveOrgId = organizationId || userOrgId;
+    
+    // 비활성 고객사 제외 (고객사 관리 메뉴 제외)
+    if (tab !== "internal" && tab !== "connected" && tab !== "all") {
+      where.isActive = true;
+    }
 
     // 탭별 필터링
     if (tab === "all") {

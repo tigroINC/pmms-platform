@@ -123,6 +123,9 @@ export async function GET(request: Request) {
       // 따라서 여기서는 SUPER_ADMIN에 대한 OR 조건을 더 이상 추가하지 않는다.
     }
     
+    // 비활성 고객사 제외
+    customerFilter.isActive = true;
+    
     where.stack = {
       ...stackFilter,
       ...(Object.keys(customerFilter).length > 0 ? { customer: customerFilter } : {}),
